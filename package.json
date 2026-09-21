@@ -1,0 +1,18 @@
+{
+  "name": "sandstorm-siege",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Sandstorm Siege - a Middle-East themed detonation-chain slot",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "sim": "esbuild tools/sim.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/sim.mjs && node node_modules/.cache/sim.mjs"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  }
+}
