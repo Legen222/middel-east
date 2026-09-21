@@ -1,0 +1,221 @@
+:root {
+  --night-0: #07050c;
+  --night-1: #120d1e;
+  --night-2: #1b1430;
+  --night-3: #271c45;
+
+  --sand-1: #f7e3ab;
+  --sand-2: #f0c14b;
+  --sand-3: #c1872a;
+  --sand-4: #7d4d12;
+
+  --teal: #3bbcae;
+  --rose: #b5497c;
+  --blood: #d4453c;
+  --olive: #6d9c46;
+  --violet: #9a6be0;
+
+  --ink: #f4eeff;
+  --ink-dim: #b4a6d0;
+  --ink-faint: #7d6f9c;
+
+  --panel: linear-gradient(170deg, rgba(48, 36, 78, 0.94), rgba(20, 14, 36, 0.96));
+  --panel-edge: rgba(240, 193, 75, 0.28);
+
+  --radius-lg: 22px;
+  --radius-md: 14px;
+  --radius-sm: 9px;
+
+  --shadow-deep: 0 24px 60px rgba(0, 0, 0, 0.6);
+  --shadow-soft: 0 8px 22px rgba(0, 0, 0, 0.42);
+
+  --font-display: 'Cinzel', 'Times New Roman', serif;
+  --font-body: 'Rubik', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-arabic: 'Amiri', 'Noto Naskh Arabic', serif;
+
+  /* Scaled by turbo mode from JS. */
+  --speed: 1;
+}
+
+* { box-sizing: border-box; }
+
+/* Layout rules below set display on these, which would otherwise beat [hidden]. */
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--night-0);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+body {
+  overflow: hidden;
+  touch-action: manipulation;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:disabled { cursor: default; }
+
+svg { display: block; }
+
+.icon-btn svg,
+.round-btn svg,
+.spin-ico {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.round-btn svg path[d^="M13 2"],
+.round-btn svg path[d^="M15 5"] { fill: currentColor; }
+
+.app {
+  position: relative;
+  width: 100%;
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* ---------- Night desert backdrop ---------- */
+
+.sky {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(120% 90% at 70% -10%, #3a2560 0%, transparent 55%),
+    radial-gradient(90% 70% at 15% 10%, #2a1c4a 0%, transparent 60%),
+    linear-gradient(180deg, #0b0713 0%, #150f26 42%, #241a3c 72%, #402b49 100%);
+}
+
+.stars {
+  position: absolute;
+  inset: 0 0 42% 0;
+  background-image:
+    radial-gradient(1.6px 1.6px at 12% 22%, #fff 40%, transparent 42%),
+    radial-gradient(1.3px 1.3px at 28% 12%, #ffeec7 40%, transparent 42%),
+    radial-gradient(1.8px 1.8px at 44% 30%, #fff 40%, transparent 42%),
+    radial-gradient(1.2px 1.2px at 61% 9%, #d8e6ff 40%, transparent 42%),
+    radial-gradient(1.6px 1.6px at 76% 24%, #fff 40%, transparent 42%),
+    radial-gradient(1.1px 1.1px at 88% 14%, #ffe6b0 40%, transparent 42%),
+    radial-gradient(1.4px 1.4px at 8% 40%, #fff 40%, transparent 42%),
+    radial-gradient(1.2px 1.2px at 35% 44%, #cfe0ff 40%, transparent 42%),
+    radial-gradient(1.5px 1.5px at 67% 40%, #fff 40%, transparent 42%),
+    radial-gradient(1.1px 1.1px at 93% 38%, #ffe6b0 40%, transparent 42%);
+  animation: twinkle 7s ease-in-out infinite;
+  opacity: 0.85;
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 0.95; }
+}
+
+.moon {
+  position: absolute;
+  top: 4%;
+  left: 6%;
+  width: clamp(34px, 5vw, 62px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 32%, #fffbe9, #f3dca0 55%, #c9ab6a 100%);
+  box-shadow: 0 0 52px 14px rgba(255, 233, 170, 0.18);
+}
+
+.moon::after {
+  content: '';
+  position: absolute;
+  inset: -6% -34% -6% 22%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 40%, #3a2560, #241a3c);
+  filter: blur(0.4px);
+}
+
+.dunes {
+  position: absolute;
+  left: -5%;
+  right: -5%;
+  bottom: 0;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+
+.dunes-far {
+  height: 34%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 300' preserveAspectRatio='none'%3E%3Cpath d='M0 180 C120 120 220 210 340 170 C470 126 560 196 690 160 C820 124 930 190 1060 150 C1120 132 1170 150 1200 140 L1200 300 L0 300 Z' fill='%23352447'/%3E%3C/svg%3E");
+  opacity: 0.9;
+}
+
+.dunes-near {
+  height: 22%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 220' preserveAspectRatio='none'%3E%3Cpath d='M0 140 C150 80 280 160 420 126 C560 92 660 156 800 120 C930 88 1060 146 1200 110 L1200 220 L0 220 Z' fill='%234a3350'/%3E%3C/svg%3E");
+}
+
+.skyline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 17%;
+  height: 16%;
+  opacity: 0.45;
+  background-repeat: repeat-x;
+  background-position: bottom center;
+  background-size: auto 100%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 640 160'%3E%3Cg fill='%231a1029'%3E%3Crect x='20' y='90' width='70' height='70'/%3E%3Crect x='96' y='108' width='48' height='52'/%3E%3Cpath d='M150 110h60v50h-60z'/%3E%3Ccircle cx='180' cy='96' r='26'/%3E%3Crect x='176' y='40' width='8' height='40'/%3E%3Cpath d='M180 30l4 12h-8z'/%3E%3Crect x='222' y='96' width='54' height='64'/%3E%3Crect x='284' y='116' width='40' height='44'/%3E%3Cpath d='M332 118h56v42h-56z'/%3E%3Ccircle cx='360' cy='106' r='22'/%3E%3Crect x='356' y='58' width='7' height='34'/%3E%3Crect x='402' y='100' width='64' height='60'/%3E%3Crect x='474' y='120' width='44' height='40'/%3E%3Ccircle cx=%27496%27 cy=%27112%27 r=%2718%27/%3E%3Crect x='528' y='94' width='58' height='66'/%3E%3Crect x='594' y='114' width='40' height='46'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+.sky::before,
+.sky::after {
+  content: '';
+  position: absolute;
+  bottom: 8%;
+  width: clamp(90px, 15vw, 230px);
+  height: clamp(130px, 30vh, 330px);
+  background-repeat: no-repeat;
+  background-position: bottom center;
+  background-size: contain;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.sky::before {
+  left: 1%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 320'%3E%3Cg fill='%2317102a'%3E%3Cpath d='M74 320c-3-90 2-150 6-196l8 1c-5 48-8 108-4 195z'/%3E%3Cpath d='M80 120c-18-22-44-30-66-22 20 2 36 10 48 22-20-6-40-2-54 10 20-6 38-4 52 4-16 2-30 12-36 26 18-14 34-18 48-14-10 8-16 20-16 32 10-18 20-28 30-32z'/%3E%3Cpath d='M82 120c18-22 44-30 66-22-20 2-36 10-48 22 20-6 40-2 54 10-20-6-38-4-52 4 16 2 30 12 36 26-18-14-34-18-48-14 10 8 16 20 16 32-10-18-20-28-30-32z'/%3E%3Cpath d='M78 116c-4-24-18-42-38-52 14 16 22 34 24 52z'/%3E%3Cpath d='M84 116c4-24 18-42 38-52-14 16-22 34-24 52z'/%3E%3Cellipse cx='80' cy='320' rx='60' ry='14'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+.sky::after {
+  right: 1%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 320'%3E%3Cg fill='%2317102a'%3E%3Crect x='54' y='118' width='52' height='202' rx='6'/%3E%3Crect x='46' y='106' width='68' height='16' rx='5'/%3E%3Cpath d='M56 106a24 24 0 0 1 48 0z'/%3E%3Crect x='72' y='52' width='16' height='52' rx='6'/%3E%3Cpath d='M80 30c9 8 13 16 13 22H67c0-6 4-14 13-22z'/%3E%3Cpath d='M80 10l3 12h-6z'/%3E%3Cpath d='M66 150a14 14 0 0 1 28 0v34H66z'/%3E%3Crect x='20' y='212' width='30' height='108' rx='5'/%3E%3Cpath d='M22 212a13 13 0 0 1 26 0z'/%3E%3Crect x='112' y='196' width='34' height='124' rx='5'/%3E%3Cpath d='M114 196a17 17 0 0 1 32 0z'/%3E%3Cellipse cx='80' cy='320' rx='76' ry='12'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+.haze {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(60% 40% at 50% 100%, rgba(240, 193, 75, 0.16), transparent 70%),
+    linear-gradient(180deg, transparent 55%, rgba(0, 0, 0, 0.45) 100%);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stars { animation: none; }
+}

@@ -68,3 +68,30 @@ for (let b = 0; b < hist.length; b++) {
   const label = buckets[b + 1] === Infinity ? `${buckets[b]}x+` : `${buckets[b]}-${buckets[b + 1]}x`;
   console.log(`  ${label.padEnd(12)} ${((hist[b] / N) * 100).toFixed(3)}%`);
 }
+
+// ---- buy-feature pricing ----
+// The buy buttons have to return the same RTP as ordinary play, so price
+// them off what they actually pay rather than off the natural trigger.
+const BUY_N = Math.min(200_000, Math.max(20_000, Math.floor(N / 4)));
+const brng = new Rng(seed ^ 0x5bf03635);
+
+let buyFreeReturn = 0;
+for (let i = 0; i < BUY_N; i++) {
+  const result = spin(brng, { kind: 'base', persistentMultiplier: 1 }, { forceScatters: 3 });
+  buyFreeReturn += result.totalWin + playFreeSpins(brng, result.triggeredFreeSpins).totalWin;
+}
+
+let buyMineReturn = 0;
+for (let i = 0; i < BUY_N; i++) {
+  const result = spin(brng, { kind: 'base', persistentMultiplier: 1 }, { forceMinefield: true });
+  let win = result.totalWin;
+  if (result.triggeredFreeSpins > 0) win += playFreeSpins(brng, result.triggeredFreeSpins).totalWin;
+  buyMineReturn += win;
+}
+
+const freeAvg = buyFreeReturn / BUY_N;
+const mineAvg = buyMineReturn / BUY_N;
+const target = returned / staked;
+console.log(`\nbuy pricing over ${BUY_N.toLocaleString()} purchases (target RTP ${(target * 100).toFixed(1)}%):`);
+console.log(`  free spins  pays ${freeAvg.toFixed(1)}x  → fair price ${(freeAvg / target).toFixed(1)}x  (set ${BUY_FEATURE.free}x → ${((freeAvg / BUY_FEATURE.free) * 100).toFixed(1)}% RTP)`);
+console.log(`  minefield   pays ${mineAvg.toFixed(1)}x  → fair price ${(mineAvg / target).toFixed(1)}x  (set ${BUY_FEATURE.minefield}x → ${((mineAvg / BUY_FEATURE.minefield) * 100).toFixed(1)}% RTP)`);

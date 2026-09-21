@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+<meta name="theme-color" content="#0d0a14" />
+<title>Sandstorm Siege</title>
+<meta name="description" content="A Middle-East themed slot where bombs, not paylines, pay out." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Rubik:wght@400;500;700;800&family=Amiri:wght@700&display=swap" rel="stylesheet" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='19' r='10' fill='%236d9c46'/%3E%3Crect x='12' y='6' width='8' height='5' rx='2' fill='%237a8064'/%3E%3C/svg%3E" />
+</head>
+<body>
+  <div id="app" class="app">
+    <div class="sky" aria-hidden="true">
+      <div class="stars"></div>
+      <div class="moon"></div>
+      <div class="dunes dunes-far"></div>
+      <div class="dunes dunes-near"></div>
+      <div class="skyline"></div>
+      <div class="haze"></div>
+    </div>
+
+    <main class="stage">
+      <header class="hud">
+        <div class="hud-left">
+          <button class="icon-btn" id="btn-menu" type="button" aria-label="Paytable and rules"
+            title="Paytable"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+          <button class="icon-btn" id="btn-sound" type="button" aria-label="Toggle sound"
+            title="Sound"><svg viewBox="0 0 24 24" class="ico-on"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 8a5 5 0 0 1 0 8"/></svg><svg viewBox="0 0 24 24" class="ico-off"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9l5 6M22 9l-5 6"/></svg></button>
+        </div>
+
+        <div class="title-block">
+          <h1 class="title">Sandstorm&nbsp;Siege</h1>
+          <p class="subtitle" lang="ar" dir="rtl">حصار العاصفة</p>
+        </div>
+
+        <div class="hud-right">
+          <button class="icon-btn" id="btn-fullscreen" type="button" aria-label="Fullscreen"
+            title="Fullscreen"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+        </div>
+      </header>
+
+      <section class="jackpots" id="jackpots" aria-label="Jackpots"></section>
+
+      <section class="cabinet" id="cabinet">
+        <div class="cabinet-frame">
+          <div class="board-frame">
+            <div class="board-wrap">
+              <div class="board" id="board" role="grid" aria-label="Game board"></div>
+              <canvas class="fx" id="fx" aria-hidden="true"></canvas>
+              <div class="board-overlay" id="overlay" aria-live="polite"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="meters">
+          <div class="meter meter-chain" id="meter-chain">
+            <span class="meter-label">Chain</span>
+            <strong class="meter-value" id="chain-value">×1</strong>
+          </div>
+          <div class="meter meter-mode" id="meter-mode">
+            <span class="meter-label">Mode</span>
+            <strong class="meter-value" id="mode-value">Base Game</strong>
+          </div>
+          <div class="meter meter-spins" id="meter-spins" hidden>
+            <span class="meter-label">Free Spins</span>
+            <strong class="meter-value" id="spins-value">0</strong>
+          </div>
+        </div>
+      </section>
+
+      <footer class="controlbar" id="controlbar">
+        <div class="cb-stat cb-balance">
+          <span class="cb-label">Balance</span>
+          <strong class="cb-value" id="val-balance">0.00</strong>
+        </div>
+
+        <div class="cb-bet">
+          <button class="step-btn" id="bet-down" type="button" aria-label="Decrease bet">−</button>
+          <div class="cb-stat">
+            <span class="cb-label">Total Bet</span>
+            <strong class="cb-value" id="val-bet">1.00</strong>
+          </div>
+          <button class="step-btn" id="bet-up" type="button" aria-label="Increase bet">+</button>
+        </div>
+
+        <div class="cb-actions">
+          <button class="round-btn" id="btn-turbo" type="button" aria-pressed="false" aria-label="Turbo spin" title="Turbo">
+            <svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
+          </button>
+
+          <button class="spin-btn" id="btn-spin" type="button" aria-label="Spin">
+            <span class="spin-ring"></span>
+            <span class="spin-core">
+              <svg viewBox="0 0 24 24" class="spin-ico"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/></svg>
+              <span class="spin-text">SPIN</span>
+            </span>
+          </button>
+
+          <button class="round-btn" id="btn-auto" type="button" aria-label="Autoplay" title="Autoplay">
+            <svg viewBox="0 0 24 24"><path d="M5 4v16M11 4v16"/><path d="M15 5l6 7-6 7z"/></svg>
+            <span class="badge" id="auto-badge" hidden>0</span>
+          </button>
+        </div>
+
+        <div class="cb-buy">
+          <button class="buy-btn" id="btn-buy" type="button">
+            <span class="buy-title">Buy Feature</span>
+            <span class="buy-sub" id="buy-sub">from 76× bet</span>
+          </button>
+        </div>
+
+        <div class="cb-stat cb-win">
+          <span class="cb-label">Win</span>
+          <strong class="cb-value" id="val-win">0.00</strong>
+        </div>
+      </footer>
+    </main>
+
+    <div class="modal-root" id="modal-root" hidden></div>
+    <div class="banner-root" id="banner-root" aria-live="polite"></div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

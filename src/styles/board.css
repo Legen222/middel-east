@@ -1,0 +1,338 @@
+.board {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-template-rows: repeat(5, 1fr);
+  gap: clamp(3px, 0.7%, 7px);
+  width: 100%;
+  height: 100%;
+  padding: clamp(4px, 1%, 9px);
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(120% 100% at 50% 0%, rgba(80, 58, 128, 0.5), transparent 65%),
+    linear-gradient(180deg, rgba(12, 8, 22, 0.94), rgba(22, 15, 40, 0.94));
+  border: 1px solid rgba(240, 193, 75, 0.18);
+  box-shadow: inset 0 10px 34px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  z-index: 2;
+}
+
+/* Faint geometric lattice behind the tiles. */
+.board::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.09;
+  pointer-events: none;
+  background-size: 15% 15%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cg fill='none' stroke='%23f0c14b' stroke-width='1.2'%3E%3Cpath d='M20 2 38 20 20 38 2 20Z'/%3E%3Cpath d='M20 9 31 20 20 31 9 20Z'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+.cell {
+  position: relative;
+  border-radius: var(--radius-sm);
+  overflow: visible;
+}
+
+/* Empty slots stay legible — the Minefield board is mostly holes. */
+.cell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(170deg, rgba(255, 255, 255, 0.045), rgba(0, 0, 0, 0.22));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05), inset 0 3px 9px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+
+/* ---------- Tiles ---------- */
+
+.tile {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  background:
+    radial-gradient(90% 70% at 50% 8%, rgba(255, 255, 255, 0.12), transparent 60%),
+    linear-gradient(168deg, var(--tile-a, #3b2d5c), var(--tile-b, #1c1433));
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -8px 16px rgba(0, 0, 0, 0.35),
+    0 3px 8px rgba(0, 0, 0, 0.4);
+  will-change: transform, opacity;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+}
+
+.tile::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(200deg, rgba(255, 255, 255, 0.16) 0%, transparent 38%);
+  pointer-events: none;
+}
+
+.tile-art {
+  width: 78%;
+  height: 78%;
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.55));
+  pointer-events: none;
+}
+
+/* Loot badge — the coin value a blast banks. */
+.tile-value {
+  position: absolute;
+  left: 50%;
+  bottom: 5%;
+  transform: translateX(-50%);
+  min-width: 46%;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(9px, 1.55vh, 15px);
+  line-height: 1.25;
+  text-align: center;
+  white-space: nowrap;
+  color: #2a1a04;
+  background: linear-gradient(180deg, #fff2c4, var(--sand-2) 55%, #b9821f);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55), 0 0 12px rgba(240, 193, 75, 0.35);
+  pointer-events: none;
+}
+
+.tile.is-loot { --tile-a: #4b3a2a; --tile-b: #241a12; }
+.tile.is-loot { border-color: rgba(240, 193, 75, 0.45); }
+
+/* ---------- Bombs ---------- */
+
+.tile.is-bomb {
+  --tile-a: #4a2230;
+  --tile-b: #1d0e18;
+  border-color: rgba(212, 69, 60, 0.6);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -8px 16px rgba(0, 0, 0, 0.4),
+    0 0 18px rgba(212, 69, 60, 0.35);
+}
+
+.tile.is-bomb .tile-value {
+  background: linear-gradient(180deg, #ffd8c4, #ff8a5c 55%, #b03a20);
+  color: #2b0d05;
+}
+
+.tile.is-bomb .tile-art { animation: bomb-idle calc(2.4s / var(--speed)) ease-in-out infinite; }
+
+@keyframes bomb-idle {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(1.06) rotate(-2deg); }
+}
+
+/* Fuse ring that winds down just before a detonation. */
+.fuse {
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  border: 2px solid transparent;
+  pointer-events: none;
+}
+
+.tile.arming {
+  animation: arm-shake calc(0.42s / var(--speed)) ease-in-out infinite;
+  z-index: 5;
+}
+
+.tile.arming .fuse {
+  border-color: #ff9a4a;
+  box-shadow: 0 0 20px rgba(255, 140, 60, 0.85), inset 0 0 14px rgba(255, 170, 80, 0.6);
+  animation: fuse-pulse calc(0.34s / var(--speed)) ease-in-out infinite;
+}
+
+@keyframes arm-shake {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  25% { transform: translate3d(-1.5px, 1px, 0) rotate(-1.4deg); }
+  75% { transform: translate3d(1.5px, -1px, 0) rotate(1.4deg); }
+}
+
+@keyframes fuse-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+
+/* Cells inside a blast footprint get a warning tint just before the bang. */
+.tile.marked {
+  animation: mark-flash calc(0.36s / var(--speed)) ease-in-out infinite;
+}
+
+@keyframes mark-flash {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.7) saturate(1.3); }
+}
+
+/* ---------- Feature tiles ---------- */
+
+.tile.is-scatter {
+  --tile-a: #5a3f12;
+  --tile-b: #241704;
+  border-color: rgba(240, 193, 75, 0.75);
+  box-shadow: 0 0 22px rgba(240, 193, 75, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.tile.is-crate {
+  --tile-a: #4a4022;
+  --tile-b: #1e1a0c;
+  border-color: rgba(194, 163, 94, 0.8);
+  box-shadow: 0 0 22px rgba(194, 163, 94, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.tile.is-scatter .tile-art,
+.tile.is-crate .tile-art {
+  animation: feature-breathe calc(1.6s / var(--speed)) ease-in-out infinite;
+}
+
+@keyframes feature-breathe {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 4px rgba(240, 193, 75, 0.5)); }
+  50% { transform: scale(1.09); filter: drop-shadow(0 0 14px rgba(240, 193, 75, 0.95)); }
+}
+
+.tile.locked {
+  border-color: var(--sand-2);
+  box-shadow: 0 0 20px rgba(240, 193, 75, 0.55), inset 0 0 20px rgba(240, 193, 75, 0.2);
+}
+
+/* ---------- Motion ---------- */
+
+.tile.dropping { animation: tile-drop calc(0.46s / var(--speed)) cubic-bezier(0.34, 1.32, 0.52, 1) both; }
+
+@keyframes tile-drop {
+  0% { transform: translate3d(0, var(--from-y, -520%), 0) scaleY(1.18); opacity: 0; }
+  55% { opacity: 1; }
+  78% { transform: translate3d(0, 6%, 0) scaleY(0.9); }
+  100% { transform: translate3d(0, 0, 0) scaleY(1); opacity: 1; }
+}
+
+.tile.falling { animation: tile-fall calc(0.34s / var(--speed)) cubic-bezier(0.3, 1.25, 0.55, 1) both; }
+
+@keyframes tile-fall {
+  0% { transform: translate3d(0, var(--from-y, 0), 0); }
+  72% { transform: translate3d(0, 5%, 0) scaleY(0.94); }
+  100% { transform: translate3d(0, 0, 0) scaleY(1); }
+}
+
+.tile.blasting {
+  animation: tile-blast calc(0.34s / var(--speed)) cubic-bezier(0.3, 0, 0.2, 1) both;
+  z-index: 6;
+}
+
+@keyframes tile-blast {
+  0% { transform: scale(1) rotate(0deg); opacity: 1; filter: brightness(1); }
+  22% { transform: scale(1.22) rotate(var(--spin-a, 4deg)); filter: brightness(2.6) saturate(0.4); }
+  100% {
+    transform: translate3d(var(--fly-x, 0), var(--fly-y, 0), 0) scale(0.18) rotate(var(--spin-b, 40deg));
+    opacity: 0;
+    filter: brightness(3);
+  }
+}
+
+.tile.detonating { animation: tile-detonate calc(0.3s / var(--speed)) ease-out both; z-index: 7; }
+
+@keyframes tile-detonate {
+  0% { transform: scale(1); filter: brightness(1); }
+  30% { transform: scale(1.55); filter: brightness(4) saturate(0.2); }
+  100% { transform: scale(2.4); opacity: 0; filter: brightness(6); }
+}
+
+/* Coin value flying to the win counter. */
+.coin-fly {
+  position: absolute;
+  z-index: 8;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(10px, 1.6vh, 16px);
+  color: #2a1a04;
+  background: linear-gradient(180deg, #fff2c4, var(--sand-2) 55%, #b9821f);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.6), 0 0 16px rgba(240, 193, 75, 0.6);
+  pointer-events: none;
+  animation: coin-fly calc(0.72s / var(--speed)) cubic-bezier(0.3, -0.3, 0.4, 1) both;
+}
+
+@keyframes coin-fly {
+  0% { transform: translate3d(0, 0, 0) scale(0.5); opacity: 0; }
+  18% { transform: translate3d(0, -18px, 0) scale(1.15); opacity: 1; }
+  100% { transform: translate3d(var(--to-x, 0), var(--to-y, -180px), 0) scale(0.45); opacity: 0; }
+}
+
+/* Shockwave ring drawn over the board on each detonation. */
+.shock {
+  position: absolute;
+  z-index: 5;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 210, 140, 0.9);
+  pointer-events: none;
+  animation: shock calc(0.55s / var(--speed)) cubic-bezier(0.15, 0.7, 0.3, 1) both;
+}
+
+@keyframes shock {
+  0% { transform: translate(-50%, -50%) scale(0.1); opacity: 1; border-width: 7px; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 0; border-width: 1px; }
+}
+
+/* Chain multiplier stamp. */
+.chain-stamp {
+  position: absolute;
+  z-index: 9;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(30px, 8vh, 78px);
+  color: #fff3cf;
+  text-shadow: 0 0 28px rgba(255, 150, 60, 0.9), 0 4px 0 rgba(120, 30, 10, 0.75);
+  pointer-events: none;
+  animation: stamp calc(0.9s / var(--speed)) cubic-bezier(0.2, 1.5, 0.4, 1) both;
+}
+
+@keyframes stamp {
+  0% { transform: translate(-50%, -50%) scale(3.2) rotate(-14deg); opacity: 0; }
+  22% { transform: translate(-50%, -50%) scale(1) rotate(-6deg); opacity: 1; }
+  72% { transform: translate(-50%, -50%) scale(1.04) rotate(-6deg); opacity: 1; }
+  100% { transform: translate(-50%, -52%) scale(1.3) rotate(-6deg); opacity: 0; }
+}
+
+.board.shaking { animation: board-shake calc(0.42s / var(--speed)) cubic-bezier(0.36, 0.07, 0.19, 0.97) both; }
+
+@keyframes board-shake {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  12% { transform: translate3d(calc(var(--shake) * -7px), calc(var(--shake) * 4px), 0) rotate(calc(var(--shake) * -0.5deg)); }
+  28% { transform: translate3d(calc(var(--shake) * 8px), calc(var(--shake) * -5px), 0) rotate(calc(var(--shake) * 0.6deg)); }
+  46% { transform: translate3d(calc(var(--shake) * -6px), calc(var(--shake) * 3px), 0); }
+  64% { transform: translate3d(calc(var(--shake) * 4px), calc(var(--shake) * -2px), 0); }
+  82% { transform: translate3d(calc(var(--shake) * -2px), 0, 0); }
+}
+
+.board.flash::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  background: radial-gradient(circle at var(--fx, 50%) var(--fy, 50%), rgba(255, 235, 190, 0.85), transparent 60%);
+  animation: flash calc(0.3s / var(--speed)) ease-out both;
+}
+
+@keyframes flash {
+  0% { opacity: 0.9; }
+  100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile.is-bomb .tile-art,
+  .tile.is-scatter .tile-art,
+  .tile.is-crate .tile-art,
+  .tile.arming,
+  .tile.marked { animation: none; }
+  .board.shaking { animation: none; }
+}

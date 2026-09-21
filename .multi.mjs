@@ -1,0 +1,20 @@
+import { chromium } from 'playwright-core';
+const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
+const out = process.argv[2];
+const errors = [];
+const shot = async (name, w, h, fn) => {
+  const page = await browser.newPage({ viewport: { width: w, height: h }, deviceScaleFactor: 2 });
+  page.on('pageerror', e => errors.push(`${name}: ${e.message}`));
+  await page.goto('http://localhost:4173/?seed=7', { waitUntil: 'load' });
+  await page.waitForTimeout(700);
+  if (fn) await fn(page);
+  await page.screenshot({ path: `${out}/${name}.png` });
+  await page.close();
+};
+await shot('mobile', 390, 844);
+await shot('mobile-land', 844, 390);
+await shot('tablet', 834, 1112);
+await shot('paytable', 1180, 820, async p => { await p.click('#btn-menu'); await p.waitForTimeout(500); });
+await shot('buy', 1180, 820, async p => { await p.click('#btn-buy'); await p.waitForTimeout(500); });
+console.log(errors.length ? errors.join('\n') : 'clean');
+await browser.close();

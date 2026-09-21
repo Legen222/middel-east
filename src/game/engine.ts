@@ -219,7 +219,7 @@ function runMinefield(rng: Rng, landing: Grid): MinefieldResult {
 
     // Every empty cell gets an independent shot. The rate tightens as the
     // board fills so the Grand stays genuinely rare.
-    const pressure = 0.098 * (1 - 0.4 * (filledCount() / (ROWS * COLS)));
+    const pressure = 0.09 * (1 - 0.4 * (filledCount() / (ROWS * COLS)));
     const locked: MinefieldStep['locked'] = [];
     for (const at of open) {
       if (!rng.chance(pressure)) continue;

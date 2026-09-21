@@ -91,7 +91,7 @@ export const SYMBOL_ORDER: SymbolId[] = [
 ];
 
 /** Share of ordinary tiles that land carrying a coin value. */
-export const LOOT_RATE = { base: 0.18, free: 0.3 };
+export const LOOT_RATE = { base: 0.171, free: 0.3 };
 
 export interface BombDef {
   id: BombId;
@@ -151,36 +151,36 @@ export const BOMBS: Record<BombId, BombDef> = {
   grenade: {
     id: 'grenade', name: 'Hand Grenade', arabic: 'قنبلة', shape: 'Cross blast',
     footprint: plus,
-    values: [[0.18, 48], [0.36, 30], [0.72, 16], [1.8, 6]],
-    holdValues: [[0.45, 40], [0.9, 28], [1.8, 18], [3.6, 10], [9, 4]],
+    values: [[0.2, 48], [0.4, 30], [0.8, 16], [2, 6]],
+    holdValues: [[0.5, 40], [1, 28], [2, 18], [4, 10], [10, 4]],
     weight: 46, accent: '#7fae5a', accent2: '#2f4d1e', shake: 0.35,
   },
   dynamite: {
     id: 'dynamite', name: 'Dynamite Bundle', arabic: 'ديناميت', shape: 'Full column',
     footprint: wholeCol,
-    values: [[0.24, 48], [0.48, 30], [0.96, 16], [2.4, 6]],
-    holdValues: [[0.68, 40], [1.35, 28], [2.7, 18], [5.4, 10], [13.5, 4]],
+    values: [[0.25, 48], [0.5, 30], [1, 16], [2.5, 6]],
+    holdValues: [[0.75, 40], [1.5, 28], [3, 18], [6, 10], [15, 4]],
     weight: 30, accent: '#d4453c', accent2: '#701713', shake: 0.55,
   },
   scimitar: {
     id: 'scimitar', name: 'Scimitar Sweep', arabic: 'مقص', shape: 'Full row',
     footprint: wholeRow,
-    values: [[0.24, 48], [0.48, 30], [0.96, 16], [2.4, 6]],
-    holdValues: [[0.68, 40], [1.35, 28], [2.7, 18], [5.4, 10], [13.5, 4]],
+    values: [[0.25, 48], [0.5, 30], [1, 16], [2.5, 6]],
+    holdValues: [[0.75, 40], [1.5, 28], [3, 18], [6, 10], [15, 4]],
     weight: 30, accent: '#9fd2e8', accent2: '#2a5a73', shake: 0.5,
   },
   djinn: {
     id: 'djinn', name: 'Djinn Lamp', arabic: 'مصباح', shape: '3×3 burst',
     footprint: box3,
     values: [[0.3, 46], [0.6, 30], [1.2, 17], [3, 7]],
-    holdValues: [[0.9, 38], [1.8, 28], [3.6, 19], [7.2, 11], [18, 4]],
+    holdValues: [[1, 38], [2, 28], [4, 19], [8, 11], [20, 4]],
     weight: 20, accent: '#b98ce8', accent2: '#4a2a75', shake: 0.7,
   },
   starmine: {
     id: 'starmine', name: 'Star Mine', arabic: 'نجمة', shape: 'Both diagonals',
     footprint: diagonals,
-    values: [[0.3, 46], [0.66, 30], [1.32, 17], [3.6, 7]],
-    holdValues: [[0.9, 38], [2.25, 28], [4.5, 19], [9, 11], [22.5, 4]],
+    values: [[0.3, 46], [0.75, 30], [1.5, 17], [4, 7]],
+    holdValues: [[1, 38], [2.5, 28], [5, 19], [10, 11], [25, 4]],
     weight: 16, accent: '#f2a93b', accent2: '#8a4d0e', shake: 0.65,
   },
 };
@@ -230,6 +230,6 @@ export const WIN_TIERS = [
 
 /** Buy-feature prices, as multiples of the stake. Calibrated by tools/sim.ts. */
 export const BUY_FEATURE = {
-  free: 76,
-  minefield: 92,
+  free: 73,
+  minefield: 76,
 };
