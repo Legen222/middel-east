@@ -7,7 +7,7 @@ import {
 } from './game/config';
 import { cloneGrid, playFreeSpins, spin } from './game/engine';
 import { Rng } from './game/rng';
-import type { Cell, Grid, MinefieldResult, SpinResult } from './game/types';
+import type { Cell, Coord, Grid, MinefieldResult, SpinResult } from './game/types';
 import { Board } from './render/board';
 import { FxLayer } from './render/fx';
 import { sound } from './render/sound';
@@ -51,6 +51,17 @@ function seedFromUrl(): number | undefined {
   return Number.isFinite(parsed) ? parsed >>> 0 : undefined;
 }
 
+function findScatters(grid: Grid): Coord[] {
+  const out: Coord[] = [];
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cell = grid[r][c];
+      if (cell.kind === 'symbol' && cell.id === 'scatter') out.push({ r, c });
+    }
+  }
+  return out;
+}
+
 class Game {
   private rng: Rng;
   private board: Board;
@@ -61,6 +72,8 @@ class Game {
   private stopRequested = false;
   /** Guards against a second autoplay loop being started while one runs. */
   private autoLooping = false;
+  /** Mirrors the mode meter so a nested feature can restore it. */
+  private modeLabel = 'Base Game';
 
   constructor() {
     const seed = seedFromUrl();
@@ -240,19 +253,22 @@ class Game {
       await this.board.celebrateFeature(result.crates, result.initialGrid, 'crate');
       total += await this.runMinefield(result.initialGrid, result.minefield);
     } else {
-      total += await this.playChain(result, 1);
+      total += await this.playChain(result);
     }
 
     let stoppedByFeature = false;
     if (result.triggeredFreeSpins > 0) {
       stoppedByFeature = true;
-      await this.board.celebrateFeature(result.scatters, result.initialGrid, 'scatter');
+      // Scatters survive blasts but gravity may have moved them, so read
+      // their positions off the board as it now stands.
+      const settled = result.waves.at(-1)?.gridAfterRefill ?? result.initialGrid;
+      await this.board.celebrateFeature(findScatters(settled), settled, 'scatter');
       total += await this.runFreeSpins(result.triggeredFreeSpins, total);
     } else if (result.minefield) {
       stoppedByFeature = true;
     }
 
-    await this.settle(total, cost);
+    await this.settle(total);
     this.busy = false;
     this.ui.setBusy(false, this.autoRemaining > 0 && !stoppedByFeature);
 
@@ -262,7 +278,7 @@ class Game {
   }
 
   /** Walk the detonation waves of one spin. Returns the cash won. */
-  private async playChain(result: SpinResult, persistent: number): Promise<number> {
+  private async playChain(result: SpinResult): Promise<number> {
     let running = 0;
     let grid = result.initialGrid;
 
@@ -280,7 +296,6 @@ class Game {
       await this.board.collapse(wave);
     }
 
-    if (result.waves.length === 0 && persistent > 1) this.ui.setChain(persistent);
     return running;
   }
 
@@ -297,6 +312,7 @@ class Game {
       dismissible: true,
     });
 
+    this.modeLabel = 'Free Spins';
     this.ui.setMode('Free Spins', true);
     let won = 0;
     let index = 0;
@@ -319,6 +335,7 @@ class Game {
     }
 
     this.ui.setFreeSpins(null);
+    this.modeLabel = 'Base Game';
     this.ui.setMode('Base Game', false);
 
     await this.ui.showBanner({
@@ -370,6 +387,8 @@ class Game {
       dismissible: true,
     });
 
+    const previousMode = this.modeLabel;
+    this.modeLabel = 'Minefield';
     this.ui.setMode('Minefield', true);
 
     // The board freezes down to the seed bombs (the crates and any bombs that
@@ -438,18 +457,19 @@ class Game {
       await this.ui.countWin(base + total, 900);
     }
 
-    this.ui.setMode('Base Game', false);
+    this.modeLabel = previousMode;
+    this.ui.setMode(previousMode, previousMode !== 'Base Game');
     return total;
   }
 
-  private async settle(total: number, cost: number): Promise<void> {
+  private async settle(total: number): Promise<void> {
     await this.ui.countWin(total, 520);
     if (total > 0) {
       this.state.balance += total;
       this.ui.setBalance(this.state.balance);
       this.save();
-      await this.ui.showWinBanner(total, cost);
-      if (total / cost < 8) sound.play('win');
+      await this.ui.showWinBanner(total, this.bet);
+      if (total / this.bet < 8) sound.play('win');
     } else {
       sound.play('lose');
     }
