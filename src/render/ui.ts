@@ -203,6 +203,8 @@ export class Ui {
     note?: string;
     hold?: number;
     dismissible?: boolean;
+    /** Renders a button and resolves only once it is pressed. */
+    action?: string;
   }): Promise<void> {
     const node = document.createElement('div');
     node.className = 'banner';
@@ -212,9 +214,22 @@ export class Ui {
       opts.arabic ? `<span class="banner-arabic" lang="ar" dir="rtl">${opts.arabic}</span>` : '',
       opts.amount ? `<span class="banner-amount">${opts.amount}</span>` : '',
       opts.note ? `<p class="banner-note">${opts.note}</p>` : '',
-      opts.dismissible ? '<span class="banner-hint">Tap to continue</span>' : '',
+      opts.action ? `<button class="banner-action" type="button">${opts.action}</button>` : '',
+      opts.dismissible && !opts.action ? '<span class="banner-hint">Tap to continue</span>' : '',
     ].join('');
     this.bannerRoot.append(node);
+
+    if (opts.action) {
+      this.bannerRoot.style.pointerEvents = 'auto';
+      await new Promise<void>((resolve) => {
+        node.querySelector('.banner-action')!.addEventListener('click', () => resolve(), { once: true });
+      });
+      this.bannerRoot.style.pointerEvents = 'none';
+      node.classList.add('out');
+      await wait(360);
+      node.remove();
+      return;
+    }
 
     if (opts.dismissible) {
       this.bannerRoot.style.pointerEvents = 'auto';

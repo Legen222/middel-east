@@ -59,6 +59,8 @@ class Game {
   private busy = false;
   private autoRemaining = 0;
   private stopRequested = false;
+  /** Guards against a second autoplay loop being started while one runs. */
+  private autoLooping = false;
 
   constructor() {
     const seed = seedFromUrl();
@@ -141,17 +143,24 @@ class Game {
     this.ui.setAutoplay(0);
   }
 
+  /** The single driver for an autoplay run. playSpin never re-enters it. */
   private async runAutoplay(): Promise<void> {
-    while (this.autoRemaining > 0 && !this.stopRequested) {
-      if (this.state.balance < this.bet) break;
-      this.autoRemaining--;
-      this.ui.setAutoplay(this.autoRemaining);
-      const result = await this.playSpin();
-      if (result.stoppedByFeature) break;
-      await wait(220);
+    if (this.autoLooping) return;
+    this.autoLooping = true;
+    try {
+      while (this.autoRemaining > 0 && !this.stopRequested) {
+        if (this.state.balance < this.bet) break;
+        this.autoRemaining--;
+        this.ui.setAutoplay(this.autoRemaining);
+        const result = await this.playSpin();
+        if (result.stoppedByFeature) break;
+        await wait(220);
+      }
+    } finally {
+      this.autoLooping = false;
+      this.autoRemaining = 0;
+      this.ui.setAutoplay(0);
     }
-    this.autoRemaining = 0;
-    this.ui.setAutoplay(0);
   }
 
   private async onSpinPressed(): Promise<void> {
@@ -174,14 +183,40 @@ class Game {
     await this.playSpin({ cost, buy: which });
   }
 
+  /**
+   * A drained balance must not be a dead end — offer a top-up when even the
+   * smallest bet is out of reach, and otherwise nudge the stake down.
+   */
+  private async outOfBalance(cost: number): Promise<void> {
+    if (this.state.balance >= BET_STEPS[0]) {
+      await this.ui.showBanner({
+        kicker: 'Not enough balance',
+        title: 'LOWER YOUR BET',
+        note: `That spin costs ${money(cost)} and you have ${money(this.state.balance)}.`,
+        hold: 2200,
+      });
+      return;
+    }
+    await this.ui.showBanner({
+      kicker: 'Play money only',
+      title: 'OUT OF CREDITS',
+      arabic: 'انتهى الرصيد',
+      note: 'This is a demo — take another stack and keep going.',
+      action: `Add ${money(DEFAULT_BALANCE)} credits`,
+    });
+    this.state.balance += DEFAULT_BALANCE;
+    this.ui.setBalance(this.state.balance);
+    this.save();
+  }
+
   // ---------- the spin ----------
 
   private async playSpin(opts: { cost?: number; buy?: 'free' | 'minefield' } = {}): Promise<{ stoppedByFeature: boolean }> {
     const cost = opts.cost ?? this.bet;
     if (this.busy) return { stoppedByFeature: false };
     if (this.state.balance < cost) {
-      await this.ui.showBanner({ title: 'Out of balance', note: 'Lower your bet to keep playing.', hold: 1700 });
       this.stopAutoplay();
+      await this.outOfBalance(cost);
       return { stoppedByFeature: true };
     }
 
@@ -219,13 +254,9 @@ class Game {
 
     await this.settle(total, cost);
     this.busy = false;
-    this.ui.setBusy(false, this.autoRemaining > 0);
+    this.ui.setBusy(false, this.autoRemaining > 0 && !stoppedByFeature);
 
-    if (this.autoRemaining > 0 && !stoppedByFeature && !this.stopRequested) {
-      void this.runAutoplay();
-    } else if (stoppedByFeature) {
-      this.stopAutoplay();
-    }
+    if (stoppedByFeature) this.stopAutoplay();
 
     return { stoppedByFeature };
   }
