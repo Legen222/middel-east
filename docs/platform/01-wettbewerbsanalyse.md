@@ -12,9 +12,9 @@ Stand: 26.09.2026 · Arbeitstitel der eigenen Plattform: **[NAME]**
   bandit.camp, rustyloot.gg …) und die meisten Review-Portale per Netzwerk-Policy
   gesperrt. Zahlen stammen daher aus Suchergebnis-Auszügen und sind als
   **„berichtet"** zu lesen. Wo ich einen Wert selbst nachgerechnet habe, steht **✔ verifiziert**.
-- **Style & Animationen** ließen sich nicht per Screenshot prüfen. Diese Abschnitte
-  sind als **Einschätzung** markiert und müssen in Phase 2 mit Screen-Captures
-  (Browser-Zugriff) abgeglichen werden.
+- **Style & Animationen:** Für RustyLoot und RustMagic sind die Werte per Asset-Analyse
+  verifiziert (Abschnitt 5.0). Die übrigen Seiten blockt eine Cloudflare-JS-Challenge,
+  dort bleibt es bei einer **Einschätzung**.
 - „Rusty.Easy" = **RustEasy** (rusteasy.com).
 
 ---
@@ -214,9 +214,49 @@ Diese Formeln sind Grundlage für Phase 3 (eigene Spiele, dort mit ≥ 10 Mio. R
 
 ---
 
-## 5. Style & Animationen — Branchenmuster *(Einschätzung)*
+## 5. Style & Animationen
 
-Da keine Live-Screens möglich waren, hier die segmentweiten Muster, die in Phase 2 per Screenshot-Audit bestätigt werden müssen:
+### 5.0 Verifiziert per Asset-Analyse (26.09.2026)
+
+Nach Freigabe des Netzwerks wurden HTML, CSS und JS-Bundles direkt ausgewertet.
+**RustClash, BanditCamp, RustEasy und RustyPot** liefern nur eine Cloudflare-JS-Challenge
+(„Just a moment…“). Sie brauchen einen echten Browser, der in dieser Umgebung dem
+Proxy-Zertifikat nicht vertraut. Für diese vier bleibt 5.1 eine Einschätzung.
+
+**RustyLoot** (SolidJS + Tailwind, Bundle 5,5 MB)
+
+| Aspekt | Befund ✔ |
+|---|---|
+| Hintergründe | Navy-Violett-Stufen `#16182E` · `#1A1B30` · `#1D1F30` · `#1F2344` · `#1D2352` · `#2A2F57`, Linien `#404472` |
+| Akzent | Amber `#FFB436` (häufigste Farbe), hell `#FFD58F`/`#FFD691`, dunkel `#EEB351`; Win-Grün als Gradient `#27F278 → #86FFB6` |
+| Fonts | **Space Grotesk** (Headlines/Zahlen), **Lato** (Body), **Quicksand** (vereinzelt) |
+| UI-Transitions | Tailwind-Standard `200 ms cubic-bezier(.4,0,.2,1)`; Modals/Pops mit Overshoot `cubic-bezier(.4,0,0,1.2/1.5)` |
+| Case-/Battle-Spinner | **vertikal** (`translateY`), **3850 ms**, Timeline mit anime.js; Gewinn-Item danach `scale 1.2` in 478,5 ms, Verlierer-Items `scale 0`, Pot-Count-up 500 ms, Winner-Highlight 300 ms |
+| Upgrader | `upgraderSpin` mit `cubic-bezier(0.12, 0.8, 0.38, 1)` (starker Ease-out) |
+| Win-Effekte | `winBgGoldAnimation`, `textAnimation` mit `cubic-bezier(0.25, 1, 0.5, 1)`; `ping-won` (Ring skaliert auf 5×, 1 s); `flip-and-grow` (rotateY 360° + Scale 0.25→1, 0,5 s) |
+| Plinko/Upgrader-Deko | **Sprite-Sheets** mit `steps()` (Pipes, Wires, Skull, Zap-Tiles), z. B. `playv-pipe 3s steps(5)` + `playh-pipe .6s steps(15)` |
+| Media | ~100 vorgerenderte **WebM/MP4-Clips** und MP3/WAV-Sounds (Case-Intros, Effekte); Timeline-Label `video-started+=640` → Spinner startet 640 ms nach Clip-Start |
+| Ambient | Live-Ticker `slide 32s linear infinite`, Promo-Glimmer 3 s, Countdown-Ring über `stroke-dashoffset` |
+| A11y | Einzelne `motion-safe:`-Varianten vorhanden (Reduced-Motion teilweise respektiert) |
+
+**RustMagic** (Next.js + styled-components)
+
+| Aspekt | Befund ✔ |
+|---|---|
+| Hintergründe | Violett-Anthrazit `#1B192F` · `#1F1D34` · `#25243E` · `#292843` · `#373651`; Muted-Text `#9793BA` / `#686584` |
+| Akzente | **Hot Pink `#FD1B62`** (Primär), Lime `#A5EC60` (Win), Orange `#F99750`, Gelb `#FFDD59`, Blau `#3A89EB` |
+| Fonts | **Golos Text** (UI), **Integral CF** (Display, ultrabreit), vereinzelt **Chakra Petch** |
+| Buttons | „3D-Raise“-Buttons (`--button-raise-level: 4px`, Press → 0 px), Transform-Speed 150 ms ease-out |
+| Effekte | Shimmer/Skeleton-Loader, `stars-inf`, `MOVE-BG`, Loading-Bar 6 s ease-out |
+
+**Folgerung:** Beide verifizierten Seiten nutzen **dunkles Blau-/Violett-Anthrazit + ein warmer Akzent**
+(Amber bzw. Pink). Echte Rust-Materialität (Rost, Metall, Tape) setzt keine der beiden ein.
+RustyLoot investiert stark in **vorgerenderte Video-Effekte + Sprite-Animationen**. Das ist die
+Messlatte für „Juice“.
+
+### 5.1 Branchenmuster *(Einschätzung für die übrigen Seiten)*
+
+Die folgenden segmentweiten Muster sollten per Screenshot-Audit bestätigt werden, sobald ein Browser-Zugang möglich ist:
 
 **Layout-Standard**
 - Topbar: Logo · Balance-Pill mit Deposit-CTA · Level-Badge · Avatar (Steam).
@@ -232,7 +272,7 @@ Da keine Live-Screens möglich waren, hier die segmentweiten Muster, die in Phas
 **Animationen**
 | Element | Muster | Typ. Dauer / Easing |
 |---|---|---|
-| Case-Reel | horizontal, 50–80 Items, Near-Miss-Stop, Tick-Sound pro Item | 5–7 s, `cubic-bezier(0.1, 0.8, 0.2, 1)` / ease-out-quart |
+| Case-Reel | horizontal (Clash/Bandit) oder **vertikal (RustyLoot ✔)**, Near-Miss-Stop, Tick-Sound pro Item | 3,85 s (RustyLoot ✔) bis ~7 s, starker Ease-out |
 | Wheel/Double | Countdown-Balken → Spin → Glow auf Gewinnfeld | 6–8 s Spin |
 | Coinflip | 3D-Münze (CSS/Lottie), 2–3 s | ease-in-out |
 | Crash | Kurve wächst exponentiell, Achsen skalieren mit; Rakete/Figur | Echtzeit, 20–60 fps |
