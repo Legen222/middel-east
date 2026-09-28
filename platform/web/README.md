@@ -32,3 +32,15 @@ Immer sichtbar: Demo-Guthaben und die Session-Leiste mit Spielzeit und Netto-Erg
 sich zu dem Zeitpunkt, den der Server vorgibt. Offene Minenfeld- und Raid-Runden werden nach einem Neuladen der Seite
 fortgesetzt. `prefers-reduced-motion` schaltet alle Animationen ab. Auf dem Handy gibt es eine untere Navigation,
 geprüft bei 390 px ohne horizontales Scrollen.
+
+## Browser-Demo ohne Server
+
+```bash
+npm run build:demo      # → demo/scrapline-demo.html (eine Datei, ca. 1,4 MB)
+```
+
+Die Demo bündelt App, **den echten Server-Code** aus `platform/server` und SQLite (sql.js, asm.js-Build ohne
+WebAssembly) in eine Seite. `fetch('/api/…')` beantwortet der Router aus `platform/server/src/router.ts` direkt
+im Browser. Der Crash-Stream kommt aus dem `CrashService`, und der Datenbank-Stand wird alle 5 Sekunden in
+`localStorage` gesichert. Oben auf der Seite setzt „Demo zurücksetzen“ alles zurück. Der Zufalls-Beacon ist der
+lokale Demo-Beacon (nicht vertrauenslos), das zeigt die App auch so an.

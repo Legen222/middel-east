@@ -1,227 +1,53 @@
 /**
- * JSON HTTP API (node:http, no framework). Every request passes, in order:
- *   rate limit (per IP) → body size limit → geo check → auth (Bearer session token) → handler.
- * Errors are { error: code, message, details? } with a matching HTTP status.
+ * node:http transport for the API routes in router.ts, plus the crash SSE stream.
+ * Adds a 16 KB body limit; everything else (rate limit, geo, auth, errors) lives in the router.
  */
 
 import { type IncomingMessage, type ServerResponse, createServer } from 'node:http';
 
-import { PLINKO_TABLES, SAMPLE_CASES, caseRtp, plinkoTheoreticalRtp, priceCase, EDGE, type RaidTool } from '../../engine/src/index';
-import { createSession, demoRefill, endSession, resolveSession, signUp, type UserRow } from './accounts';
-import {
-  GAMES, activeSeedPublic, balance, getBet, liveRtp, openGames, minesCashout, minesReveal, minesStart, playInstant,
-  publicBet, raidBlast, raidCashout, raidStart, type InstantParams,
-} from './bets';
-import { checkGeo, withdrawalCheck } from './compliance';
-import { type Clock, type Config, MF_PER_FRAG } from './config';
-import type { DB } from './db';
-import { AppError, fail } from './errors';
-import { REALITY_CHECK_OPTIONS, activeBlock, getLimits, promoEligible, selfExclude, sessionSummary, setLimit, setRealityCheck, startCooldown, type LimitKind, type LimitPeriod } from './rg';
-import type { Beacon } from './beacon';
-import type { CrashService } from './crash';
-import { cancelGame, createBattle, createCoinflip, joinGame, listGames, publicGame, settleDue } from './pvp';
-import { DAILY_CASE, RAKEBACK_BANDS, claimCrew, claimRakeback, createCrewCode, crewState, joinRain, openDaily, progress, rainState, redeemCrewCode } from './rewards';
-import { rotateSeed } from './seeds';
-import { type Fetch, loginUrl, verifyAssertion } from './steam';
+import { AppError } from './errors';
+import { type AppDeps, createRouter } from './router';
 
-export interface AppDeps { db: DB; cfg: Config; clock: Clock; fetch: Fetch; publicUrl: string; beacon: Beacon; crash: CrashService }
-
-interface Ctx {
-  req: IncomingMessage; url: URL; body: any; ip: string; country: string | null; token?: string;
-  auth: () => { user: UserRow; startedAt: number };
-}
+export type { AppDeps } from './router';
 
 const MAX_BODY = 16 * 1024;
 
 export function createApp(deps: AppDeps) {
-  const { db, cfg, clock } = deps;
-  const routes: { method: string; pattern: RegExp; keys: string[]; handler: (c: Ctx, p: Record<string, string>) => unknown }[] = [];
-  const route = (method: string, path: string, handler: (c: Ctx, p: Record<string, string>) => unknown) => {
-    const keys: string[] = [];
-    const pattern = new RegExp('^' + path.replace(/:(\w+)/g, (_, k) => { keys.push(k); return '([A-Za-z0-9_-]+)'; }) + '$');
-    routes.push({ method, pattern, keys, handler });
-  };
-  const num = (v: unknown, name: string) => (typeof v === 'number' && Number.isFinite(v) ? v : fail('invalid_params', `${name} fehlt oder ist keine Zahl.`));
-  const stakeMf = (v: unknown) => Math.round(num(v, 'stake') * MF_PER_FRAG); // API takes Frags, stores mF
-
-  /* ---------- public ---------- */
-  route('GET', '/health', () => ({ ok: true, demo: cfg.demo }));
-  route('GET', '/config', () => ({
-    demo: cfg.demo, currency: 'Frags', fragsPerDollar: 100, minStake: cfg.minStake / MF_PER_FRAG, maxStake: cfg.maxStake / MF_PER_FRAG, maxWin: cfg.maxWin / MF_PER_FRAG,
-    games: GAMES, houseEdge: EDGE,
-    plinko: Object.fromEntries(Object.entries(PLINKO_TABLES).map(([r, t]) => [r, Object.fromEntries(Object.entries(t).map(([k, v]) => [k, { multipliers: v, rtp: plinkoTheoreticalRtp(Number(r) as 8, k as 'low') }]))])),
-    cases: SAMPLE_CASES.map((c) => { const W = c.items.reduce((s, i) => s + i.weight, 0); return { id: c.id, name: c.name, price: priceCase(c), rtp: caseRtp(c), items: c.items.map((i) => ({ name: i.name, value: i.value, chance: i.weight / W })) }; }),
-    responsibleGambling: { realityCheckOptions: REALITY_CHECK_OPTIONS, limitIncreaseDelayHours: cfg.limitIncreaseDelayHours },
-  }));
-  route('GET', '/stats/rtp', (c) => {
-    const days = Math.min(90, Math.max(1, Number(c.url.searchParams.get('days') ?? 30)));
-    return { days, games: liveRtp(db, clock() - days * 86_400_000).map((g) => ({ ...g, theory: theoryRtp(g.game) })) };
-  });
-  route('GET', '/bets/:id', (_c, p) => { const b = getBet(db, p.id) ?? fail('not_found', 'Wette nicht gefunden.', 404); const pb = publicBet(b, db); return b.status === 'open' ? { ...pb, result: null } : pb; });
-
-  /* ---------- auth ---------- */
-  route('POST', '/auth/demo', (c) => {
-    const { userId } = signUp(db, cfg, { displayName: String(c.body?.displayName ?? ''), ageConfirmed: c.body?.ageConfirmed === true, country: c.country }, clock());
-    return { token: createSession(db, cfg, userId, clock()), userId };
-  });
-  route('GET', '/auth/steam', () => ({ url: loginUrl(`${deps.publicUrl}/auth/steam/return?age=1`, deps.publicUrl) }));
-  route('GET', '/auth/steam/return', async (c) => {
-    const { steamId } = await verifyAssertion(db, c.url.searchParams, `${deps.publicUrl}/auth/steam/return`, deps.fetch, clock())
-      .catch((e: Error) => fail('steam_login_failed', 'Steam-Login fehlgeschlagen. Bitte erneut versuchen.', 401, { reason: e.message }));
-    const { userId } = signUp(db, cfg, { displayName: `Steam ${steamId.slice(-4)}`, ageConfirmed: c.url.searchParams.get('age') === '1', steamId, country: c.country }, clock());
-    return { token: createSession(db, cfg, userId, clock()), userId };
-  });
-  route('POST', '/auth/logout', (c) => { c.auth(); endSession(db, c.token!); return { ok: true }; });
-
-  /* ---------- account ---------- */
-  route('GET', '/me', (c) => {
-    const { user, startedAt } = c.auth();
-    return {
-      id: user.id, displayName: user.display_name, steamLinked: Boolean(user.steam_id), kycLevel: user.kyc_level,
-      balance: balance(db, user.id) / MF_PER_FRAG, seed: activeSeedPublic(db, user.id), level: progress(db, user.id).level,
-      session: fmtSession(sessionSummary(db, user.id, startedAt, clock())), block: activeBlock(db, user.id, clock()), promoEligible: promoEligible(db, user.id, clock()),
-    };
-  });
-  route('POST', '/demo/refill', (c) => ({ balance: demoRefill(db, cfg, c.auth().user.id, clock()) / MF_PER_FRAG }));
-  route('GET', '/wallet/withdrawal-check', (c) => withdrawalCheck(db, cfg, c.auth().user, Math.round(Number(c.url.searchParams.get('amount') ?? 0) * MF_PER_FRAG)));
-
-  /* ---------- seeds ---------- */
-  route('GET', '/seed', (c) => activeSeedPublic(db, c.auth().user.id));
-  route('POST', '/seed/rotate', (c) => rotateSeed(db, c.auth().user.id, c.body?.clientSeed ? String(c.body.clientSeed) : null, clock()));
-
-  /* ---------- games ---------- */
-  for (const g of ['dice', 'plinko', 'upgrader', 'cases'] as (keyof InstantParams)[]) {
-    route('POST', `/bets/${g}`, (c) => {
-      const { user } = c.auth();
-      const stake = g === 'cases' ? cfg.minStake : stakeMf(c.body?.stake);
-      return fmtMoney(publicBet(playInstant(db, cfg, user.id, g, stake, c.body?.params ?? {}, clock()), db));
-    });
-  }
-  route('POST', '/mines/start', (c) => fmtMoney(minesStart(db, cfg, c.auth().user.id, stakeMf(c.body?.stake), num(c.body?.mines, 'mines'), clock())));
-  route('POST', '/mines/:id/reveal', (c, p) => fmtMoney(minesReveal(db, cfg, c.auth().user.id, p.id, num(c.body?.tile, 'tile'), clock())));
-  route('POST', '/mines/:id/cashout', (c, p) => fmtMoney(minesCashout(db, c.auth().user.id, p.id, clock())));
-  route('POST', '/raid/start', (c) => fmtMoney(raidStart(db, cfg, c.auth().user.id, stakeMf(c.body?.stake), clock())));
-  route('POST', '/raid/:id/blast', (c, p) => fmtMoney(raidBlast(db, cfg, c.auth().user.id, p.id, String(c.body?.tool) as RaidTool, clock())));
-  route('POST', '/raid/:id/cashout', (c, p) => fmtMoney(raidCashout(db, c.auth().user.id, p.id, clock())));
-  route('GET', '/games/open', (c) => openGames(db, c.auth().user.id).map((g) => fmtMoney(g)));
-  route('GET', '/bets', (c) => {
-    const { user } = c.auth();
-    const limit = Math.min(100, Math.max(1, Number(c.url.searchParams.get('limit') ?? 20)));
-    const rows = db.prepare('SELECT id FROM bets WHERE user_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?').all(user.id, limit) as { id: string }[];
-    return rows.map((r) => { const b = getBet(db, r.id)!; return fmtMoney(b.status === 'open' ? { ...publicBet(b, db), result: null } : publicBet(b, db)); });
-  });
-
-  /* ---------- PvP ---------- */
-  const viewer = (c: Ctx) => resolveSession(db, c.token, clock())?.user.id ?? null;
-  route('GET', '/pvp/list/:type', async (c, p) => {
-    if (p.type !== 'coinflip' && p.type !== 'battle') fail('not_found', 'Unbekannter Spieltyp.', 404);
-    await settleDue(db, deps.beacon, clock());
-    return listGames(db, deps.beacon, p.type as 'coinflip' | 'battle', clock() - 10 * 60_000, viewer(c));
-  });
-  route('GET', '/pvp/game/:id', async (c, p) => { await settleDue(db, deps.beacon, clock()); return publicGame(db, deps.beacon, p.id, viewer(c)); });
-  route('POST', '/pvp/coinflip', (c) => { const u = c.auth().user.id; return publicGame(db, deps.beacon, createCoinflip(db, cfg, u, stakeMf(c.body?.stake), c.body?.side, clock()), u); });
-  route('POST', '/pvp/battle', (c) => { const u = c.auth().user.id; return publicGame(db, deps.beacon, createBattle(db, cfg, u, c.body?.caseIds, num(c.body?.seats, 'seats'), c.body?.mode, clock()), u); });
-  route('POST', '/pvp/:id/join', (c, p) => { const u = c.auth().user.id; return publicGame(db, deps.beacon, joinGame(db, cfg, deps.beacon, p.id, u, clock()), u); });
-  route('POST', '/pvp/:id/bot', (c, p) => {
-    const u = c.auth().user.id;
-    const g = publicGame(db, deps.beacon, p.id, u);
-    if (!g.mine) fail('forbidden', 'Nur der Ersteller kann einen Bot holen.', 403);
-    return publicGame(db, deps.beacon, joinGame(db, cfg, deps.beacon, p.id, null, clock()), u);
-  });
-  route('POST', '/pvp/:id/cancel', (c, p) => { const u = c.auth().user.id; return publicGame(db, deps.beacon, cancelGame(db, p.id, u, clock()), u); });
-
-  /* ---------- crash ---------- */
-  route('GET', '/crash/state', (c) => deps.crash.state(clock(), viewer(c)));
-  route('POST', '/crash/bet', (c) => deps.crash.placeBet(c.auth().user.id, stakeMf(c.body?.stake), Math.round(num(c.body?.target, 'target') * 100), clock()));
-  route('POST', '/crash/cashout', (c) => deps.crash.cashout(c.auth().user.id, clock()));
-
-  /* ---------- rewards ---------- */
-  route('GET', '/rewards', (c) => {
-    const u = c.auth().user.id;
-    const p = progress(db, u);
-    const lastDaily = db.prepare("SELECT created_at AS t FROM reward_claims WHERE user_id = ? AND kind = 'daily' ORDER BY created_at DESC LIMIT 1").get(u) as { t: number } | undefined;
-    const W = DAILY_CASE.items.reduce((s, i) => s + i.weight, 0);
-    const crew = crewState(db, u);
-    return {
-      ...p, rakebackAvailable: p.rakebackAvailable / MF_PER_FRAG, rakebackBands: RAKEBACK_BANDS,
-      daily: { nextAt: lastDaily ? lastDaily.t + 86_400_000 : 0, items: DAILY_CASE.items.map((i) => ({ name: i.name, value: i.value, chance: i.weight / W })) },
-      rain: rainState(db, u, clock()), promoEligible: promoEligible(db, u, clock()),
-      crew: { ...crew, ngr: crew.ngr / MF_PER_FRAG, available: crew.available / MF_PER_FRAG },
-    };
-  });
-  route('POST', '/rewards/rakeback', (c) => { const r = claimRakeback(db, c.auth().user.id, clock()); return { amount: r.amount / MF_PER_FRAG }; });
-  route('POST', '/rewards/daily', (c) => openDaily(db, c.auth().user.id, clock()));
-  route('POST', '/rewards/rain', (c) => joinRain(db, c.auth().user.id, clock()));
-  route('POST', '/crew/code', (c) => createCrewCode(db, c.auth().user.id, String(c.body?.code ?? ''), clock()));
-  route('POST', '/crew/redeem', (c) => redeemCrewCode(db, c.auth().user.id, String(c.body?.code ?? ''), clock()));
-  route('POST', '/crew/claim', (c) => { const r = claimCrew(db, c.auth().user.id, clock()); return { amount: r.amount / MF_PER_FRAG }; });
-
-  /* ---------- responsible gambling ---------- */
-  route('GET', '/rg', (c) => {
-    const { user, startedAt } = c.auth();
-    return { limits: getLimits(db, user.id, clock()).map((l) => ({ ...l, amount: l.amount === null ? null : l.amount / MF_PER_FRAG, used: l.used / MF_PER_FRAG, pending: l.pending && { ...l.pending, amount: l.pending.amount === null ? null : l.pending.amount / MF_PER_FRAG } })),
-      block: activeBlock(db, user.id, clock()), session: fmtSession(sessionSummary(db, user.id, startedAt, clock())) };
-  });
-  route('PUT', '/rg/limits', (c) => {
-    const { user } = c.auth();
-    const amount = c.body?.amount === null ? null : Math.round(num(c.body?.amount, 'amount') * MF_PER_FRAG);
-    return setLimit(db, cfg, user.id, c.body?.kind as LimitKind, c.body?.period as LimitPeriod, amount, clock());
-  });
-  route('POST', '/rg/cooldown', (c) => startCooldown(db, c.auth().user.id, num(c.body?.hours, 'hours'), clock()));
-  route('POST', '/rg/exclusion', (c) => selfExclude(db, c.auth().user.id, c.body?.months === null ? null : (num(c.body?.months, 'months') as 6 | 12 | 60), clock()));
-  route('PUT', '/rg/reality-check', (c) => { setRealityCheck(db, c.auth().user.id, num(c.body?.minutes, 'minutes'), clock()); return { ok: true }; });
-
-  /* ---------- plumbing ---------- */
-  const buckets = new Map<string, { tokens: number; at: number }>();
-  const rateLimited = (ip: string) => {
-    const now = clock(); const b = buckets.get(ip) ?? { tokens: 40, at: now };
-    b.tokens = Math.min(40, b.tokens + ((now - b.at) / 1000) * 20); b.at = now;
-    if (b.tokens < 1) { buckets.set(ip, b); return true; }
-    b.tokens -= 1; buckets.set(ip, b); return false;
-  };
+  const router = createRouter(deps);
+  const headersOf = (req: IncomingMessage) => Object.fromEntries(Object.entries(req.headers).map(([k, v]) => [k, Array.isArray(v) ? v[0] : v]));
 
   async function handle(req: IncomingMessage, res: ServerResponse) {
     const send = (status: number, payload: unknown) => {
       res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
       res.end(JSON.stringify(payload));
     };
-    try {
-      const ip = req.socket.remoteAddress ?? 'unknown';
-      if (rateLimited(ip)) fail('rate_limited', 'Zu viele Anfragen. Bitte kurz warten.', 429);
-      const url = new URL(req.url ?? '/', 'http://local');
-      const country = (req.headers[cfg.countryHeader] as string | undefined)?.toUpperCase() ?? null;
-      if (url.pathname !== '/health') checkGeo(cfg, country, !cfg.demo);
-      if (url.pathname === '/crash/stream' && req.method === 'GET') return stream(res);
-      const body = await readBody(req);
-      const token = /^Bearer ([0-9a-f]{64})$/.exec(req.headers.authorization ?? '')?.[1];
-      const ctx: Ctx = { req, url, body, ip, country, token, auth: () => resolveSession(db, token, clock()) ?? fail('unauthorized', 'Bitte einloggen.', 401) };
-      for (const r of routes) {
-        const m = r.method === req.method ? r.pattern.exec(url.pathname) : null;
-        if (!m) continue;
-        const params = Object.fromEntries(r.keys.map((k, i) => [k, m[i + 1]]));
-        return send(200, await r.handler(ctx, params));
-      }
-      fail('not_found', 'Unbekannter Endpunkt.', 404);
-    } catch (e) {
-      if (e instanceof AppError) return send(e.status, { error: e.code, message: e.message, details: e.details });
-      if (e instanceof RangeError) return send(400, { error: 'invalid_params', message: e.message });
-      console.error(e);
-      return send(500, { error: 'internal', message: 'Interner Fehler.' });
+    const headers = headersOf(req);
+    if (req.url?.split('?')[0] === '/crash/stream' && req.method === 'GET') {
+      if (!router.streamAllowed(headers)) return send(451, { error: 'geo_blocked', message: 'Aus deinem Land ist SCRAPLINE nicht verfügbar.' });
+      return stream(res);
     }
+    let body: unknown;
+    try { body = await readBody(req); } catch (e) {
+      const err = e instanceof AppError ? e : new AppError('invalid_json', 'Ungültiges JSON.');
+      return send(err.status, { error: err.code, message: err.message });
+    }
+    const out = await router.dispatch({ method: req.method ?? 'GET', url: req.url ?? '/', headers, body, ip: req.socket.remoteAddress ?? 'unknown' });
+    send(out.status, out.payload);
   }
+
   /** Server-sent events for the crash round (no WebSocket needed; the browser reconnects on its own). */
   function stream(res: ServerResponse) {
     res.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-store', connection: 'keep-alive', 'x-accel-buffering': 'no' });
     res.write(`retry: 2000\n\n`);
-    const off = deps.crash.on((e) => res.write(`event: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`));
-    const ping = setInterval(() => res.write(`: ping ${clock()}\n\n`), 15_000);
+    const off = router.crash.on((e) => res.write(`event: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`));
+    const ping = setInterval(() => res.write(`: ping ${Date.now()}\n\n`), 15_000);
     res.on('close', () => { off(); clearInterval(ping); });
   }
 
   return createServer((req, res) => { void handle(req, res); });
 }
 
-function readBody(req: IncomingMessage): Promise<any> {
+function readBody(req: IncomingMessage): Promise<unknown> {
   return new Promise((resolve, reject) => {
     if (req.method === 'GET' || req.method === 'HEAD') return resolve(null);
     let size = 0; const chunks: Buffer[] = [];
@@ -237,7 +63,3 @@ function readBody(req: IncomingMessage): Promise<any> {
     req.on('error', reject);
   });
 }
-
-const theoryRtp = (g: string) => ({ dice: 1 - EDGE.dice, plinko: null, upgrader: 1 - EDGE.upgrader, cases: null, mines: 1 - EDGE.mines, raid: 1 - EDGE.raid } as Record<string, number | null>)[g] ?? null;
-const fmtSession = (s: ReturnType<typeof sessionSummary>) => ({ ...s, wagered: s.wagered / MF_PER_FRAG, net: s.net / MF_PER_FRAG });
-function fmtMoney<T extends { stake: number; payout: number }>(b: T): T { return { ...b, stake: b.stake / MF_PER_FRAG, payout: b.payout / MF_PER_FRAG }; }
