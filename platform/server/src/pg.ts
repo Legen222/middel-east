@@ -48,6 +48,10 @@ export function pgSchema(): string {
 
 const MIGRATIONS: { version: number; sql: () => string }[] = [
   { version: 1, sql: pgSchema },
+  // Operator MFA state moved from process memory into the database (needed with several API instances).
+  { version: 2, sql: () => `ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_pending TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_pending_at BIGINT;
+    ALTER TABLE sessions ADD COLUMN IF NOT EXISTS mfa_step BIGINT;` },
 ];
 
 type Queryable = pg.Pool | pg.PoolClient;

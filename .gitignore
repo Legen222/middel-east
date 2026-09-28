@@ -4,3 +4,4 @@ dist
 *.local
 .cache
 platform/server/data
+deploy/.env

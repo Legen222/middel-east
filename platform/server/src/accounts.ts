@@ -20,10 +20,10 @@ export type Role = 'player' | 'moderator' | 'admin';
 export interface UserRow {
   id: string; steam_id: string | null; display_name: string; country: string | null;
   age_confirmed_at: number | null; kyc_level: number; last_refill_at: number | null; created_at: number;
-  role: Role; totp_secret: string | null;
+  role: Role; totp_secret: string | null; totp_pending: string | null; totp_pending_at: number | null;
 }
 
-export interface Session { user: UserRow; startedAt: number; mfaAt: number | null; tokenHash: string }
+export interface Session { user: UserRow; startedAt: number; mfaAt: number | null; mfaStep: number | null; tokenHash: string }
 
 export const hashToken = (t: string) => createHash('sha256').update(t).digest('hex');
 
@@ -64,10 +64,10 @@ export async function createSession(db: DB, cfg: Config, userId: string, now: nu
 export async function resolveSession(db: DB, token: string | undefined, now: number): Promise<Session | null> {
   if (!token) return null;
   const tokenHash = hashToken(token);
-  const s = (await db.prepare('SELECT user_id, started_at, mfa_at FROM sessions WHERE token_hash = ? AND expires_at > ?').get(tokenHash, now)) as { user_id: string; started_at: number; mfa_at: number | null } | undefined;
+  const s = (await db.prepare('SELECT user_id, started_at, mfa_at, mfa_step FROM sessions WHERE token_hash = ? AND expires_at > ?').get(tokenHash, now)) as { user_id: string; started_at: number; mfa_at: number | null; mfa_step: number | null } | undefined;
   if (!s) return null;
   const user = await getUser(db, s.user_id);
-  return user ? { user, startedAt: s.started_at, mfaAt: s.mfa_at ?? null, tokenHash } : null;
+  return user ? { user, startedAt: s.started_at, mfaAt: s.mfa_at ?? null, mfaStep: s.mfa_step ?? null, tokenHash } : null;
 }
 
 export async function endSession(db: DB, token: string): Promise<void> {

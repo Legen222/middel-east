@@ -109,40 +109,34 @@ export function checkTotp(secretB32: string, code: string, now: number): number 
   return null;
 }
 
-const pending = new Map<string, { secret: string; at: number }>(); // userId → secret waiting for confirmation
-
 export async function enroll(db: DB, s: Session, issuer: string, now: number) {
   if (s.user.totp_secret) fail('mfa_enrolled', 'Two-factor authentication is already set up.', 409);
   const secret = base32Encode(new Uint8Array(randomBytes(20)));
-  pending.set(s.user.id, { secret, at: now });
+  await db.prepare('UPDATE users SET totp_pending = ?, totp_pending_at = ? WHERE id = ?').run(secret, now, s.user.id);
   const label = encodeURIComponent(`${issuer}:${s.user.display_name}`);
   await audit(db, s.user.id, 'mfa_enroll_started', null, now);
   return { secret, uri: `otpauth://totp/${label}?secret=${secret}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=30` };
 }
 
 export async function confirm(db: DB, s: Session, code: string, now: number) {
-  const p = pending.get(s.user.id);
-  if (!p || now - p.at > 10 * 60_000) fail('mfa_not_started', 'Start the setup again.', 409);
-  const step = checkTotp(p!.secret, code, now);
+  const secret = s.user.totp_pending;
+  if (!secret || now - (s.user.totp_pending_at ?? 0) > 10 * 60_000) fail('mfa_not_started', 'Start the setup again.', 409);
+  const step = checkTotp(secret!, code, now);
   if (step === null) fail('mfa_invalid', 'That code is not valid. Check the time on your phone and try again.', 401);
-  pending.delete(s.user.id);
-  await db.prepare('UPDATE users SET totp_secret = ? WHERE id = ?').run(p!.secret, s.user.id);
+  await db.prepare('UPDATE users SET totp_secret = ?, totp_pending = NULL, totp_pending_at = NULL WHERE id = ?').run(secret, s.user.id);
   await markStepUp(db, s, step!, now);
   await audit(db, s.user.id, 'mfa_enrolled', null, now);
   return { ok: true };
 }
 
-const usedSteps = new Map<string, number>(); // session → last step accepted
-
 async function markStepUp(db: DB, s: Session, step: number, now: number) {
-  usedSteps.set(s.tokenHash, step);
-  await db.prepare('UPDATE sessions SET mfa_at = ? WHERE token_hash = ?').run(now, s.tokenHash);
+  await db.prepare('UPDATE sessions SET mfa_at = ?, mfa_step = ? WHERE token_hash = ?').run(now, step, s.tokenHash);
 }
 
 export async function verify(db: DB, s: Session, code: string, now: number) {
   if (!s.user.totp_secret) fail('mfa_not_enrolled', 'Set up two-factor authentication first.', 409);
   const step = checkTotp(s.user.totp_secret!, code, now);
-  if (step === null || (usedSteps.get(s.tokenHash) ?? -1) >= step) {
+  if (step === null || (s.mfaStep ?? -1) >= step) {
     await audit(db, s.user.id, 'mfa_failed', null, now);
     fail('mfa_invalid', 'That code is not valid.', 401);
   }

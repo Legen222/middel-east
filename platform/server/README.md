@@ -3,13 +3,17 @@
 Wallet mit doppelter Buchführung, Wett-Service (Dice, Scrap Chute, Workbench, Cases, Minefield, Raid), PvP (Coinflip,
 Case Battle), Crash-Runden (Scrap Press, live per Server-Sent Events), Belohnungen (Level, Rakeback, Scrap Crate,
 Oil Rain, Crew-Codes), Live-Chat mit Moderation, Operator-Backoffice (RTP-Monitor, Kill-Switch, Holds, RG-Fälle, Audit), Provably-Fair-Seeds,
-Responsible Gambling, Geo-Blocking, Steam-OpenID, KYC- und AML-Hooks und eine JSON-API. Keine Laufzeit-Abhängigkeiten
-(`node:http`, `node:sqlite`). Nutzt die Engine aus `../engine`. **Nur Demo-Modus, kein Echtgeld.**
+Responsible Gambling, Geo-Blocking, Steam-OpenID, KYC- und AML-Hooks, Operator-2FA (TOTP) und eine JSON-API mit
+Live-Events per SSE (`/events`). Speicher: SQLite (`node:sqlite`, Tests und Einzelknoten) oder Postgres (`DATABASE_URL`,
+mehrere Instanzen mit Leader-Wahl und LISTEN/NOTIFY). Nutzt die Engine aus `../engine`. **Nur Spielgeld.**
 
 ```bash
 npm install
-npm test        # 40 Tests inkl. Nachspielen aus offengelegtem Seed, PvP, Crash und End-to-End-API-Test
-npm start       # PORT=8787, DB_PATH=data/scrapline-demo.sqlite, PUBLIC_URL, BEACON=drand, CRASH_CHAIN=100000
+npm run check   # Typprüfung + Prüfung auf nicht abgewartete Promises
+npm test        # 44 Tests (SQLite) inkl. Nachspielen aus offengelegtem Seed, PvP, Crash, Nebenläufigkeit, API
+npm run test:pg # dieselben Tests gegen Postgres (TEST_PG_URL, Standard postgres://scrapline@127.0.0.1:5432/scrapline_test)
+npm start       # baut dist/main.mjs und startet: PORT=8787, DB_PATH oder DATABASE_URL, weitere Variablen in src/main.ts
+DATABASE_URL=postgres://… node tools/cluster-smoke.mjs   # zwei Instanzen, eine Datenbank (nach npm run build)
 ```
 
 Beispiel:
@@ -27,3 +31,4 @@ API-Fehlertexte sind englisch, die Codes (`error`) bleiben stabil für das Front
 
 Architektur, Abläufe und Risiken: [`docs/platform/04-architektur.md`](../../docs/platform/04-architektur.md).
 Backoffice und Chat: [`docs/platform/06-backoffice-und-chat.md`](../../docs/platform/06-backoffice-und-chat.md).
+Produktionsbetrieb (Postgres, Cluster, Docker, CI): [`docs/platform/07-produktion.md`](../../docs/platform/07-produktion.md).

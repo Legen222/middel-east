@@ -1,0 +1,43 @@
+# SCRAPLINE stack: Postgres, two API instances (one becomes the ticker leader), nginx with the web app.
+#   cp deploy/.env.example deploy/.env && docker compose -f deploy/docker-compose.yml --env-file deploy/.env up --build
+# Play money only. Real money needs a licence first (docs/platform/05-go-live.md).
+name: scrapline
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: scrapline
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}
+      POSTGRES_DB: scrapline
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scrapline -d scrapline"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build: { context: ../platform, dockerfile: server/Dockerfile }
+    environment:
+      DATABASE_URL: postgres://scrapline:${POSTGRES_PASSWORD}@db:5432/scrapline
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080/api}
+      DEMO: "true"
+      REQUIRE_OPERATOR_MFA: ${REQUIRE_OPERATOR_MFA:-true}
+      OPERATOR_IP_ALLOWLIST: ${OPERATOR_IP_ALLOWLIST:-}
+      TRUST_PROXY: "true"
+      BEACON: ${BEACON:-local}
+      PG_POOL_MAX: "10"
+    depends_on: { db: { condition: service_healthy } }
+    deploy: { replicas: 2 }
+    stop_grace_period: 20s
+    restart: unless-stopped
+
+  web:
+    build: { context: ../platform, dockerfile: web/Dockerfile }
+    ports: ["${WEB_PORT:-8080}:8080"]
+    depends_on: [api]
+    restart: unless-stopped
+
+volumes:
+  pgdata:

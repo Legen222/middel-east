@@ -4,12 +4,15 @@
 // Usage: DATABASE_URL=postgres://… node tools/cluster-smoke.mjs   (after `npm run build`)
 import { spawn } from 'node:child_process';
 import assert from 'node:assert/strict';
+import { createHmac } from 'node:crypto';
 
+const b32 = (s) => { const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'; let bits = 0, v = 0; const out = []; for (const ch of s) { v = (v << 5) | A.indexOf(ch); bits += 5; if (bits >= 8) { out.push((v >>> (bits - 8)) & 255); bits -= 8; } } return Buffer.from(out); };
+const totp = (secret) => { const m = Buffer.alloc(8); m.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30000))); const h = createHmac('sha1', b32(secret)).update(m).digest(); const o = h[19] & 15; return String((((h[o] & 127) << 24) | (h[o + 1] << 16) | (h[o + 2] << 8) | h[o + 3]) % 1e6).padStart(6, '0'); };
 const url = process.env.DATABASE_URL;
 if (!url) { console.error('DATABASE_URL missing'); process.exit(2); }
 const ports = [18801, 18802];
 const procs = ports.map((port) => spawn(process.execPath, ['--no-warnings=ExperimentalWarning', 'dist/main.mjs'], {
-  env: { ...process.env, PORT: String(port), LOG: 'off', CRASH_CHAIN: '200', DEMO: 'true' }, stdio: ['ignore', 'inherit', 'inherit'],
+  env: { ...process.env, PORT: String(port), LOG: 'off', CRASH_CHAIN: '200', DEMO: 'true', REQUIRE_OPERATOR_MFA: 'true' }, stdio: ['ignore', 'inherit', 'inherit'],
 }));
 const base = (i) => `http://127.0.0.1:${ports[i]}`;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -70,6 +73,13 @@ try {
   assert.equal(placed.status, 200, JSON.stringify(placed.json));
   const state = (await call(0, 'GET', '/crash/state', undefined, a)).json;
   assert.ok(state.bets.some((b) => b.you), 'bet placed on B is visible on A');
+  // operator MFA state is shared: enrol on A, confirm on B, use the backoffice on A
+  await call(0, 'POST', '/demo/role', { role: 'admin' }, a);
+  assert.equal((await call(1, 'GET', '/admin/overview', undefined, a)).json.error, 'mfa_enroll_required');
+  const { secret } = (await call(0, 'POST', '/mfa/enroll', {}, a)).json;
+  assert.equal((await call(1, 'POST', '/mfa/confirm', { code: totp(secret) }, a)).status, 200);
+  assert.equal((await call(0, 'GET', '/admin/overview', undefined, a)).status, 200);
+  assert.equal((await call(0, 'POST', '/mfa/verify', { code: totp(secret) }, a)).json.error, 'mfa_invalid', 'replay refused on the other instance');
   stopB();
   console.log('cluster smoke test passed');
 } finally {

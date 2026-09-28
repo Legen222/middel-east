@@ -121,7 +121,9 @@ CREATE TABLE IF NOT EXISTS users (
   created_at INTEGER NOT NULL,
   crew_code TEXT,
   role TEXT NOT NULL DEFAULT 'player',
-  totp_secret TEXT                -- operator MFA (base32), NULL = not enrolled
+  totp_secret TEXT,               -- operator MFA (base32), NULL = not enrolled
+  totp_pending TEXT,              -- secret shown during enrolment, until the first code confirms it
+  totp_pending_at INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
@@ -129,7 +131,8 @@ CREATE TABLE IF NOT EXISTS sessions (
   user_id TEXT NOT NULL REFERENCES users(id),
   started_at INTEGER NOT NULL,
   expires_at INTEGER NOT NULL,
-  mfa_at INTEGER                  -- last successful TOTP step-up in this session
+  mfa_at INTEGER,                 -- last successful TOTP step-up in this session
+  mfa_step INTEGER                -- TOTP time step used last (a code works once per session)
 );
 CREATE INDEX IF NOT EXISTS sessions_user ON sessions(user_id);
 
@@ -385,7 +388,11 @@ function migrateLegacy(raw: Raw): void {
   if (!u.includes('crew_code')) raw.exec('ALTER TABLE users ADD COLUMN crew_code TEXT');
   if (!u.includes('role')) raw.exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'player'");
   if (!u.includes('totp_secret')) raw.exec('ALTER TABLE users ADD COLUMN totp_secret TEXT');
-  if (!cols('sessions').includes('mfa_at')) raw.exec('ALTER TABLE sessions ADD COLUMN mfa_at INTEGER');
+  if (!u.includes('totp_pending')) raw.exec('ALTER TABLE users ADD COLUMN totp_pending TEXT');
+  if (!u.includes('totp_pending_at')) raw.exec('ALTER TABLE users ADD COLUMN totp_pending_at INTEGER');
+  const sc = cols('sessions');
+  if (!sc.includes('mfa_at')) raw.exec('ALTER TABLE sessions ADD COLUMN mfa_at INTEGER');
+  if (!sc.includes('mfa_step')) raw.exec('ALTER TABLE sessions ADD COLUMN mfa_step INTEGER');
   raw.exec('DROP VIEW IF EXISTS wagers');
 }
 
