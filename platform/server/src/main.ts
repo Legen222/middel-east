@@ -8,6 +8,7 @@ import { CrashService } from './crash';
 import { openDb } from './db';
 import { createApp } from './http';
 import { settleDue } from './pvp';
+import { rainTick } from './rewards';
 
 const port = Number(process.env.PORT ?? 8787);
 const dbPath = process.env.DB_PATH ?? 'data/scrapline-demo.sqlite';
@@ -27,5 +28,5 @@ let busy = false;
 setInterval(async () => {
   if (busy) return;
   busy = true;
-  try { await crash.tick(Date.now()); await settleDue(db, beacon, Date.now()); } catch (e) { console.error('ticker', e); } finally { busy = false; }
+  try { await crash.tick(Date.now()); await settleDue(db, beacon, Date.now()); rainTick(db, cfg, Date.now()); } catch (e) { console.error('ticker', e); } finally { busy = false; }
 }, 200);

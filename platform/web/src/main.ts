@@ -12,6 +12,7 @@ import { lobbyView } from './views/lobby';
 import { minesView } from './views/mines';
 import { plinkoView } from './views/plinko';
 import { raidView } from './views/raid';
+import { rewardsView } from './views/rewards';
 import { upgraderView } from './views/upgrader';
 
 export interface Ctx {
@@ -35,6 +36,7 @@ const NAV: { path: string; label: string; icon: string; tag?: string; view: View
   { path: 'werkbank', label: 'Werkbank', icon: 'upgrade', view: upgraderView },
 ];
 const ACCOUNT: { path: string; label: string; icon: string; view: View }[] = [
+  { path: 'belohnungen', label: 'Belohnungen', icon: 'trophy', view: rewardsView },
   { path: 'limits', label: 'Limits & Pausen', icon: 'gauge', view: limitsView },
   { path: 'fair', label: 'Provably Fair', icon: 'shield', view: fairView },
   { path: 'verlauf', label: 'Verlauf', icon: 'clock', view: historyView },
@@ -103,6 +105,7 @@ function renderShell() {
       <a class="logo" href="#/">${icon('wrench')}SCRAP<span>LINE</span></a>
       <div class="spacer"></div>
       <div class="sessionbar" title="Spielzeit und Ergebnis dieser Sitzung">${icon('clock')}<span class="hide-s">Sitzung</span> <b id="s-time">00:00</b> <span class="hide-s">Netto</span> <b id="s-net">±0,00</b></div>
+      <a class="pill hide-s" href="#/belohnungen" title="Level und Belohnungen" style="text-decoration:none;color:inherit">${icon('trophy')}<span class="num" id="level">Lvl ${c.me.level}</span></a>
       <div class="pill"><span class="tag-demo">DEMO</span><span class="num" id="balance">${frags(c.me.balance)}</span><span class="hide-s muted">Frags</span></div>
       <button class="btn ghost small hide-s" id="refill" type="button">Nachschub</button>
       <button class="btn ghost small" id="logout" type="button" aria-label="Abmelden">${icon('user')}</button>
@@ -113,7 +116,7 @@ function renderShell() {
     </nav>
     <main id="view" tabindex="-1"></main>
     <nav class="bottomnav" aria-label="Navigation">
-      ${([[ALL[0], 'Start'], [ALL[1], 'Raid'], [ALL[4], 'Presse'], [ALL[NAV.length], 'Limits'], [ALL[NAV.length + 1], 'Fair']] as const).map(([n, l]) => `<a href="#/${n.path}" data-path="${n.path}">${icon(n.icon)}${l}</a>`).join('')}
+      ${([[ALL[0], 'Start'], [ALL[1], 'Raid'], [ALL[4], 'Presse'], [ALL[NAV.length + 1], 'Limits'], [ALL[NAV.length + 2], 'Fair']] as const).map(([n, l]) => `<a href="#/${n.path}" data-path="${n.path}">${icon(n.icon)}${l}</a>`).join('')}
     </nav>
   </div>`;
   $('#refill').addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => { await api('POST', '/demo/refill'); await refresh(); toast('Demo-Guthaben aufgefüllt.'); }));
@@ -126,6 +129,7 @@ async function refresh() {
   if (!ctx) return;
   ctx.me = await api<Me>('GET', '/me');
   $('#balance').textContent = frags(ctx.me.balance);
+  $('#level').textContent = `Lvl ${ctx.me.level}`;
   paintSession();
   scheduleRealityCheck();
 }

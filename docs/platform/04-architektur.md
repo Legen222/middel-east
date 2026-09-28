@@ -6,7 +6,7 @@ Diese Phase liefert:
 1. die **Zielarchitektur** für Demo- und späteren Echtgeld-Betrieb,
 2. ein **lauffähiges Demo-Backend**: Wallet mit doppelter Buchführung, Wett-Service für 6 Spiele,
    Seed-Verwaltung, Responsible Gambling, Geo-Blocking, Steam-Login, KYC- und AML-Prüfungen, HTTP-API,
-3. **28 Tests**, darunter das Nachspielen jeder Wette aus dem offengelegten Seed, PvP- und Crash-Abläufe und ein End-to-End-Test der API.
+3. **33 Tests**, darunter das Nachspielen jeder Wette aus dem offengelegten Seed, PvP-, Crash- und Belohnungs-Abläufe und ein End-to-End-Test der API.
 
 ---
 
@@ -203,6 +203,7 @@ Der gültige Fall und fünf Angriffsfälle sind getestet.
 | GET/POST | `/crash/state`, `/crash/bet`, `/crash/cashout`, `/crash/stream` (SSE) | Schrottpresse |
 | GET/POST | `/pvp/list/:type`, `/pvp/game/:id`, `/pvp/coinflip`, `/pvp/battle`, `/pvp/:id/join`, `/pvp/:id/bot`, `/pvp/:id/cancel` | Münzwurf und Kisten-Battle |
 | GET | `/games/open` | offene Minenfeld- und Raid-Runden (nach einem Neuladen) |
+| GET/POST | `/rewards`, `/rewards/rakeback`, `/rewards/daily`, `/rewards/rain`, `/crew/code`, `/crew/redeem`, `/crew/claim` | Level, Rakeback, Schrottkiste, Ölregen, Crew |
 
 Einsätze gibt die API in Frags an, gespeichert werden Milli-Frags. Fehler haben immer die Form
 `{ error, message, details }` mit deutscher Meldung. Jede Anfrage durchläuft Rate-Limit (20/s, Burst 40 je IP),
@@ -210,7 +211,7 @@ Größenlimit (16 KB) und Geo-Prüfung.
 
 ```bash
 cd platform/server && npm install
-npm test     # 28 Tests
+npm test     # 33 Tests
 npm start    # http://localhost:8787, Datei data/scrapline-demo.sqlite
 ```
 
@@ -246,5 +247,5 @@ npm start    # http://localhost:8787, Datei data/scrapline-demo.sqlite
 |---|---|
 | 5 | ✔ **Frontend** im SCRAPLINE-Design (`platform/web`): Lobby, alle Spiele, RG-Center, Provably Fair, Verlauf |
 | 6 | ✔ PvP-Lobby (Münzwurf, Battles) mit Beacon-Zufall, Crash-Service mit Hash-Kette und SSE, alles im Frontend |
-| 7 | Retention: Level/XP auf erwarteten Verlust, Rakeback, Daily-Kiste, Rain, Affiliate (Konzept aus Phase 2) |
+| 7 | ✔ Retention: Level/XP auf erwarteten Verlust, Rakeback 5–30 %, Schrottkiste (täglich, nachprüfbar), Ölregen, Crew-Codes mit NGR-Anteil. Während Pausen keine Promo-Guthaben |
 | 8 | Echtgeld-Vorbereitung: Lizenz, Rechtsgutachten (Steam!), KYC-Anbieter, Zahlungswege, externes RNG-Audit |

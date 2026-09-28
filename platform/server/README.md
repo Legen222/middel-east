@@ -1,13 +1,14 @@
 # SCRAPLINE Demo-Backend
 
 Wallet mit doppelter Buchführung, Wett-Service (Würfel, Plinko, Werkbank, Kisten, Minenfeld, Raid), PvP (Münzwurf,
-Kisten-Battle), Crash-Runden (Schrottpresse, Live per Server-Sent Events), Provably-Fair-Seeds,
+Kisten-Battle), Crash-Runden (Schrottpresse, Live per Server-Sent Events), Belohnungen (Level, Rakeback, Schrottkiste,
+Ölregen, Crew-Codes), Provably-Fair-Seeds,
 Responsible Gambling, Geo-Blocking, Steam-OpenID, KYC- und AML-Hooks und eine JSON-API. Keine Laufzeit-Abhängigkeiten
 (`node:http`, `node:sqlite`). Nutzt die Engine aus `../engine`. **Nur Demo-Modus, kein Echtgeld.**
 
 ```bash
 npm install
-npm test        # 28 Tests inkl. Nachspielen aus offengelegtem Seed, PvP, Crash und End-to-End-API-Test
+npm test        # 33 Tests inkl. Nachspielen aus offengelegtem Seed, PvP, Crash und End-to-End-API-Test
 npm start       # PORT=8787, DB_PATH=data/scrapline-demo.sqlite, PUBLIC_URL, BEACON=drand, CRASH_CHAIN=100000
 ```
 

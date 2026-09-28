@@ -16,6 +16,7 @@ import { type Fetch, STEAM_OPENID, verifyAssertion } from '../src/steam';
 import { HOUSE, balanceOf, ledgerIntegrity, userAccount } from '../src/wallet';
 import { getUser } from '../src/accounts';
 import { LocalBeacon } from '../src/beacon';
+import { DAILY_CASE, PROMO, claimCrew, claimRakeback, createCrewCode, crewState, joinRain, levelForXp, openDaily, progress, rainState, rainTick, rakebackRate, redeemCrewCode, xpForLevel, RAIN_PERIOD_MS, RAIN_WINDOW_MS } from '../src/rewards';
 import { CrashService, multiplierAt, verifyCrashLink } from '../src/crash';
 import { ESCROW, cancelGame, createBattle, createCoinflip, joinGame, publicGame, settleDue } from '../src/pvp';
 import { crashPoint, playCoinflip, playBattle } from '../../engine/src/index';
@@ -445,5 +446,76 @@ describe('crash (Schrottpresse)', () => {
     assert.equal(code(() => svc.placeBet(userId, frags(10), 100, t)), 'invalid_params');
     await svc.tick(t + 6000);
     assert.equal(code(() => svc.placeBet(userId, frags(10), 200, t + 6000)), 'not_betting');
+  });
+});
+
+describe('rewards (level, rakeback, Schrottkiste, Ölregen, Crew)', () => {
+  it('level curve and rakeback bands', () => {
+    assert.equal(levelForXp(0), 1);
+    assert.equal(xpForLevel(2), 100);
+    assert.equal(levelForXp(99), 1);
+    assert.equal(levelForXp(100), 2);
+    assert.equal(xpForLevel(5), 919);
+    assert.deepEqual([1, 9, 10, 24, 25, 50, 75, 100, 250].map(rakebackRate), [0.05, 0.05, 0.1, 0.1, 0.15, 0.2, 0.25, 0.3, 0.3]);
+  });
+  it('XP and rakeback follow expected loss (stake × edge), claim once, ledger stays balanced', () => {
+    const { db, cfg, userId } = setup();
+    playInstant(db, cfg, userId, 'dice', frags(1000), { chance: 49.5, direction: 'under' }, T0);     // EL 20
+    playInstant(db, cfg, userId, 'upgrader', frags(1000), { multiplier: 2 }, T0 + 1);                // EL 50
+    const p = progress(db, userId);
+    assert.equal(p.xp, 70);
+    assert.equal(p.level, 1);
+    assert.equal(p.rakebackAvailable, Math.floor(frags(70) * 0.05));
+    assert.equal(claimRakeback(db, userId, T0 + 2).amount, frags(3.5));
+    assert.equal(code(() => claimRakeback(db, userId, T0 + 3)), 'nothing_to_claim');
+    assert.deepEqual(ledgerIntegrity(db), { sum: 0, mismatched: [] });
+  });
+  it('Schrottkiste: level 2+, once per 24 h, blocked during a pause, replays from the revealed seed', () => {
+    const { db, cfg, userId } = setup();
+    assert.equal(code(() => openDaily(db, userId, T0)), 'level_required');
+    playInstant(db, cfg, userId, 'dice', frags(5000), { chance: 49.5, direction: 'under' }, T0); // EL 100 → level 2
+    const d = openDaily(db, userId, T0 + 1);
+    assert.equal(code(() => openDaily(db, userId, T0 + 2)), 'daily_wait');
+    const { revealed } = rotateSeed(db, userId, null, T0 + 3);
+    const replay = openCase(new FairStream(revealed.server_seed, revealed.client_seed, d.fairness.nonce), DAILY_CASE);
+    assert.equal(replay.item.name, d.item.name);
+    startCooldown(db, userId, 48, T0 + 4);
+    assert.equal(code(() => openDaily(db, userId, T0 + 86_400_000 + 5)), 'rg_blocked');
+    assert.ok(balanceOf(db, PROMO) < 0);
+    assert.deepEqual(ledgerIntegrity(db), { sum: 0, mismatched: [] });
+  });
+  it('Ölregen: window, eligibility, equal split at close', () => {
+    const { db, cfg, userId } = setup();
+    const { userId: low } = signUp(db, cfg, { displayName: 'Neu', ageConfirmed: true, country: 'NZ' }, T0);
+    const slot = Math.ceil(T0 / RAIN_PERIOD_MS) * RAIN_PERIOD_MS;
+    playInstant(db, cfg, userId, 'upgrader', frags(20000), { multiplier: 2 }, slot - 1000); // EL 1000 → level 5
+    rainTick(db, cfg, slot);
+    assert.equal(rainState(db, userId, slot + 1).open, true);
+    assert.equal(code(() => joinRain(db, low, slot + 2)), 'level_required');
+    joinRain(db, userId, slot + 3);
+    const before = bal(db, userId);
+    rainTick(db, cfg, slot + RAIN_WINDOW_MS);
+    const pot = rainState(db, userId, slot + RAIN_WINDOW_MS + 1);
+    assert.equal(bal(db, userId) - before, frags(500), 'single joiner gets the whole demo pot (500 Frags minimum)');
+    assert.equal(code(() => joinRain(db, userId, slot + RAIN_WINDOW_MS + 10)), 'rain_closed');
+    assert.ok(pot.nextAt > slot);
+    assert.deepEqual(ledgerIntegrity(db), { sum: 0, mismatched: [] });
+  });
+  it('Crew-Codes: redeem in the first 24 h, NGR share net of bonuses, no self-referral', () => {
+    const { db, cfg, userId: owner } = setup();
+    const { userId: member } = signUp(db, cfg, { displayName: 'Crew', ageConfirmed: true, country: 'NZ' }, T0);
+    createCrewCode(db, owner, 'rustcrew', T0);
+    assert.equal(code(() => redeemCrewCode(db, owner, 'RUSTCREW', T0)), 'own_code');
+    redeemCrewCode(db, member, 'RUSTCREW', T0 + 1);
+    assert.equal(code(() => redeemCrewCode(db, member, 'RUSTCREW', T0 + 2)), 'already_redeemed');
+    const b1 = playInstant(db, cfg, member, 'dice', frags(1000), { chance: 1, direction: 'under' }, T0 + 3); // lost with 99 %
+    const s = crewState(db, owner);
+    assert.equal(s.members, 1);
+    assert.equal(s.rate, 0.05);
+    assert.equal(s.ngr, b1.stake - b1.payout);
+    if (s.available >= frags(1)) assert.equal(claimCrew(db, owner, T0 + 4).amount, s.available);
+    const { userId: late } = signUp(db, cfg, { displayName: 'Spät', ageConfirmed: true, country: 'NZ' }, T0);
+    assert.equal(code(() => redeemCrewCode(db, late, 'RUSTCREW', T0 + 86_400_001)), 'too_late');
+    assert.deepEqual(ledgerIntegrity(db), { sum: 0, mismatched: [] });
   });
 });

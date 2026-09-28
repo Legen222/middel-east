@@ -41,7 +41,7 @@ export interface RaidBet extends Bet { layersBreached?: number; nextLayer?: stri
 
 export interface Session { startedAt: number; elapsedMs: number; bets: number; wagered: number; net: number; realityCheckMinutes: number; nextRealityCheckAt: number }
 export interface Me {
-  id: string; displayName: string; steamLinked: boolean; kycLevel: number; balance: number;
+  id: string; displayName: string; steamLinked: boolean; kycLevel: number; balance: number; level: number;
   seed: { serverSeedHash: string; clientSeed: string; nextNonce: number };
   session: Session; block: { kind: string; until: number | null } | null; promoEligible: boolean;
 }

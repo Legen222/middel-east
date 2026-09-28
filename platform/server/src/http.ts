@@ -20,6 +20,7 @@ import { REALITY_CHECK_OPTIONS, activeBlock, getLimits, promoEligible, selfExclu
 import type { Beacon } from './beacon';
 import type { CrashService } from './crash';
 import { cancelGame, createBattle, createCoinflip, joinGame, listGames, publicGame, settleDue } from './pvp';
+import { DAILY_CASE, RAKEBACK_BANDS, claimCrew, claimRakeback, createCrewCode, crewState, joinRain, openDaily, progress, rainState, redeemCrewCode } from './rewards';
 import { rotateSeed } from './seeds';
 import { type Fetch, loginUrl, verifyAssertion } from './steam';
 
@@ -77,7 +78,7 @@ export function createApp(deps: AppDeps) {
     const { user, startedAt } = c.auth();
     return {
       id: user.id, displayName: user.display_name, steamLinked: Boolean(user.steam_id), kycLevel: user.kyc_level,
-      balance: balance(db, user.id) / MF_PER_FRAG, seed: activeSeedPublic(db, user.id),
+      balance: balance(db, user.id) / MF_PER_FRAG, seed: activeSeedPublic(db, user.id), level: progress(db, user.id).level,
       session: fmtSession(sessionSummary(db, user.id, startedAt, clock())), block: activeBlock(db, user.id, clock()), promoEligible: promoEligible(db, user.id, clock()),
     };
   });
@@ -133,6 +134,27 @@ export function createApp(deps: AppDeps) {
   route('GET', '/crash/state', (c) => deps.crash.state(clock(), viewer(c)));
   route('POST', '/crash/bet', (c) => deps.crash.placeBet(c.auth().user.id, stakeMf(c.body?.stake), Math.round(num(c.body?.target, 'target') * 100), clock()));
   route('POST', '/crash/cashout', (c) => deps.crash.cashout(c.auth().user.id, clock()));
+
+  /* ---------- rewards ---------- */
+  route('GET', '/rewards', (c) => {
+    const u = c.auth().user.id;
+    const p = progress(db, u);
+    const lastDaily = db.prepare("SELECT created_at AS t FROM reward_claims WHERE user_id = ? AND kind = 'daily' ORDER BY created_at DESC LIMIT 1").get(u) as { t: number } | undefined;
+    const W = DAILY_CASE.items.reduce((s, i) => s + i.weight, 0);
+    const crew = crewState(db, u);
+    return {
+      ...p, rakebackAvailable: p.rakebackAvailable / MF_PER_FRAG, rakebackBands: RAKEBACK_BANDS,
+      daily: { nextAt: lastDaily ? lastDaily.t + 86_400_000 : 0, items: DAILY_CASE.items.map((i) => ({ name: i.name, value: i.value, chance: i.weight / W })) },
+      rain: rainState(db, u, clock()), promoEligible: promoEligible(db, u, clock()),
+      crew: { ...crew, ngr: crew.ngr / MF_PER_FRAG, available: crew.available / MF_PER_FRAG },
+    };
+  });
+  route('POST', '/rewards/rakeback', (c) => { const r = claimRakeback(db, c.auth().user.id, clock()); return { amount: r.amount / MF_PER_FRAG }; });
+  route('POST', '/rewards/daily', (c) => openDaily(db, c.auth().user.id, clock()));
+  route('POST', '/rewards/rain', (c) => joinRain(db, c.auth().user.id, clock()));
+  route('POST', '/crew/code', (c) => createCrewCode(db, c.auth().user.id, String(c.body?.code ?? ''), clock()));
+  route('POST', '/crew/redeem', (c) => redeemCrewCode(db, c.auth().user.id, String(c.body?.code ?? ''), clock()));
+  route('POST', '/crew/claim', (c) => { const r = claimCrew(db, c.auth().user.id, clock()); return { amount: r.amount / MF_PER_FRAG }; });
 
   /* ---------- responsible gambling ---------- */
   route('GET', '/rg', (c) => {

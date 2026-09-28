@@ -179,6 +179,35 @@ CREATE VIEW IF NOT EXISTS wagers AS
   SELECT b.user_id, 'crash', b.stake, b.payout, b.created_at, r.crash_at, (b.status = 'settled')
     FROM crash_bets b JOIN crash_rounds r ON r.id = b.round_id;
 
+-- Retention
+CREATE TABLE IF NOT EXISTS reward_claims (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  kind TEXT NOT NULL,             -- rakeback | daily | rain | affiliate
+  amount INTEGER NOT NULL,
+  data TEXT,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS reward_claims_user ON reward_claims(user_id, kind, created_at);
+CREATE TABLE IF NOT EXISTS rain_rounds (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  opens_at INTEGER NOT NULL,
+  closes_at INTEGER NOT NULL,
+  pot INTEGER NOT NULL,
+  status TEXT NOT NULL            -- open | paid
+);
+CREATE TABLE IF NOT EXISTS rain_joins (
+  rain_id INTEGER NOT NULL REFERENCES rain_rounds(id),
+  user_id TEXT NOT NULL REFERENCES users(id),
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (rain_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS crew_codes (
+  code TEXT PRIMARY KEY,
+  owner_id TEXT NOT NULL UNIQUE REFERENCES users(id),
+  created_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS audit (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id TEXT,
@@ -191,6 +220,9 @@ CREATE TABLE IF NOT EXISTS audit (
 export function openDb(path = ':memory:'): DB {
   const db = new DatabaseSync(path);
   db.exec(SCHEMA);
+  // Additive migrations for demo databases created by earlier versions.
+  const cols = (db.prepare('PRAGMA table_info(users)').all() as { name: string }[]).map((c) => c.name);
+  if (!cols.includes('crew_code')) db.exec('ALTER TABLE users ADD COLUMN crew_code TEXT');
   return db;
 }
 

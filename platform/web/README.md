@@ -23,6 +23,7 @@ npm run build                                           # dist/
 | Würfel | `#/wuerfel` | Chance per Slider, unter/über, Zählanimation |
 | Schrottrutsche | `#/schrottrutsche` | 8/12/16 Reihen, 3 Risikostufen, RTP je Tabelle |
 | Werkbank | `#/werkbank` | Ziel-Multiplikator, Chancen-Anzeige, Zeiger-Animation |
+| Belohnungen | `#/belohnungen` | Level-Fortschritt, Rakeback, Schrottkiste, Ölregen, Crew-Code |
 | Limits & Pausen | `#/limits` | Limits, Pause, Selbstausschluss, Reality-Check, Hilfe-Links |
 | Provably Fair | `#/fair` | aktives Seed-Paar, Rotation, offengelegte Seeds |
 | Verlauf | `#/verlauf` | letzte 100 Wetten mit Nonce und (nach Rotation) Server-Seed |

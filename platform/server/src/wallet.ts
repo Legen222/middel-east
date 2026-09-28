@@ -11,7 +11,7 @@ export const userAccount = (userId: string) => `user:${userId}`;
 export const HOUSE = 'house:bankroll';
 export const FAUCET = 'house:demo-faucet';
 
-export type LedgerKind = 'stake' | 'payout' | 'refund' | 'demo_grant' | 'deposit' | 'withdrawal' | 'rakeback';
+export type LedgerKind = 'stake' | 'payout' | 'refund' | 'demo_grant' | 'deposit' | 'withdrawal' | 'rakeback' | 'promo' | 'affiliate';
 
 export function balanceOf(db: DB, account: string): number {
   const row = db.prepare('SELECT amount FROM balances WHERE account = ?').get(account) as { amount: number } | undefined;
