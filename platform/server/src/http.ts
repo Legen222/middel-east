@@ -9,7 +9,7 @@ import { type IncomingMessage, type ServerResponse, createServer } from 'node:ht
 import { PLINKO_TABLES, SAMPLE_CASES, caseRtp, plinkoTheoreticalRtp, priceCase, EDGE, type RaidTool } from '../../engine/src/index';
 import { createSession, demoRefill, endSession, resolveSession, signUp, type UserRow } from './accounts';
 import {
-  GAMES, activeSeedPublic, balance, getBet, liveRtp, minesCashout, minesReveal, minesStart, playInstant,
+  GAMES, activeSeedPublic, balance, getBet, liveRtp, openGames, minesCashout, minesReveal, minesStart, playInstant,
   publicBet, raidBlast, raidCashout, raidStart, type InstantParams,
 } from './bets';
 import { checkGeo, withdrawalCheck } from './compliance';
@@ -99,6 +99,7 @@ export function createApp(deps: AppDeps) {
   route('POST', '/raid/start', (c) => fmtMoney(raidStart(db, cfg, c.auth().user.id, stakeMf(c.body?.stake), clock())));
   route('POST', '/raid/:id/blast', (c, p) => fmtMoney(raidBlast(db, cfg, c.auth().user.id, p.id, String(c.body?.tool) as RaidTool, clock())));
   route('POST', '/raid/:id/cashout', (c, p) => fmtMoney(raidCashout(db, c.auth().user.id, p.id, clock())));
+  route('GET', '/games/open', (c) => openGames(db, c.auth().user.id).map((g) => fmtMoney(g)));
   route('GET', '/bets', (c) => {
     const { user } = c.auth();
     const limit = Math.min(100, Math.max(1, Number(c.url.searchParams.get('limit') ?? 20)));

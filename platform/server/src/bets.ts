@@ -213,6 +213,15 @@ function publicRaid(b: BetRow, db: DB) {
 
 /* ---------- shared ---------- */
 
+/** Open stateful rounds of a player (for page reloads). Never includes hidden state. */
+export function openGames(db: DB, userId: string) {
+  const rows = db.prepare("SELECT id FROM bets WHERE user_id = ? AND status = 'open' ORDER BY created_at").all(userId) as { id: string }[];
+  return rows.map(({ id }) => {
+    const b = getBet(db, id)!;
+    return b.game === 'mines' ? publicMines(b, db) : b.game === 'raid' ? publicRaid(b, db) : publicBet(b, db);
+  });
+}
+
 function assertNoOpen(db: DB, userId: string, game: Game): void {
   const r = db.prepare("SELECT id FROM bets WHERE user_id = ? AND game = ? AND status = 'open'").get(userId, game) as { id: string } | undefined;
   if (r) fail('open_game', 'Du hast schon eine laufende Runde.', 409, { betId: r.id });

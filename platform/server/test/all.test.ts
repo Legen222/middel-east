@@ -273,6 +273,10 @@ describe('HTTP API (end to end)', () => {
       assert.equal(m.json.revealed.length, 0);
       assert.equal((await call('GET', `/bets/${m.json.id}`)).json.result, null);
       assert.equal((await call('POST', '/seed/rotate', {})).status, 409);
+      const og = await call('GET', '/games/open');
+      assert.equal(og.json.length, 1);
+      assert.equal(og.json[0].id, m.json.id);
+      assert.equal(JSON.stringify(og.json).includes('"mines":['), false);
       const r = await call('POST', `/mines/${m.json.id}/reveal`, { tile: 12 });
       assert.equal(r.status, 200);
       if (r.json.status === 'open') assert.equal((await call('POST', `/mines/${m.json.id}/cashout`, {})).status, 200);
