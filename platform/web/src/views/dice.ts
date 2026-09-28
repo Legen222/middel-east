@@ -3,14 +3,14 @@ import type { View } from '../main';
 import { $, $$, bindStake, fairBox, frags, guard, mult, readNum, reducedMotion, stakeField } from '../ui';
 
 export const diceView: View = {
-  title: 'Würfel',
+  title: 'Dice',
   html: () => `
   <section class="game">
     <div class="game-stage">
       <div class="game-head">
-        <div><p class="eyebrow">Original</p><h1 class="h-display">Würfel</h1>
-          <p>Wurf von 0,00 bis 99,99. Du wählst die Gewinnchance, der Multiplikator ist immer 0,98 · 100 / Chance.</p></div>
-        <div class="big-mult num" id="roll">––,––</div>
+        <div><p class="eyebrow">Original</p><h1 class="h-display">Dice</h1>
+          <p>Roll from 0.00 to 99.99. You pick the win chance; the multiplier is always 0.98 · 100 / chance.</p></div>
+        <div class="big-mult num" id="roll">––.––</div>
       </div>
       <div class="card" style="gap:10px">
         <svg viewBox="0 0 1000 60" style="width:100%;height:auto" aria-hidden="true">
@@ -21,14 +21,14 @@ export const diceView: View = {
         </svg>
       </div>
       <p class="status" id="status" role="status">&nbsp;</p>
-      <div class="chips" id="hist" aria-label="Letzte Würfe"></div>
+      <div class="chips" id="hist" aria-label="Recent rolls"></div>
     </div>
     <aside class="game-side">
       ${stakeField('stake', 10)}
-      <label class="field">Gewinnchance (%)<input id="chance" type="range" min="1" max="9800" value="4950"></label>
-      <div class="row" style="justify-content:space-between;font-size:14px"><span>Chance <b class="num" id="c-val">49,50 %</b></span><span>Multiplikator <b class="num" id="c-mult">1,9798×</b></span></div>
-      <div class="seg" role="group" aria-label="Richtung"><button type="button" data-dir="under" aria-pressed="true">Unter</button><button type="button" data-dir="over" aria-pressed="false">Über</button></div>
-      <button class="btn block" id="roll-btn" type="button">Würfeln</button>
+      <label class="field">Win chance (%)<input id="chance" type="range" min="1" max="9800" value="4950"></label>
+      <div class="row" style="justify-content:space-between;font-size:14px"><span>Chance <b class="num" id="c-val">49.50 %</b></span><span>Multiplier <b class="num" id="c-mult">1.9798×</b></span></div>
+      <div class="seg" role="group" aria-label="Direction"><button type="button" data-dir="under" aria-pressed="true">Under</button><button type="button" data-dir="over" aria-pressed="false">Over</button></div>
+      <button class="btn block" id="roll-btn" type="button">Roll</button>
       <div id="fair"></div>
     </aside>
   </section>`,
@@ -40,7 +40,7 @@ export const diceView: View = {
     const hist: { roll: number; win: boolean }[] = [];
     const paint = () => {
       const ch = chance();
-      $('#c-val', root).textContent = `${ch.toLocaleString('de-DE', { minimumFractionDigits: 2 })} %`;
+      $('#c-val', root).textContent = `${ch.toLocaleString('en-US', { minimumFractionDigits: 2 })} %`;
       $('#c-mult', root).textContent = mult((0.98 * 100) / ch);
       const z = $('#winzone', root);
       z.setAttribute('x', String(dir === 'under' ? 0 : 1000 - ch * 10));
@@ -65,7 +65,7 @@ export const diceView: View = {
       await new Promise<void>((done) => {
         const step = (t: number) => {
           const k = dur ? Math.min(1, (t - t0) / dur) : 1; const v = roll * (1 - Math.pow(1 - k, 3));
-          out.textContent = v.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          out.textContent = v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
           marker.setAttribute('x1', String(v * 10)); marker.setAttribute('x2', String(v * 10));
           k < 1 ? requestAnimationFrame(step) : done();
         };
@@ -73,10 +73,10 @@ export const diceView: View = {
       });
       out.className = `big-mult num ${win ? 'win' : 'lose'}`;
       const s = $('#status', root);
-      s.textContent = win ? `Gewonnen: +${frags(bet.payout - bet.stake)} Frags (${mult(bet.multiplier)})` : `Verloren: −${frags(bet.stake)} Frags`;
+      s.textContent = win ? `Won: +${frags(bet.payout - bet.stake)} Frags (${mult(bet.multiplier)})` : `Lost: −${frags(bet.stake)} Frags`;
       s.className = `status ${win ? 'win' : 'lose'}`;
       hist.unshift({ roll, win }); hist.length = Math.min(hist.length, 12);
-      $('#hist', root).innerHTML = hist.map((h) => `<span class="chip ${h.win ? 'win' : 'lose'}">${h.roll.toLocaleString('de-DE', { minimumFractionDigits: 2 })}</span>`).join('');
+      $('#hist', root).innerHTML = hist.map((h) => `<span class="chip ${h.win ? 'win' : 'lose'}">${h.roll.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>`).join('');
       $('#fair', root).innerHTML = fairBox(bet.fairness);
       await c.refresh();
     }));

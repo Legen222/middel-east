@@ -42,8 +42,8 @@ export function getLimits(db: DB, userId: string, now: number) {
 }
 
 export function setLimit(db: DB, cfg: Config, userId: string, kind: LimitKind, period: LimitPeriod, amount: number | null, now: number) {
-  if (!KINDS.includes(kind) || !PERIODS.includes(period)) fail('invalid_limit', 'Unbekannte Limit-Art oder Zeitraum.');
-  if (amount !== null && (!Number.isSafeInteger(amount) || amount <= 0)) fail('invalid_limit', 'Limit muss eine positive Zahl sein.');
+  if (!KINDS.includes(kind) || !PERIODS.includes(period)) fail('invalid_limit', 'Unknown limit type or period.');
+  if (amount !== null && (!Number.isSafeInteger(amount) || amount <= 0)) fail('invalid_limit', 'A limit must be a positive number.');
   return tx(db, () => {
     applyDue(db, userId, now);
     const cur = db.prepare('SELECT amount FROM rg_limits WHERE user_id = ? AND kind = ? AND period = ?').get(userId, kind, period) as { amount: number | null } | undefined;
@@ -81,8 +81,8 @@ export function activeBlock(db: DB, userId: string, now: number): { kind: 'coold
 export function assertNotBlocked(db: DB, userId: string, now: number): void {
   const b = activeBlock(db, userId, now);
   if (b) {
-    const when = b.until ? `bis ${new Date(b.until).toISOString().slice(0, 16).replace('T', ' ')} UTC` : 'dauerhaft';
-    fail(b.kind === 'cooldown' ? 'rg_cooldown' : 'rg_excluded', b.kind === 'cooldown' ? `Du hast eine Pause eingelegt (${when}).` : `Dein Konto ist gesperrt (Selbstausschluss, ${when}).`, 403, { until: b.until });
+    const when = b.until ? `until ${new Date(b.until).toISOString().slice(0, 16).replace('T', ' ')} UTC` : 'permanently';
+    fail(b.kind === 'cooldown' ? 'rg_cooldown' : 'rg_excluded', b.kind === 'cooldown' ? `You are on a break (${when}).` : `Your account is closed (self-exclusion, ${when}).`, 403, { until: b.until });
   }
 }
 
@@ -94,8 +94,8 @@ export function checkBet(db: DB, userId: string, stake: number, now: number): vo
   for (const r of rows) {
     const used = usage(db, userId, r.kind, r.period, now);
     if (used + stake > r.amount!) {
-      const label = r.kind === 'loss' ? 'Verlustlimit' : 'Einsatzlimit';
-      fail('rg_limit', `${label} (${periodLabel(r.period)}) erreicht: noch ${Math.max(0, r.amount! - used) / 1000} Frags frei.`, 403, { kind: r.kind, period: r.period, limit: r.amount, used });
+      const label = r.kind === 'loss' ? 'Loss limit' : 'Wager limit';
+      fail('rg_limit', `${label} (${periodLabel(r.period)}) reached: ${Math.max(0, r.amount! - used) / 1000} Frags left.`, 403, { kind: r.kind, period: r.period, limit: r.amount, used });
     }
   }
 }
@@ -106,14 +106,14 @@ export function checkDeposit(db: DB, userId: string, amount: number, now: number
   const rows = db.prepare("SELECT kind, period, amount FROM rg_limits WHERE user_id = ? AND kind = 'deposit' AND amount IS NOT NULL").all(userId) as unknown as LimitRow[];
   for (const r of rows) {
     const used = usage(db, userId, 'deposit', r.period, now);
-    if (used + amount > r.amount!) fail('rg_limit', `Einzahlungslimit (${periodLabel(r.period)}) erreicht.`, 403, { kind: 'deposit', period: r.period, limit: r.amount, used });
+    if (used + amount > r.amount!) fail('rg_limit', `Deposit limit (${periodLabel(r.period)}) reached.`, 403, { kind: 'deposit', period: r.period, limit: r.amount, used });
   }
 }
 
-const periodLabel = (p: LimitPeriod) => ({ day: 'Tag', week: 'Woche', month: 'Monat' })[p];
+const periodLabel = (p: LimitPeriod) => ({ day: 'day', week: 'week', month: 'month' })[p];
 
 export function startCooldown(db: DB, userId: string, hours: number, now: number) {
-  if (!Number.isInteger(hours) || hours < 24 || hours > 24 * 42) fail('invalid_cooldown', 'Pause: 24 Stunden bis 6 Wochen.');
+  if (!Number.isInteger(hours) || hours < 24 || hours > 24 * 42) fail('invalid_cooldown', 'Break: 24 hours to 6 weeks.');
   return tx(db, () => {
     const until = now + hours * HOUR;
     db.prepare("INSERT INTO rg_blocks (user_id, kind, until_at, created_at) VALUES (?, 'cooldown', ?, ?)").run(userId, until, now);
@@ -123,7 +123,7 @@ export function startCooldown(db: DB, userId: string, hours: number, now: number
 }
 
 export function selfExclude(db: DB, userId: string, months: 6 | 12 | 60 | null, now: number) {
-  if (months !== null && ![6, 12, 60].includes(months)) fail('invalid_exclusion', 'Selbstausschluss: 6, 12 oder 60 Monate oder dauerhaft.');
+  if (months !== null && ![6, 12, 60].includes(months)) fail('invalid_exclusion', 'Self-exclusion: 6, 12 or 60 months, or permanent.');
   return tx(db, () => {
     const until = months === null ? null : now + months * 30 * 86_400_000;
     db.prepare("INSERT INTO rg_blocks (user_id, kind, until_at, created_at) VALUES (?, 'exclusion', ?, ?)").run(userId, until, now);
@@ -136,7 +136,7 @@ export function selfExclude(db: DB, userId: string, months: 6 | 12 | 60 | null, 
 export const REALITY_CHECK_OPTIONS = [15, 30, 60, 120];
 
 export function setRealityCheck(db: DB, userId: string, minutes: number, now: number): void {
-  if (!REALITY_CHECK_OPTIONS.includes(minutes)) fail('invalid_reality_check', 'Reality-Check: 15, 30, 60 oder 120 Minuten.');
+  if (!REALITY_CHECK_OPTIONS.includes(minutes)) fail('invalid_reality_check', 'Reality check: 15, 30, 60 or 120 minutes.');
   db.prepare('INSERT INTO rg_settings (user_id, reality_check_minutes) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET reality_check_minutes = excluded.reality_check_minutes').run(userId, minutes);
   audit(db, userId, 'rg_reality_check', { minutes }, now);
 }

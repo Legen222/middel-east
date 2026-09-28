@@ -1,5 +1,5 @@
 <title>SCRAPLINE · AFTERWIPE · BLUEPRINT</title>
-<meta name="description" content="Phase 2: drei Konzeptrichtungen für die Rust-Skin-Plattform als klickbare Mockups mit Demo-Spielen und Provably Fair.">
+<meta name="description" content="Phase 2: three concept directions for the Rust skin platform as clickable mockups with demo games and provably fair.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=Barlow+Condensed:wght@500;700&family=Barlow:wght@400;600&family=Big+Shoulders+Stencil:wght@700;900&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&family=Manrope:wght@400;600;700&family=Oxanium:wght@500;700;800&family=Space+Mono:wght@400;700&display=swap">
@@ -297,11 +297,11 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(-
 <div class="wrap">
   <header class="board-head">
     <div>
-      <p class="eyebrow">Phase 2 · Konzept-Board · Demo-Modus, kein Echtgeld</p>
-      <h1>Drei Richtungen für die Rust-Skin-Plattform</h1>
-      <p class="lede">Jede Richtung zeigt Tokens, Typografie, Icon-Stil, die Lobby als Desktop- und Mobil-Ansicht und ihren spielbaren Signature-Modus mit echtem Provably-Fair-Nachweis (HMAC-SHA256 im Browser).</p>
+      <p class="eyebrow">Phase 2 · Concept board · Demo mode, no real money</p>
+      <h1>Three directions for the Rust skin platform</h1>
+      <p class="lede">Each direction shows tokens, typography, icon style, the lobby in desktop and mobile view, and its playable signature mode with real provably fair proof (HMAC-SHA256 in the browser).</p>
     </div>
-    <div class="tabs" role="tablist" aria-label="Konzeptrichtung">
+    <div class="tabs" role="tablist" aria-label="Concept direction">
       <button class="tab" role="tab" data-c="a" id="tab-a" aria-selected="true"><b>A · SCRAPLINE</b><span>Industrial Rust</span></button>
       <button class="tab" role="tab" data-c="b" id="tab-b" aria-selected="false"><b>B · AFTERWIPE</b><span>Neon Raid Night</span></button>
       <button class="tab" role="tab" data-c="c" id="tab-c" aria-selected="false"><b>C · BLUEPRINT</b><span>Clean Premium</span></button>
@@ -310,23 +310,23 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(-
 
   <main id="concept" class="k-a" style="display:flex;flex-direction:column;gap:28px"></main>
 
-  <section class="notes" aria-label="Gemeinsame Regeln">
-    <div class="note"><h3>Gilt für alle drei Richtungen</h3><ul>
-      <li>RTP steht auf jeder Spielkachel, das Case-EV auf jeder Case-Karte.</li>
-      <li>Die Session-Leiste zeigt immer Spielzeit und Netto-Ergebnis.</li>
-      <li>Rakeback auf den erwarteten Verlust, keine Kredite, keine Fake-Timer.</li>
+  <section class="notes" aria-label="Shared rules">
+    <div class="note"><h3>Applies to all three directions</h3><ul>
+      <li>RTP is shown on every game tile, case EV on every case card.</li>
+      <li>The session bar always shows play time and net result.</li>
+      <li>Rakeback on expected loss, no credit, no fake timers.</li>
     </ul></div>
-    <div class="note"><h3>Provably Fair im Mockup</h3><ul>
+    <div class="note"><h3>Provably fair in the mockup</h3><ul>
       <li><code>roll = HMAC-SHA256(serverSeed, clientSeed:nonce:cursor)</code></li>
-      <li>Der Hash des Server-Seeds steht vor jeder Runde fest. „Seed rotieren“ enthüllt den alten Seed.</li>
-      <li>Client-Seed ist frei änderbar.</li>
+      <li>The server seed hash is fixed before every round. “Rotate seed” reveals the old seed.</li>
+      <li>The client seed can be changed freely.</li>
     </ul></div>
-    <div class="note"><h3>Bildplätze</h3><ul>
-      <li>Gestrichelte Labels markieren Stellen für KI-Artworks.</li>
-      <li>Die passenden Prompts stehen in <code>docs/platform/02-konzept.md</code>.</li>
+    <div class="note"><h3>Image slots</h3><ul>
+      <li>Dashed labels mark spots for AI artwork.</li>
+      <li>The matching prompts are in <code>docs/platform/02-konzept.md</code>.</li>
     </ul></div>
   </section>
-  <p class="foot">Spielgeld-Demo. Echtgeld- und Skin-Betrieb nur mit Lizenz, 18+, mit Geo-Blocking und Responsible-Gambling-Tools.</p>
+  <p class="foot">Play-money demo. Real-money and skin operation only with a licence, 18+, geo-blocking and responsible gambling tools.</p>
 </div>
 
 <script>
@@ -335,7 +335,7 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(-
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const icon = (id, cls = 'ico') => `<svg class="${cls}" aria-hidden="true"><use href="#i-${id}"/></svg>`;
-const fmt = n => n.toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const fmt = n => n.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
 /* ---------- Provably fair engine ---------- */
 const enc = new TextEncoder();
@@ -360,48 +360,48 @@ class Fair {
 const RAR = {common:'#9aa3ad', uncommon:'#4C8DF6', rare:'#9b6bff', epic:'#e0529c', legend:'#E8B21A'};
 const C = {
   a: {
-    cls:'k-a', name:'SCRAPLINE', claim:'Ehrlicher Schrott. Faire Rechnung.',
-    dir:'Industrial Rust / Scrap-Yard. Werkstatt am Rand der Map: rau im Look, exakt in der Rechnung. Ton: trocken, knapp, Survivor-Slang.',
+    cls:'k-a', name:'SCRAPLINE', claim:'Honest scrap. Fair math.',
+    dir:'Industrial Rust / scrap yard. A workshop at the edge of the map: rough in look, exact in the math. Tone: dry, terse, survivor slang.',
     currency:'Frags', unit:0.01, mark:'wrench',
     swatches:[['bg','#15120F'],['surface','#211C17'],['surface-2','#2E2720'],['line','#4A3F33'],['rust','#B7471D'],['hazard','#E8B21A'],['patina','#5E8C7A'],['text','#EAE2D3']],
     fonts:['Big Shoulders Stencil 900','Barlow / Barlow Condensed','JetBrains Mono'],
-    display:'LOOT GESICHERT', ui:'Wand hält. Nächste Schicht: Metall.', mono:'x 2,50 · roll 0.3817',
-    nav:[['home','Werkstatt'],['raid','Raid','NEU'],['crate','Kisten'],['battle','Kisten-Battle'],['upgrade','Werkbank'],['crash','Schrottpresse'],['mine','Minenfeld'],['plinko','Schrottrutsche'],['coin','Münzwurf'],['dice','Würfel']],
-    heroKicker:'Signature · Raid', heroTitle:'Wähl deinen Sprengstoff. Jede Wand zählt.', heroText:'6 Schichten von Twig bis Tool Cupboard. C4, Rakete oder Satchel, du entscheidest pro Wand. RTP 97 % auf jedem Weg.', heroCta:'Raid starten',
-    games:[['raid','Raid','97,0',true],['crash','Schrottpresse','98,0'],['upgrade','Werkbank','95,0'],['mine','Minenfeld','97,0'],['plinko','Schrottrutsche','97,0'],['coin','Münzwurf','96,0'],['dice','Würfel','98,0'],['battle','Kisten-Battle','93,0']],
-    cases:[['Werkzeugkiste',150,'common'],['Militärkiste',500,'uncommon'],['Elite-Crate',2500,'rare'],['Tresor',10000,'legend']],
+    display:'LOOT SECURED', ui:'Wall holds. Next layer: Metal.', mono:'x 2.50 · roll 0.3817',
+    nav:[['home','Workshop'],['raid','Raid','NEW'],['crate','Cases'],['battle','Case Battle'],['upgrade','Workbench'],['crash','Scrap Press'],['mine','Minefield'],['plinko','Scrap Chute'],['coin','Coinflip'],['dice','Dice']],
+    heroKicker:'Signature · Raid', heroTitle:'Pick your explosive. Every wall counts.', heroText:'6 layers from Twig to Tool Cupboard. C4, rocket or satchel: you decide at every wall. 97 % RTP on every path.', heroCta:'Start raid',
+    games:[['raid','Raid','97.0',true],['crash','Scrap Press','98.0'],['upgrade','Workbench','95.0'],['mine','Minefield','97.0'],['plinko','Scrap Chute','97.0'],['coin','Coinflip','96.0'],['dice','Dice','98.0'],['battle','Case Battle','93.0']],
+    cases:[['Toolbox',150,'common'],['Military Crate',500,'uncommon'],['Elite Crate',2500,'rare'],['Vault',10000,'legend']],
     drops:[['rust_ratte','Tempered AK',84.20,'epic'],['BaseBuilder','Big Grin Door',12.40,'rare'],['m3tal','No Mercy Box',3.10,'uncommon'],['ZergLord','Alien Red',51.90,'epic'],['sol0','Tape Hoodie',1.20,'common'],['offline_hq','Glory AK',210.00,'legend']],
-    chat:[['Hazmat_Hans',42,'Satchel auf Metall? Mutig.'],['kiwi',17,'3 Wände mit C4, sicher raus. Reicht mir.'],['Bruder_Stein',63,'Seed-Check: passt, Hash war schon vorher da'],['nyx',8,'wie lang geht das bis zur Auszahlung?'],['Mod · Werkbank',99,'Median-Auszahlung heute: 3 min 40 s']],
-    rain:'Ölregen', sig:'raid'
+    chat:[['Hazmat_Hans',42,'Satchel on metal? Bold.'],['kiwi',17,'3 walls with C4, cashed out safe. Good enough.'],['Stone_Bro',63,'Seed check: matches, hash was posted before'],['nyx',8,'how long do withdrawals take?'],['Mod · Workbench',99,'Median withdrawal today: 3 min 40 s']],
+    rain:'Oil Rain', sig:'raid'
   },
   b: {
-    cls:'k-b', name:'AFTERWIPE', claim:'Jeder Wipe ein neuer Anfang.',
-    dir:'Neon Raid Night. Die erste Nacht nach dem Wipe: Fackeln, Signal-Rauch, Airdrops. Event-Rhythmus, streamer- und mobile-first.',
+    cls:'k-b', name:'AFTERWIPE', claim:'Every wipe a fresh start.',
+    dir:'Neon Raid Night. The first night after the wipe: flares, signal smoke, airdrops. Event rhythm, streamer- and mobile-first.',
     currency:'Charge', unit:0.01, mark:'airdrop',
     swatches:[['bg','#0A0B12'],['surface','#12142A'],['surface-2','#1B1E3A'],['line','#2B2F57'],['flare','#FF4D2E'],['smoke','#B06CFF'],['nvg','#7CFFB2'],['hud','#43D9F0']],
     fonts:['Oxanium 800','Manrope','Space Mono'],
-    display:'DROP IN 00:42', ui:'Signal gezündet. Saison 07 läuft bis Wipe-Day.', mono:'1.00x → 12.48x · h 0x3f2a…',
-    nav:[['home','Lobby'],['airdrop','Airdrop','LIVE'],['crate','Cases'],['battle','Battles'],['upgrade','Upgrader'],['mine','Mines'],['plinko','Plinko'],['target','Signal'],['coin','Coinflip'],['trophy','Saison-Pass']],
-    heroKicker:'Signature · Airdrop Crash', heroTitle:'Der Crate fällt. Du entscheidest, wann du springst.', heroText:'Multiplikator steigt, solange der Crate am Fallschirm hängt. Landung bei 1.000×. RTP 98 %.', heroCta:'Zum Airdrop',
-    games:[['airdrop','Airdrop','98,0',true],['target','Signal (Limbo)','98,0'],['crate','Cases','93,0'],['battle','Battles','93,0'],['upgrade','Upgrader','95,0'],['mine','Mines','97,0'],['plinko','Plinko','97,0'],['coin','Coinflip','96,0']],
-    cases:[['Night Ops',120,'uncommon'],['Signal Smoke',480,'rare'],['Saison 07',1500,'epic'],['Cargo Run',9000,'legend']],
+    display:'DROP IN 00:42', ui:'Signal lit. Season 07 runs until wipe day.', mono:'1.00x → 12.48x · h 0x3f2a…',
+    nav:[['home','Lobby'],['airdrop','Airdrop','LIVE'],['crate','Cases'],['battle','Battles'],['upgrade','Upgrader'],['mine','Mines'],['plinko','Plinko'],['target','Signal'],['coin','Coinflip'],['trophy','Season Pass']],
+    heroKicker:'Signature · Airdrop Crash', heroTitle:'The crate drops. You decide when to jump.', heroText:'The multiplier climbs while the crate hangs on its parachute. Lands at 1,000×. 98 % RTP.', heroCta:'To the airdrop',
+    games:[['airdrop','Airdrop','98.0',true],['target','Signal (Limbo)','98.0'],['crate','Cases','93.0'],['battle','Battles','93.0'],['upgrade','Upgrader','95.0'],['mine','Mines','97.0'],['plinko','Plinko','97.0'],['coin','Coinflip','96.0']],
+    cases:[['Night Ops',120,'uncommon'],['Signal Smoke',480,'rare'],['Season 07',1500,'epic'],['Cargo Run',9000,'legend']],
     drops:[['flare_fox','Neon AK',66.10,'epic'],['NVG','Night Stalker',9.80,'rare'],['wipekid','Glowing Bag',2.40,'uncommon'],['sm0ke','Supply Hoodie',0.90,'common'],['cargo_cat','Tempered MP5',120.50,'legend'],['lumen','Flare Mask',18.30,'rare']],
-    chat:[['flare_fox',51,'bei 4x raus, heli war schnell heute'],['lumen',22,'saison-case lvl 30 ist 🔥'],['cargo_cat',77,'wipe day donnerstag, pass reset'],['nightowl',9,'auto-cashout auf 2x läuft'],['Mod · Signal',99,'Supply Drop in 11 min, Level 5+']],
+    chat:[['flare_fox',51,'out at 4x, heli was quick today'],['lumen',22,'season case lvl 30 is 🔥'],['cargo_cat',77,'wipe day thursday, pass reset'],['nightowl',9,'auto cash-out at 2x running'],['Mod · Signal',99,'Supply Drop in 11 min, level 5+']],
     rain:'Supply Drop', sig:'airdrop'
   },
   c: {
-    cls:'k-c', name:'BLUEPRINT', claim:'Jede Runde mit offenem Bauplan.',
-    dir:'Clean Premium. Technische Zeichnung auf Graphit, Keycards in Grün, Blau, Rot. Zahlen statt Adjektive, lizenztauglich.',
+    cls:'k-c', name:'BLUEPRINT', claim:'Every round with an open blueprint.',
+    dir:'Clean Premium. Technical drawing on graphite, keycards in green, blue, red. Numbers instead of adjectives, licence-ready.',
     currency:'Demo-$', unit:1, mark:'keycard',
     swatches:[['bg','#0F1113'],['surface','#171A1D'],['surface-2','#20252A'],['line','#2E353C'],['blueprint','#5AA9E6'],['brass','#C9A45C'],['ok','#6CCB8E'],['card red','#E5534B']],
     fonts:['Archivo (wdth 62–125)','IBM Plex Sans','IBM Plex Mono'],
-    display:'Runde #48 213 verifiziert', ui:'Auszahlung in 4 min 12 s. RTP 30 Tage: 97,04 %.', mono:'sha256(seed) = 9f1c…e20a',
-    nav:[['home','Übersicht'],['keycard','Monument Run','NEU'],['crate','Cases'],['battle','Battles'],['upgrade','Upgrader'],['crash','Crash'],['mine','Mines'],['plinko','Plinko'],['dice','Dice'],['shield','Fair-Ledger']],
-    heroKicker:'Signature · Monument Run', heroTitle:'Acht Räume. Drei Keycards. Ein offener Bauplan.', heroText:'Grün, Blau, Rot: jede Tür mit bekannter Chance. Voller Lauf 31,04×. Jede Runde erscheint im öffentlichen Fair-Ledger.', heroCta:'Lauf starten',
-    games:[['keycard','Monument Run','97,0',true],['crash','Crash','98,0'],['dice','Dice','98,0'],['target','Limbo','98,0'],['upgrade','Upgrader','95,0'],['mine','Mines','97,0'],['plinko','Plinko','97,0'],['crate','Cases','93,0']],
+    display:'Round #48,213 verified', ui:'Withdrawal in 4 min 12 s. 30-day RTP: 97.04 %.', mono:'sha256(seed) = 9f1c…e20a',
+    nav:[['home','Overview'],['keycard','Monument Run','NEW'],['crate','Cases'],['battle','Battles'],['upgrade','Upgrader'],['crash','Crash'],['mine','Mines'],['plinko','Plinko'],['dice','Dice'],['shield','Fair-Ledger']],
+    heroKicker:'Signature · Monument Run', heroTitle:'Eight rooms. Three keycards. One open blueprint.', heroText:'Green, blue, red: every door with a known chance. Full run 31.04×. Every round appears in the public fair ledger.', heroCta:'Start run',
+    games:[['keycard','Monument Run','97.0',true],['crash','Crash','98.0'],['dice','Dice','98.0'],['target','Limbo','98.0'],['upgrade','Upgrader','95.0'],['mine','Mines','97.0'],['plinko','Plinko','97.0'],['crate','Cases','93.0']],
     cases:[['Green Card',1.5,'common'],['Blue Card',5,'uncommon'],['Red Card',25,'rare'],['Brass',100,'legend']],
     drops:[['a.kern','Tempered AK',84.20,'epic'],['r. vogt','Big Grin Door',12.40,'rare'],['m.lind','Alien Red',51.90,'epic'],['j.aro','Tape Hoodie',1.20,'common'],['s.berg','Glory AK',210.00,'legend']],
-    chat:[['ledger-bot',0,'Runde #48 212 · Crash 3,41× · verifiziert'],['m.lind',31,'RTP-Statistik der letzten 30 Tage ist echt nützlich'],['a.kern',48,'Blau-Tür 2 von 3 sicher, bin raus bei 3,45×'],['Support',99,'Median-Auszahlung heute: 4 min 12 s']],
+    chat:[['ledger-bot',0,'Round #48,212 · crash 3.41× · verified'],['m.lind',31,'the 30-day RTP stats are really useful'],['a.kern',48,'blue door 2 of 3 safe, out at 3.45×'],['Support',99,'Median withdrawal today: 4 min 12 s']],
     rain:'Blueprint Drop', sig:'monument'
   }
 };
@@ -423,17 +423,17 @@ async function render(k){
   document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', String(t.dataset.c === k)));
   const cur = v => `${fmt(v)} ${d.currency}`;
   root.innerHTML = `
-  <section class="spec" aria-label="Markensystem">
+  <section class="spec" aria-label="Brand system">
     <div class="spec-block concept-title">
-      <h3>Marke</h3>
+      <h3>Brand</h3>
       <p class="name">${d.name}</p>
       <p class="claim">${esc(d.claim)}</p>
       <p class="dir">${esc(d.dir)}</p>
     </div>
-    <div class="spec-block"><h3>Farb-Tokens</h3>
+    <div class="spec-block"><h3>Colour tokens</h3>
       <div class="swatches">${d.swatches.map(([n,h]) => `<div class="sw"><i style="background:${h}"></i><span><b>${h}</b>${n}</span></div>`).join('')}</div>
     </div>
-    <div class="spec-block"><h3>Typografie</h3>
+    <div class="spec-block"><h3>Typography</h3>
       <div class="type-spec">
         <span class="d">${esc(d.display)}</span>
         <span class="u">${esc(d.ui)}</span>
@@ -441,16 +441,16 @@ async function render(k){
         <small>${d.fonts.map(esc).join(' · ')}</small>
       </div>
     </div>
-    <div class="spec-block"><h3>Icon-Stil</h3>
+    <div class="spec-block"><h3>Icon style</h3>
       <div class="iconrow">${['crate','battle','upgrade','crash','mine','plinko','coin','dice',d.mark,'shield','rain','gauge'].map(i => `<figure>${icon(i)}<figcaption>${i}</figcaption></figure>`).join('')}</div>
     </div>
   </section>
 
   <div class="section-label">
-    <div><h2>Lobby</h2><p>RTP auf jeder Kachel, EV auf jeder Case-Karte, Session-Leiste immer sichtbar.</p></div>
-    <div class="viewtoggle" role="group" aria-label="Ansicht">
+    <div><h2>Lobby</h2><p>RTP on every tile, EV on every case card, session bar always visible.</p></div>
+    <div class="viewtoggle" role="group" aria-label="View">
       <button type="button" data-view="desktop" aria-pressed="${st.view==='desktop'}">Desktop</button>
-      <button type="button" data-view="mobile" aria-pressed="${st.view==='mobile'}">Mobil</button>
+      <button type="button" data-view="mobile" aria-pressed="${st.view==='mobile'}">Mobile</button>
     </div>
   </div>
   <div class="stage"><div class="frame ${st.view==='mobile'?'mobile':''}" id="lobby">
@@ -458,59 +458,59 @@ async function render(k){
       <div class="topbar">
         <div class="logo"><span class="mark">${icon(d.mark)}</span>${d.name}</div>
         <div class="spacer"></div>
-        <div class="session" title="Responsible Gambling: Session-Leiste">${icon('clock')}<span>Session <b data-sess-time>00:00</b></span><span>Netto <b class="net" data-sess-net>±0,00</b></span></div>
+        <div class="session" title="Responsible gambling: session bar">${icon('clock')}<span>Session <b data-sess-time>00:00</b></span><span>Net <b class="net" data-sess-net>±0.00</b></span></div>
         <div class="pill"><span class="demo-tag">DEMO</span><span class="num" data-bal>${cur(st.bal)}</span></div>
-        <button class="btn hide-s" type="button">Einzahlen</button>
+        <button class="btn hide-s" type="button">Deposit</button>
         <svg class="lvl" viewBox="0 0 36 36" aria-label="Level 24"><circle cx="18" cy="18" r="15" fill="none" stroke="var(--k-line)" stroke-width="3"/><circle cx="18" cy="18" r="15" fill="none" stroke="var(--k-accent2)" stroke-width="3" stroke-dasharray="62 94.2" transform="rotate(-90 18 18)"/><text x="18" y="22" text-anchor="middle" font-size="11" fill="var(--k-text)" font-family="var(--k-mono)">24</text></svg>
         <span class="avatar">${icon('user')}</span>
       </div>
-      <div class="rgbar"><span>Session <b data-sess-time>00:00</b></span><span>Netto <b data-sess-net>±0,00</b></span><span>Limit <b>50,00/Tag</b></span></div>
-      <nav class="side" aria-label="Spiele">
-        <h4>Spiele</h4>
+      <div class="rgbar"><span>Session <b data-sess-time>00:00</b></span><span>Net <b data-sess-net>±0.00</b></span><span>Limit <b>50.00/day</b></span></div>
+      <nav class="side" aria-label="Games">
+        <h4>Games</h4>
         ${d.nav.map(([i,l,t],n) => `<button type="button" class="nav ${n===0?'on':''}" ${n===1?'data-goto-sig':''}>${icon(i)}<span>${l}</span>${t?`<em class="tag">${t}</em>`:''}</button>`).join('')}
-        <h4>Konto</h4>
-        <button type="button" class="nav">${icon('gauge')}<span>Limits &amp; Pausen</span></button>
+        <h4>Account</h4>
+        <button type="button" class="nav">${icon('gauge')}<span>Limits &amp; Breaks</span></button>
         <button type="button" class="nav">${icon('shield')}<span>Provably Fair</span></button>
       </nav>
       <div class="main">
         <div class="hero">
           ${heroArt(k)}
-          <span class="imgslot">Bild: Hero 16:9</span>
+          <span class="imgslot">Image: hero 16:9</span>
           <span class="kicker">${esc(d.heroKicker)}</span>
           <h3>${esc(d.heroTitle)}</h3>
           <p>${esc(d.heroText)}</p>
-          <div class="row"><button class="btn" type="button" data-goto-sig>${esc(d.heroCta)}</button>${k==='a'?'<span class="tape">Seed geprüft</span>':''}</div>
+          <div class="row"><button class="btn" type="button" data-goto-sig>${esc(d.heroCta)}</button>${k==='a'?'<span class="tape">Seed verified</span>':''}</div>
         </div>
-        <div class="rowhead"><h5>Originals</h5><span>RTP je Spiel, Zielwerte</span></div>
+        <div class="rowhead"><h5>Originals</h5><span>RTP per game, target values</span></div>
         <div class="games">${d.games.map(([i,l,r,s]) => `<button type="button" class="game ${s?'featured':''}" ${s?'data-goto-sig':''}><span class="gi">${icon(i)}</span><b>${l}</b><span class="rtp"><span>RTP</span><em>${r} %</em></span></button>`).join('')}</div>
-        <div class="rowhead"><h5>${k==='c'?'Cases':'Kisten'}</h5><span>EV = erwarteter Wert je Öffnung</span></div>
+        <div class="rowhead"><h5>Cases</h5><span>EV = expected value per opening</span></div>
         <div class="cases">${d.cases.map(([n,p,r]) => { const price = p*d.unit*(k==='c'?1:100); return `<div class="case" style="--rar:${RAR[r]}"><div class="art">${icon('crate')}<span class="imgslot">Case-Art</span></div><div class="meta"><b>${esc(n)}</b><span class="price">${fmt(p)} ${k==='c'?'$':d.currency}</span></div><span class="ev">EV ${fmt(p*0.93)} · RTP 93 %</span></div>`; }).join('')}</div>
-        <div class="rowhead"><h5>Live-Drops</h5><span>letzte 60 s</span></div>
+        <div class="rowhead"><h5>Live drops</h5><span>last 60 s</span></div>
         <div class="drops">${d.drops.map(([u,it,v,r]) => `<span class="drop" style="--rar:${RAR[r]}"><b>${esc(it)}</b><span class="v">${fmt(v)} $</span><span>${esc(u)}</span></span>`).join('')}</div>
       </div>
       <aside class="chat" aria-label="Chat">
-        <header><b>Chat</b><span>1.284 online</span></header>
-        <div class="rain">${icon('rain')}<span>${esc(d.rain)} · ab Level 5, nicht während einer Pause</span><b>${k==='c'?'25,00 $':'2.500 '+d.currency}</b><span>in 11:24 min</span></div>
+        <header><b>Chat</b><span>1,284 online</span></header>
+        <div class="rain">${icon('rain')}<span>${esc(d.rain)} · level 5+, not during a break</span><b>${k==='c'?'$25.00':'2,500 '+d.currency}</b><span>in 11:24 min</span></div>
         <div class="msgs">${d.chat.map(([u,l,m]) => `<p class="msg"><span class="lv">${l}</span><span class="who">${esc(u)}</span>${esc(m)}</p>`).join('')}</div>
-        <div class="chatbox">Nachricht schreiben…</div>
+        <div class="chatbox">Write a message…</div>
       </aside>
       <nav class="bottomnav" aria-label="Mobile Navigation">
         <button type="button" class="on">${icon('home')}Lobby</button>
         <button type="button" data-goto-sig>${icon(d.mark)}${d.nav[1][1]}</button>
         <button type="button">${icon('crate')}Cases</button>
         <button type="button">${icon('chat')}Chat</button>
-        <button type="button">${icon('user')}Konto</button>
+        <button type="button">${icon('user')}Account</button>
       </nav>
     </div>
   </div></div>
 
   <div class="section-label" id="sig-anchor">
-    <div><h2>Signature: ${esc(d.nav[1][1])}</h2><p>Spielbar mit Demo-Guthaben. Ergebnisse kommen aus dem Provably-Fair-Seed rechts.</p></div>
+    <div><h2>Signature: ${esc(d.nav[1][1])}</h2><p>Playable with demo balance. Results come from the provably fair seed on the right.</p></div>
   </div>
   <div class="stage"><div class="frame ${st.view==='mobile'?'mobile':''}" id="sigframe"><div class="sig">
     <div class="sig-main" id="sig-main"></div>
     <div class="sig-side">
-      <label class="field">Einsatz (${d.currency})<input id="stake" inputmode="decimal" value="${k==='c'?'10':'100'}"></label>
+      <label class="field">Stake (${d.currency})<input id="stake" inputmode="decimal" value="${k==='c'?'10':'100'}"></label>
       <div class="pill" style="justify-content:space-between"><span class="demo-tag">DEMO</span><span class="num" data-bal>${cur(st.bal)}</span></div>
       <div id="sig-controls" style="display:flex;flex-direction:column;gap:8px"></div>
       <div class="pf" id="pf"></div>
@@ -530,16 +530,16 @@ async function render(k){
 function heroArt(k){
   if (k === 'a') return `<svg class="hero-art" viewBox="0 0 800 220" preserveAspectRatio="xMaxYMid slice" aria-hidden="true"><defs><pattern id="hz" width="28" height="28" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="14" height="28" fill="#E8B21A"/><rect x="14" width="14" height="28" fill="#15120F"/></pattern></defs><rect x="0" y="0" width="800" height="10" fill="url(#hz)" opacity=".85"/>${[0,1,2,3,4,5].map(i=>`<rect x="${520+i*0}" y="${30+i*28}" width="${230-i*18}" height="22" fill="${['#6b4a2b','#7a5a3a','#8b8680','#6f7a82','#4a5560','#B7471D'][i]}" opacity=".55"/>`).join('')}<circle cx="700" cy="40" r="3" fill="#E8B21A"/><circle cx="720" cy="52" r="2" fill="#E8B21A"/><circle cx="690" cy="60" r="1.6" fill="#EAE2D3"/></svg>`;
   if (k === 'b') return `<svg class="hero-art" viewBox="0 0 800 220" preserveAspectRatio="xMaxYMid slice" aria-hidden="true"><circle cx="690" cy="46" r="26" fill="#EEF0FF" opacity=".08"/><path d="M560 40a70 50 0 01140 0" fill="none" stroke="#FF4D2E" stroke-width="3" opacity=".9"/><path d="M560 40l55 70M700 40l-55 70M630 40v70" stroke="#EEF0FF" stroke-width="1" opacity=".5"/><rect x="608" y="110" width="44" height="32" rx="3" fill="#1B1E3A" stroke="#B06CFF" stroke-width="2"/><path d="M0 200 C200 170 360 190 800 150" stroke="#43D9F0" stroke-width="1" fill="none" opacity=".35"/><ellipse cx="420" cy="215" rx="260" ry="40" fill="#B06CFF" opacity=".12"/></svg>`;
-  return `<svg class="hero-art" viewBox="0 0 800 220" preserveAspectRatio="xMaxYMid slice" aria-hidden="true"><g fill="none" stroke="#5AA9E6" stroke-width="1" opacity=".55"><rect x="470" y="30" width="300" height="160"/><path d="M470 110h300M570 30v160M670 30v160"/><path d="M470 205h300M470 200v10M770 200v10"/></g><text x="620" y="218" fill="#5AA9E6" font-size="10" text-anchor="middle" font-family="IBM Plex Mono, monospace" opacity=".8">8 Räume · P(voll) = 3,125 %</text><rect x="500" y="60" width="40" height="26" rx="3" fill="none" stroke="#3FB950" stroke-width="2"/><rect x="600" y="60" width="40" height="26" rx="3" fill="none" stroke="#4C8DF6" stroke-width="2"/><rect x="700" y="60" width="40" height="26" rx="3" fill="none" stroke="#E5534B" stroke-width="2"/><circle cx="740" cy="170" r="4" fill="#C9A45C"/></svg>`;
+  return `<svg class="hero-art" viewBox="0 0 800 220" preserveAspectRatio="xMaxYMid slice" aria-hidden="true"><g fill="none" stroke="#5AA9E6" stroke-width="1" opacity=".55"><rect x="470" y="30" width="300" height="160"/><path d="M470 110h300M570 30v160M670 30v160"/><path d="M470 205h300M470 200v10M770 200v10"/></g><text x="620" y="218" fill="#5AA9E6" font-size="10" text-anchor="middle" font-family="IBM Plex Mono, monospace" opacity=".8">8 rooms · P(full) = 3.125 %</text><rect x="500" y="60" width="40" height="26" rx="3" fill="none" stroke="#3FB950" stroke-width="2"/><rect x="600" y="60" width="40" height="26" rx="3" fill="none" stroke="#4C8DF6" stroke-width="2"/><rect x="700" y="60" width="40" height="26" rx="3" fill="none" stroke="#E5534B" stroke-width="2"/><circle cx="740" cy="170" r="4" fill="#C9A45C"/></svg>`;
 }
 
 function renderPF(k, verify){
   const f = state[k].fair; const el = $('#pf'); if (!el) return;
   el.innerHTML = `<h6>${icon('shield','ico')}Provably Fair</h6>
-    <dl><dt>Server-Seed-Hash</dt><dd>${f.hash}</dd><dt>Client-Seed</dt><dd><input id="cseed" value="${esc(f.client)}" aria-label="Client-Seed"></dd><dt>Nonce</dt><dd>${f.nonce}</dd></dl>
+    <dl><dt>Server seed hash</dt><dd>${f.hash}</dd><dt>Client seed</dt><dd><input id="cseed" value="${esc(f.client)}" aria-label="Client seed"></dd><dt>Nonce</dt><dd>${f.nonce}</dd></dl>
     ${verify ? `<div class="verify">${verify}</div>` : ''}
-    ${f.revealed ? `<div class="verify">Vorheriger Seed: ${f.revealed.seed}<br>sha256 = ${f.revealed.hash} ✓</div>` : ''}
-    <div class="row"><button type="button" id="rot">Seed rotieren</button></div>`;
+    ${f.revealed ? `<div class="verify">Previous seed: ${f.revealed.seed}<br>sha256 = ${f.revealed.hash} ✓</div>` : ''}
+    <div class="row"><button type="button" id="rot">Rotate seed</button></div>`;
   $('#cseed').addEventListener('change', e => { f.client = e.target.value.trim() || randHex(8); });
   $('#rot').addEventListener('click', async () => { await f.rotate(); renderPF(k); });
 }
@@ -558,10 +558,10 @@ setInterval(() => {
 }, 1000);
 
 function readStake(k){
-  const v = parseFloat(String($('#stake').value).replace(',', '.'));
+  const v = parseFloat(String($('#stake').value).replace(',', ''));
   const st = state[k];
-  if (!(v > 0)) return {err: 'Einsatz muss größer als 0 sein.'};
-  if (v > st.bal) return {err: 'Einsatz ist höher als das Demo-Guthaben.'};
+  if (!(v > 0)) return {err: 'Stake must be greater than 0.'};
+  if (v > st.bal) return {err: 'Stake is higher than the demo balance.'};
   return {v};
 }
 function settle(k, stake, payout){ const st = state[k]; st.bal += payout; st.net += payout - stake; updateHud(k); }
@@ -570,20 +570,20 @@ function take(k, stake){ state[k].bal -= stake; updateHud(k); }
 /* ---------- A: Raid ---------- */
 function initRaid(k){
   const E = 0.03;
-  const layers = [['Twig','#8a6a3c'],['Holz','#a0763f'],['Stein','#8b8680'],['Metall','#7d8a93'],['HQM','#5b6a78'],['Tool Cupboard','#B7471D']];
-  const tools = [['C4',0.80],['Rakete',0.60],['Satchel',0.40]];
+  const layers = [['Twig','#8a6a3c'],['Wood','#a0763f'],['Stone','#8b8680'],['Metal','#7d8a93'],['HQM','#5b6a78'],['Tool Cupboard','#B7471D']];
+  const tools = [['C4',0.80],['Rocket',0.60],['Satchel',0.40]];
   let run = null;
   const main = $('#sig-main'), ctl = $('#sig-controls');
   const draw = (msg = '', cls = '') => {
     const m = run ? (1 - E) / run.prob : 1;
     main.innerHTML = `
-      <div class="sig-head"><div><h3>Raid</h3><p>Pro Schicht wählst du den Sprengstoff. Auszahlung beim Aussteigen = Einsatz × 0,97 ÷ Produkt der Chancen.</p></div><div class="mult ${cls}">${run && run.layer > 0 ? m.toFixed(2) : '1.00'}×</div></div>
+      <div class="sig-head"><div><h3>Raid</h3><p>Pick an explosive for every layer. Cash-out = stake × 0.97 ÷ product of the chances.</p></div><div class="mult ${cls}">${run && run.layer > 0 ? m.toFixed(2) : '1.00'}×</div></div>
       <div class="walls">${layers.map(([n,c],i) => `<div class="wall ${run && i < run.layer ? 'broken' : ''} ${run && run.alive && i === run.layer ? 'cur' : ''} ${run && !run.alive && i === run.layer ? 'held' : ''}" style="--wc:${c}"><span class="tier">${n}</span><span class="hp"></span><span class="x">${run && run.path[i] ? run.path[i] : ''}</span></div>`).join('')}</div>
       <p class="statusline ${cls}" role="status">${msg}</p>`;
     const active = run && run.alive && run.layer < layers.length;
     ctl.innerHTML = `
       <div class="tools">${tools.map(([n,p]) => `<button type="button" class="tool" data-p="${p}" data-n="${n}" ${active ? '' : 'disabled'}><b>${n}</b><span>${Math.round(p*100)} % · ×${(1/p).toFixed(2)}</span></button>`).join('')}</div>
-      ${active ? `<button type="button" class="btn win" id="cash" ${run.layer === 0 ? 'disabled' : ''}>Loot sichern · ${fmt(run.stake * m)}</button>` : `<button type="button" class="btn" id="start">Raid starten</button>`}`;
+      ${active ? `<button type="button" class="btn win" id="cash" ${run.layer === 0 ? 'disabled' : ''}>Secure loot · ${fmt(run.stake * m)}</button>` : `<button type="button" class="btn" id="start">Start raid</button>`}`;
     ctl.querySelectorAll('.tool').forEach(b => b.addEventListener('click', () => blast(+b.dataset.p, b.dataset.n)));
     $('#start')?.addEventListener('click', start);
     $('#cash')?.addEventListener('click', cash);
@@ -591,27 +591,27 @@ function initRaid(k){
   const start = () => {
     const s = readStake(k); if (s.err) return draw(s.err, 'lose');
     take(k, s.v); run = {stake: s.v, layer: 0, prob: 1, alive: true, path: []};
-    draw('Basis gefunden. Erste Wand: Twig.');
+    draw('Base found. First wall: Twig.');
   };
   const blast = async (p, n) => {
     const f = state[k].fair; const {h, f: roll} = await f.float(run.layer);
     const ok = roll < p;
-    const v = `HMAC(seed, ${esc(f.client)}:${f.nonce}:${run.layer}) = ${h.slice(0,16)}…<br>roll = ${roll.toFixed(6)} ${ok ? '<' : '≥'} p ${p.toFixed(2)} → ${ok ? 'durch' : 'hält'}`;
+    const v = `HMAC(seed, ${esc(f.client)}:${f.nonce}:${run.layer}) = ${h.slice(0,16)}…<br>roll = ${roll.toFixed(6)} ${ok ? '<' : '≥'} p ${p.toFixed(2)} → ${ok ? 'breached' : 'holds'}`;
     if (ok){
       run.prob *= p; run.path[run.layer] = `${n} ✓`; run.layer++;
-      if (run.layer === layers.length){ const pay = run.stake * (1 - E) / run.prob; settle(k, run.stake, pay); run.alive = false; f.nonce++; renderPF(k, v); run.layer = layers.length; return draw(`Tool Cupboard geknackt. ${fmt(pay)} ${C[k].currency} gesichert.`, 'win'); }
-      renderPF(k, v); draw(`${layers[run.layer - 1][0]} ist durch. Weiter oder sichern?`);
+      if (run.layer === layers.length){ const pay = run.stake * (1 - E) / run.prob; settle(k, run.stake, pay); run.alive = false; f.nonce++; renderPF(k, v); run.layer = layers.length; return draw(`Tool Cupboard cracked. ${fmt(pay)} ${C[k].currency} secured.`, 'win'); }
+      renderPF(k, v); draw(`${layers[run.layer - 1][0]} is breached. Keep going or secure the loot?`);
     } else {
       run.path[run.layer] = `${n} ✗`; run.alive = false; settle(k, run.stake, 0); f.nonce++; renderPF(k, v);
-      draw(`${layers[run.layer][0]} hält. Raid abgewehrt.`, 'lose');
+      draw(`${layers[run.layer][0]} holds. Raid repelled.`, 'lose');
     }
   };
   const cash = () => {
     const pay = run.stake * (1 - E) / run.prob; settle(k, run.stake, pay);
     run.alive = false; state[k].fair.nonce++; renderPF(k);
-    draw(`Loot gesichert: ${fmt(pay)} ${C[k].currency}.`, 'win'); run.layer = -1;
+    draw(`Loot secured: ${fmt(pay)} ${C[k].currency}.`, 'win'); run.layer = -1;
   };
-  draw('Einsatz wählen und Raid starten.');
+  draw('Set your stake and start the raid.');
 }
 
 /* ---------- B: Airdrop crash ---------- */
@@ -619,12 +619,12 @@ function initAirdrop(k){
   const E = 0.02, CAP = 1000, RATE = 0.16; // m(t) = e^(RATE·t)
   const main = $('#sig-main'), ctl = $('#sig-controls');
   main.innerHTML = `
-    <div class="sig-head"><div><h3>Airdrop Crash</h3><p>P(Crash ≥ x) = 0,98 ÷ x. Landung bei 1.000×. Jeder Cash-out springt als Fallschirm ab.</p></div></div>
-    <div class="sky"><canvas id="cv"></canvas><div class="mult" id="am">1.00×</div><span class="imgslot">Bild: Nachthimmel-Loop</span></div>
+    <div class="sig-head"><div><h3>Airdrop Crash</h3><p>P(crash ≥ x) = 0.98 ÷ x. Lands at 1,000×. Every cash-out jumps off with a parachute.</p></div></div>
+    <div class="sky"><canvas id="cv"></canvas><div class="mult" id="am">1.00×</div><span class="imgslot">Image: night sky loop</span></div>
     <div class="hist" id="hist" aria-label="Letzte Runden"></div>
-    <p class="statusline" id="ast" role="status">Einsatz wählen, optional Auto-Cash-out, dann einsteigen.</p>`;
-  ctl.innerHTML = `<label class="field">Auto-Cash-out (×, leer = aus)<input id="auto" inputmode="decimal" value="2.00"></label>
-    <button type="button" class="btn" id="go">Einsteigen</button><button type="button" class="btn win" id="out" disabled>Abspringen</button>`;
+    <p class="statusline" id="ast" role="status">Set your stake, optionally an auto cash-out, then board.</p>`;
+  ctl.innerHTML = `<label class="field">Auto cash-out (×, empty = off)<input id="auto" inputmode="decimal" value="2.00"></label>
+    <button type="button" class="btn" id="go">Board</button><button type="button" class="btn win" id="out" disabled>Jump</button>`;
   const cv = $('#cv'), ctx = cv.getContext('2d'), am = $('#am'), st = $('#ast');
   let run = null, raf = 0; const jumpers = []; const hist = [];
   const stars = Array.from({length: 60}, () => [Math.random(), Math.random() * 0.7, Math.random() * 1.2 + 0.3]);
@@ -656,11 +656,11 @@ function initAirdrop(k){
     const f = state[k].fair; const {h} = await f.float(0);
     const Hx = parseInt(h.slice(0, 13), 16), Ex = 2 ** 52;
     const crash = Math.min(CAP, Math.max(1, Math.floor(100 * (1 - E) * Ex / (Ex - Hx)) / 100));
-    const verify = `h = ${h.slice(0,13)} (52 Bit)<br>crash = max(1, ⌊100·0,98·2⁵²/(2⁵²−h)⌋/100) = ${crash.toFixed(2)}×`;
-    const auto = parseFloat(String($('#auto').value).replace(',', '.'));
+    const verify = `h = ${h.slice(0,13)} (52 Bit)<br>crash = max(1, ⌊100·0.98·2⁵²/(2⁵²−h)⌋/100) = ${crash.toFixed(2)}×`;
+    const auto = parseFloat(String($('#auto').value).replace(',', ''));
     take(k, s.v); run = {stake: s.v, crash, t0: performance.now(), out: false, auto: auto > 1 ? auto : null, verify};
     jumpers.length = 0; $('#go').disabled = true; $('#out').disabled = false; am.className = 'mult';
-    st.className = 'statusline'; st.textContent = 'Crate fällt…';
+    st.className = 'statusline'; st.textContent = 'Crate is falling…';
     const tick = now => {
       if (!cv.isConnected){ abandon(); return; }
       const t = (now - run.t0) / 1000; let m = reduce ? run.crash : Math.exp(RATE * t);
@@ -673,7 +673,7 @@ function initAirdrop(k){
   const cashOut = m => {
     if (!run || run.out) return; run.out = true; const pay = run.stake * m; settle(k, run.stake, pay);
     const W = cv.width; jumpers.push({x: W * 0.5, y: cv.height * 0.3});
-    $('#out').disabled = true; st.className = 'statusline win'; st.textContent = `Abgesprungen bei ${m.toFixed(2)}× · +${fmt(pay)} ${C[k].currency}`;
+    $('#out').disabled = true; st.className = 'statusline win'; st.textContent = `Jumped at ${m.toFixed(2)}× · +${fmt(pay)} ${C[k].currency}`;
   };
   $('#out').addEventListener('click', () => { const t = (performance.now() - run.t0) / 1000; cashOut(Math.min(run.crash, Math.floor(Math.exp(RATE * t) * 100) / 100)); });
   const abandon = () => {
@@ -683,7 +683,7 @@ function initAirdrop(k){
   const end = () => {
     cancelAnimationFrame(raf); const c = run.crash; am.textContent = `${c.toFixed(2)}×`;
     const landed = c >= CAP;
-    if (!run.out){ settle(k, run.stake, 0); am.className = 'mult lose'; st.className = 'statusline lose'; st.textContent = landed ? 'Gelandet bei 1.000×, aber nicht abgesprungen.' : `Heli-Abschuss bei ${c.toFixed(2)}×.`; }
+    if (!run.out){ settle(k, run.stake, 0); am.className = 'mult lose'; st.className = 'statusline lose'; st.textContent = landed ? 'Landed at 1,000× without jumping.' : `Shot down by the heli at ${c.toFixed(2)}×.`; }
     else am.className = 'mult win';
     pushHist(c); const f = state[k].fair; f.nonce++; renderPF(k, run.verify);
     $('#go').disabled = false; $('#out').disabled = true;
@@ -694,35 +694,35 @@ function initAirdrop(k){
 function initMonument(k){
   const E = 0.03;
   const rooms = [['g',4],['g',4],['g',4],['b',3],['b',3],['b',3],['r',2],['r',2]];
-  const KC = {g: '#3FB950', b: '#4C8DF6', r: '#E5534B'}, KN = {g: 'Grün', b: 'Blau', r: 'Rot'};
+  const KC = {g: '#3FB950', b: '#4C8DF6', r: '#E5534B'}, KN = {g: 'green', b: 'blue', r: 'red'};
   let acc = 1; const ladder = rooms.map(([c, n]) => { acc *= (n - 1) / n; return (1 - E) / acc; });
   let run = null;
   const main = $('#sig-main'), ctl = $('#sig-controls');
   const draw = (msg = '', cls = '', reveal = null) => {
     const i = run ? run.room : 0; const [c, n] = rooms[Math.min(i, rooms.length - 1)];
     main.innerHTML = `
-      <div class="sig-head"><div><h3>Monument Run</h3><p>Grün 4 Türen / 1 Falle · Blau 3 / 1 · Rot 2 / 1. Auszahlung = Einsatz × 0,97 ÷ Π p.</p></div><div class="mult ${cls}">${run && run.room > 0 ? ladder[run.room - 1].toFixed(2) : '1.00'}×</div></div>
+      <div class="sig-head"><div><h3>Monument Run</h3><p>Green 4 doors / 1 trap · blue 3 / 1 · red 2 / 1. Payout = stake × 0.97 ÷ Π p.</p></div><div class="mult ${cls}">${run && run.room > 0 ? ladder[run.room - 1].toFixed(2) : '1.00'}×</div></div>
       <div class="ladder">${ladder.map((m, j) => `<div class="rung ${run && j < run.room ? 'done' : ''} ${run && j === run.room && run.alive ? 'cur' : ''}" style="--kc:${KC[rooms[j][0]]}"><span>R${j + 1}</span><b>${m.toFixed(2)}×</b></div>`).join('')}</div>
-      <div class="dim">Raum ${Math.min(i + 1, 8)} · Keycard ${KN[c]} · p = ${(n - 1)}/${n}</div>
-      <div class="doors" style="--n:${n};--kc:${KC[c]}">${Array.from({length: n}, (_, j) => `<button type="button" class="door ${reveal ? (j === reveal.trap ? 'trap' : 'safe') : ''}" data-d="${j}" ${run && run.alive && !reveal ? '' : 'disabled'} aria-label="Tür ${j + 1}"><span class="slot"></span>${reveal ? (j === reveal.trap ? 'Falle' : 'frei') : 'Tür ' + (j + 1)}</button>`).join('')}</div>
+      <div class="dim">Room ${Math.min(i + 1, 8)} · ${KN[c]} keycard · p = ${(n - 1)}/${n}</div>
+      <div class="doors" style="--n:${n};--kc:${KC[c]}">${Array.from({length: n}, (_, j) => `<button type="button" class="door ${reveal ? (j === reveal.trap ? 'trap' : 'safe') : ''}" data-d="${j}" ${run && run.alive && !reveal ? '' : 'disabled'} aria-label="Door ${j + 1}"><span class="slot"></span>${reveal ? (j === reveal.trap ? 'Trap' : 'clear') : 'Door ' + (j + 1)}</button>`).join('')}</div>
       <p class="statusline ${cls}" role="status">${msg}</p>`;
     main.querySelectorAll('.door:not(:disabled)').forEach(b => b.addEventListener('click', () => pick(+b.dataset.d)));
     const active = run && run.alive;
-    ctl.innerHTML = active ? `<button type="button" class="btn win" id="cash" ${run.room === 0 ? 'disabled' : ''}>Aussteigen · ${fmt(run.stake * (run.room ? ladder[run.room - 1] : 1))} $</button>` : `<button type="button" class="btn" id="start">Lauf starten</button>`;
+    ctl.innerHTML = active ? `<button type="button" class="btn win" id="cash" ${run.room === 0 ? 'disabled' : ''}>Cash out · ${fmt(run.stake * (run.room ? ladder[run.room - 1] : 1))} $</button>` : `<button type="button" class="btn" id="start">Start run</button>`;
     $('#start')?.addEventListener('click', start); $('#cash')?.addEventListener('click', cash);
   };
-  const start = () => { const s = readStake(k); if (s.err) return draw(s.err, 'lose'); take(k, s.v); run = {stake: s.v, room: 0, alive: true}; draw('Grüne Keycard eingesteckt. Wähl eine Tür.'); };
+  const start = () => { const s = readStake(k); if (s.err) return draw(s.err, 'lose'); take(k, s.v); run = {stake: s.v, room: 0, alive: true}; draw('Green keycard inserted. Pick a door.'); };
   const pick = async d => {
     const [, n] = rooms[run.room]; const f = state[k].fair; const {h, f: roll} = await f.float(run.room);
     const trap = Math.floor(roll * n);
-    const v = `HMAC(seed, ${esc(f.client)}:${f.nonce}:${run.room}) = ${h.slice(0,16)}…<br>Falle = ⌊${roll.toFixed(6)} × ${n}⌋ = Tür ${trap + 1}`;
-    if (d === trap){ run.alive = false; settle(k, run.stake, 0); f.nonce++; renderPF(k, v); return draw(`Tür ${d + 1} war die Falle. Lauf beendet.`, 'lose', {trap}); }
+    const v = `HMAC(seed, ${esc(f.client)}:${f.nonce}:${run.room}) = ${h.slice(0,16)}…<br>Falle = ⌊${roll.toFixed(6)} × ${n}⌋ = door ${trap + 1}`;
+    if (d === trap){ run.alive = false; settle(k, run.stake, 0); f.nonce++; renderPF(k, v); return draw(`Door ${d + 1} was the trap. Run over.`, 'lose', {trap}); }
     run.room++; renderPF(k, v);
-    if (run.room === rooms.length){ const pay = run.stake * ladder[7]; settle(k, run.stake, pay); run.alive = false; f.nonce++; return draw(`Monument komplett: ${fmt(pay)} $.`, 'win', {trap}); }
-    draw(`Tür ${d + 1} frei. Raum ${run.room + 1}: weiter oder aussteigen?`, '', null);
+    if (run.room === rooms.length){ const pay = run.stake * ladder[7]; settle(k, run.stake, pay); run.alive = false; f.nonce++; return draw(`Monument complete: ${fmt(pay)} $.`, 'win', {trap}); }
+    draw(`Door ${d + 1} clear. Room ${run.room + 1}: keep going or cash out?`, '', null);
   };
-  const cash = () => { const pay = run.stake * ladder[run.room - 1]; settle(k, run.stake, pay); run.alive = false; state[k].fair.nonce++; renderPF(k); draw(`Ausgestiegen nach Raum ${run.room}: ${fmt(pay)} $.`, 'win'); };
-  draw('Einsatz wählen und Lauf starten.');
+  const cash = () => { const pay = run.stake * ladder[run.room - 1]; settle(k, run.stake, pay); run.alive = false; state[k].fair.nonce++; renderPF(k); draw(`Cashed out after room ${run.room}: ${fmt(pay)} $.`, 'win'); };
+  draw('Set your stake and start the run.');
 }
 
 /* ---------- Tabs + deep link ---------- */

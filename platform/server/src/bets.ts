@@ -40,12 +40,12 @@ const payoutFor = (stake: number, mult: number) => Math.floor(stake * mult + 1e-
 
 function checkStake(cfg: Config, stake: number): void {
   if (!Number.isSafeInteger(stake) || stake < cfg.minStake || stake > cfg.maxStake) {
-    fail('invalid_stake', `Einsatz: ${cfg.minStake / MF_PER_FRAG} bis ${cfg.maxStake / MF_PER_FRAG} Frags.`, 400, { min: cfg.minStake, max: cfg.maxStake });
+    fail('invalid_stake', `Stake: ${cfg.minStake / MF_PER_FRAG} to ${cfg.maxStake / MF_PER_FRAG} Frags.`, 400, { min: cfg.minStake, max: cfg.maxStake });
   }
 }
 function checkMaxWin(cfg: Config, stake: number, maxMult: number): void {
   if (stake * maxMult > cfg.maxWin) {
-    fail('max_win', `Maximalgewinn pro Wette ist ${cfg.maxWin / MF_PER_FRAG} Frags. Höchster Einsatz hier: ${Math.floor(cfg.maxWin / maxMult / MF_PER_FRAG)} Frags.`, 400, { maxWin: cfg.maxWin, maxStake: Math.floor(cfg.maxWin / maxMult) });
+    fail('max_win', `Max win per bet is ${cfg.maxWin / MF_PER_FRAG} Frags. Highest stake here: ${Math.floor(cfg.maxWin / maxMult / MF_PER_FRAG)} Frags.`, 400, { maxWin: cfg.maxWin, maxStake: Math.floor(cfg.maxWin / maxMult) });
   }
 }
 
@@ -86,15 +86,15 @@ export function playInstant<G extends keyof InstantParams>(db: DB, cfg: Config, 
     let maxMult: number;
     switch (game) {
       case 'dice': { const p = params as DiceBet; validateDice(p); maxMult = diceMultiplier(p.chance); break; }
-      case 'plinko': { const p = params as InstantParams['plinko']; const t = PLINKO_TABLES[p.rows]?.[p.risk]; if (!t) fail('invalid_params', 'Unbekannte Plinko-Tabelle.'); maxMult = Math.max(...t); break; }
+      case 'plinko': { const p = params as InstantParams['plinko']; const t = PLINKO_TABLES[p.rows]?.[p.risk]; if (!t) fail('invalid_params', 'Unknown Scrap Chute table.'); maxMult = Math.max(...t); break; }
       case 'upgrader': { const p = params as InstantParams['upgrader']; upgraderChance(1, p.multiplier); maxMult = p.multiplier; break; }
       case 'cases': {
-        const c = SAMPLE_CASES.find((x) => x.id === (params as InstantParams['cases']).caseId) ?? fail('invalid_params', 'Unbekannte Kiste.');
+        const c = SAMPLE_CASES.find((x) => x.id === (params as InstantParams['cases']).caseId) ?? fail('invalid_params', 'Unknown case.');
         stake = priceCase(c) * MF_PER_FRAG; // price is fixed, the client's stake is ignored
         maxMult = Math.max(...c.items.map((i) => i.value)) * MF_PER_FRAG / stake;
         break;
       }
-      default: return fail('invalid_game', 'Unbekanntes Spiel.');
+      default: return fail('invalid_game', 'Unknown game.');
     }
     checkStake(cfg, stake);
     checkMaxWin(cfg, stake, maxMult);
@@ -119,7 +119,7 @@ interface MinesState { mines: number[]; revealed: number[] }
 
 export function minesStart(db: DB, cfg: Config, userId: string, stake: number, mineCount: number, now: number) {
   return tx(db, () => {
-    if (!Number.isInteger(mineCount) || mineCount < 1 || mineCount > 24) fail('invalid_params', 'Minen: 1 bis 24.');
+    if (!Number.isInteger(mineCount) || mineCount < 1 || mineCount > 24) fail('invalid_params', 'Mines: 1 to 24.');
     assertNoOpen(db, userId, 'mines');
     checkStake(cfg, stake);
     checkMaxWin(cfg, stake, minesMultiplier(mineCount, 1));
@@ -135,8 +135,8 @@ export function minesReveal(db: DB, cfg: Config, userId: string, betId: string, 
     const b = openBet(db, userId, betId, 'mines');
     const s = JSON.parse(b.state!) as MinesState;
     const m = JSON.parse(b.params).mines as number;
-    if (!Number.isInteger(tile) || tile < 0 || tile >= TILES || s.revealed.includes(tile)) fail('invalid_params', 'Ungültiges Feld.');
-    if (b.stake * minesMultiplier(m, s.revealed.length + 1) > cfg.maxWin) fail('max_win', 'Das nächste Feld würde den Maximalgewinn überschreiten. Bitte auszahlen.', 400);
+    if (!Number.isInteger(tile) || tile < 0 || tile >= TILES || s.revealed.includes(tile)) fail('invalid_params', 'Invalid tile.');
+    if (b.stake * minesMultiplier(m, s.revealed.length + 1) > cfg.maxWin) fail('max_win', 'The next tile could exceed the max win. Please cash out.', 400);
     if (s.mines.includes(tile)) return publicMines(settle(db, b.id, userId, b.stake, 0, { mines: s.mines, revealed: s.revealed, hit: tile }, now), db);
     s.revealed.push(tile);
     if (s.revealed.length === TILES - m) return publicMines(settle(db, b.id, userId, b.stake, minesMultiplier(m, s.revealed.length), { mines: s.mines, revealed: s.revealed }, now), db);
@@ -149,7 +149,7 @@ export function minesCashout(db: DB, userId: string, betId: string, now: number)
   return tx(db, () => {
     const b = openBet(db, userId, betId, 'mines');
     const s = JSON.parse(b.state!) as MinesState;
-    if (s.revealed.length === 0) fail('invalid_action', 'Decke mindestens ein Feld auf.');
+    if (s.revealed.length === 0) fail('invalid_action', 'Reveal at least one tile first.');
     const m = JSON.parse(b.params).mines as number;
     return publicMines(settle(db, b.id, userId, b.stake, minesMultiplier(m, s.revealed.length), { mines: s.mines, revealed: s.revealed }, now), db);
   });
@@ -180,10 +180,10 @@ export function raidStart(db: DB, cfg: Config, userId: string, stake: number, no
 export function raidBlast(db: DB, cfg: Config, userId: string, betId: string, tool: RaidTool, now: number) {
   return tx(db, () => {
     const b = openBet(db, userId, betId, 'raid');
-    if (!(tool in RAID_TOOLS)) fail('invalid_params', 'Sprengstoff: c4, rocket oder satchel.');
+    if (!(tool in RAID_TOOLS)) fail('invalid_params', 'Explosive: c4, rocket or satchel.');
     const s = JSON.parse(b.state!) as RaidState;
     const next = [...s.tools, tool];
-    if (b.stake * raidMultiplier(next) > cfg.maxWin) fail('max_win', 'Diese Schicht würde den Maximalgewinn überschreiten. Bitte Loot sichern oder schwächeren Sprengstoff wählen.', 400);
+    if (b.stake * raidMultiplier(next) > cfg.maxWin) fail('max_win', 'This layer could exceed the max win. Secure your loot or pick a weaker explosive.', 400);
     const src = stream(seedById(db, b.seed_id), b.nonce);
     for (let i = 0; i < s.tools.length; i++) src.next(); // replay floats already used
     const roll = src.next();
@@ -200,7 +200,7 @@ export function raidCashout(db: DB, userId: string, betId: string, now: number) 
   return tx(db, () => {
     const b = openBet(db, userId, betId, 'raid');
     const s = JSON.parse(b.state!) as RaidState;
-    if (s.tools.length === 0) fail('invalid_action', 'Sprenge mindestens eine Schicht.');
+    if (s.tools.length === 0) fail('invalid_action', 'Blast at least one layer first.');
     return publicRaid(settle(db, b.id, userId, b.stake, raidMultiplier(s.tools), { steps: s.tools.map((t, i) => ({ layer: RAID_LAYERS[i], tool: t })) }, now), db);
   });
 }
@@ -224,13 +224,13 @@ export function openGames(db: DB, userId: string) {
 
 function assertNoOpen(db: DB, userId: string, game: Game): void {
   const r = db.prepare("SELECT id FROM bets WHERE user_id = ? AND game = ? AND status = 'open'").get(userId, game) as { id: string } | undefined;
-  if (r) fail('open_game', 'Du hast schon eine laufende Runde.', 409, { betId: r.id });
+  if (r) fail('open_game', 'You already have a round in progress.', 409, { betId: r.id });
 }
 
 function openBet(db: DB, userId: string, betId: string, game: Game): BetRow {
   const b = getBet(db, betId);
-  if (!b || b.user_id !== userId || b.game !== game) fail('not_found', 'Runde nicht gefunden.', 404);
-  if (b!.status !== 'open') fail('already_settled', 'Diese Runde ist schon abgerechnet.', 409);
+  if (!b || b.user_id !== userId || b.game !== game) fail('not_found', 'Round not found.', 404);
+  if (b!.status !== 'open') fail('already_settled', 'This round is already settled.', 409);
   return b!;
 }
 

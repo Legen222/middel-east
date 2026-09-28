@@ -12,11 +12,11 @@ const STOP = 50;
 const ITEM_W = 126; // 120 + 6 gap
 
 export const casesView: View = {
-  title: 'Kisten',
+  title: 'Cases',
   html: (c) => `
   <section class="card" style="gap:14px">
-    <div class="game-head"><div><p class="eyebrow">Original</p><h1 class="h-display">Kisten</h1>
-      <p>Jede Kiste zeigt alle Items mit ihrer Chance. Preis = erwarteter Wert ÷ 0,93, aufgerundet auf volle Frags.</p></div></div>
+    <div class="game-head"><div><p class="eyebrow">Original</p><h1 class="h-display">Cases</h1>
+      <p>Every case lists all items with their drop chance. Price = expected value ÷ 0.93, rounded up to whole Frags.</p></div></div>
     <div class="cases" id="cases">${c.cfg.cases.map((k, i) => `
       <button type="button" class="case" data-id="${k.id}" aria-pressed="${i === 0}">
         <span class="art">${icon('crate')}</span>
@@ -27,14 +27,14 @@ export const casesView: View = {
   <section class="card" style="gap:14px">
     <div class="reel" id="reel" aria-hidden="true"><div class="reel-track" id="track"></div></div>
     <div class="row" style="justify-content:space-between">
-      <p class="status" id="status" role="status">Kiste wählen und öffnen.</p>
-      <button class="btn" id="open" type="button">Öffnen</button>
+      <p class="status" id="status" role="status">Pick a case and open it.</p>
+      <button class="btn" id="open" type="button">Open</button>
     </div>
     <div id="fair"></div>
   </section>
   <section class="card">
-    <h2 class="h-sect" id="odds-title">Inhalt</h2>
-    <div class="tablewrap"><table><thead><tr><th>Item</th><th class="r">Wert (Frags)</th><th class="r">Chance</th></tr></thead><tbody id="odds"></tbody></table></div>
+    <h2 class="h-sect" id="odds-title">Contents</h2>
+    <div class="tablewrap"><table><thead><tr><th>Item</th><th class="r">Value (Frags)</th><th class="r">Chance</th></tr></thead><tbody id="odds"></tbody></table></div>
   </section>`,
   mount: (root, c) => {
     let current: CaseInfo = c.cfg.cases[0];
@@ -46,9 +46,9 @@ export const casesView: View = {
     const showCase = (k: CaseInfo) => {
       current = k;
       $$('.case', root).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === k.id)));
-      $('#odds-title', root).textContent = `Inhalt: ${k.name}`;
+      $('#odds-title', root).textContent = `Contents: ${k.name}`;
       $('#odds', root).innerHTML = k.items.map((it) => `<tr><td><span style="display:inline-block;width:10px;height:10px;background:${rarity(it.value, k.price)};margin-right:8px"></span>${esc(it.name)}</td><td class="r num">${frags(it.value, 0)}</td><td class="r num">${pctShort(it.chance)}</td></tr>`).join('');
-      $('#open', root).textContent = `Öffnen · ${frags(k.price, 0)} Frags`;
+      $('#open', root).textContent = `Open · ${frags(k.price, 0)} Frags`;
       const track = $('#track', root);
       track.style.transition = 'none'; track.style.transform = 'translateX(0)';
       fillReel(k);
@@ -74,7 +74,7 @@ export const casesView: View = {
       await new Promise((r) => setTimeout(r, dur + 80));
       const won = item.value >= k.price;
       const s = $('#status', root);
-      s.textContent = `${item.name} · ${frags(item.value, 0)} Frags ${won ? '(Gewinn)' : ''}`;
+      s.textContent = `${item.name} · ${frags(item.value, 0)} Frags ${won ? '(profit)' : ''}`;
       s.className = `status ${won ? 'win' : 'lose'}`;
       $('#fair', root).innerHTML = fairBox(bet.fairness);
       await c.refresh();

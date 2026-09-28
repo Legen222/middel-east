@@ -7,12 +7,12 @@
  *
  *   XP        1 XP per Frag of expected loss. Level L needs 100 · (L − 1)^1.6 XP in total.
  *   Rakeback  5 / 10 / 15 / 20 / 25 / 30 % of expected loss by level band; claim any time (≥ 1 Frag).
- *   Schrottkiste  free daily case from level 2, drawn from the player's own seed (verifiable).
- *   Ölregen   every 30 min a 2-min window; pot = 1 % of the last period's expected loss (min 500 Frags in demo);
+ *   Scrap Crate   free daily case from level 2, drawn from the player's own seed (verifiable).
+ *   Oil Rain  every 30 min a 2-min window; pot = 1 % of the last period's expected loss (min 500 Frags in demo);
  *             players with level ≥ 5 and ≥ 100 Frags wagered in 24 h join; pot split equally at close.
- *   Crew-Codes  referrer earns 5 / 7.5 / 10 % of referred players' NGR (net of their bonuses), by crew size.
+ *   Crew codes  referrer earns 5 / 7.5 / 10 % of referred players' NGR (net of their bonuses), by crew size.
  *
- * Responsible gambling wins: during a cooldown or exclusion there is no Schrottkiste, no Ölregen and no
+ * Responsible gambling wins: during a cooldown or exclusion there is no Scrap Crate, no Oil Rain and no
  * promo messaging. Rakeback and affiliate earnings (the player's own money) stay claimable.
  */
 
@@ -68,20 +68,20 @@ export function progress(db: DB, userId: string) {
 export function claimRakeback(db: DB, userId: string, now: number) {
   return tx(db, () => {
     const p = progress(db, userId);
-    if (p.rakebackAvailable < frags(1)) fail('nothing_to_claim', 'Noch weniger als 1 Frag Rakeback gesammelt.');
+    if (p.rakebackAvailable < frags(1)) fail('nothing_to_claim', 'Less than 1 Frag of rakeback so far.');
     transfer(db, HOUSE, userAccount(userId), p.rakebackAvailable, 'rakeback', null, now);
     recordClaim(db, userId, 'rakeback', p.rakebackAvailable, { level: p.level, rate: p.rakebackRate }, now);
     return { amount: p.rakebackAvailable };
   });
 }
 
-/* ---------- Schrottkiste (daily case) ---------- */
+/* ---------- Scrap Crate (daily case) ---------- */
 
 export const DAILY_CASE: CaseDef = {
-  id: 'schrottkiste', name: 'Schrottkiste',
+  id: 'scrap-crate', name: 'Scrap Crate',
   items: [
-    { name: 'Rostige Schraube', value: 1, weight: 50_000 },
-    { name: 'Kupferdraht', value: 3, weight: 30_000 },
+    { name: 'Rusty Screw', value: 1, weight: 50_000 },
+    { name: 'Copper Wire', value: 3, weight: 30_000 },
     { name: 'Tape Hoodie', value: 40, weight: 15_000 },
     { name: 'Rusty Hatchet', value: 90, weight: 4_500 },
     { name: 'Big Grin Door', value: 1240, weight: 450 },
@@ -92,11 +92,11 @@ export const DAILY_MIN_LEVEL = 2;
 
 export function openDaily(db: DB, userId: string, now: number) {
   return tx(db, () => {
-    if (!promoEligible(db, userId, now)) fail('rg_blocked', 'Während einer Pause gibt es keine Gratis-Kisten.', 403);
+    if (!promoEligible(db, userId, now)) fail('rg_blocked', 'No free crates during a break.', 403);
     const p = progress(db, userId);
-    if (p.level < DAILY_MIN_LEVEL) fail('level_required', `Die Schrottkiste gibt es ab Level ${DAILY_MIN_LEVEL}.`, 403, { level: p.level });
+    if (p.level < DAILY_MIN_LEVEL) fail('level_required', `The Scrap Crate unlocks at level ${DAILY_MIN_LEVEL}.`, 403, { level: p.level });
     const last = lastClaim(db, userId, 'daily');
-    if (last && now - last.created_at < 86_400_000) fail('daily_wait', 'Die nächste Schrottkiste gibt es in 24 Stunden.', 429, { nextAt: last.created_at + 86_400_000 });
+    if (last && now - last.created_at < 86_400_000) fail('daily_wait', 'Your next Scrap Crate is available in 24 hours.', 429, { nextAt: last.created_at + 86_400_000 });
     const { seed, nonce } = takeNonce(db, userId);
     const { ticket, item } = openCase(new FairStream(seed.server_seed, seed.client_seed, nonce), DAILY_CASE);
     const amount = item.value * MF_PER_FRAG;
@@ -107,7 +107,7 @@ export function openDaily(db: DB, userId: string, now: number) {
   });
 }
 
-/* ---------- Ölregen (rain) ---------- */
+/* ---------- Oil Rain ---------- */
 
 export const RAIN_PERIOD_MS = 30 * 60_000;
 export const RAIN_WINDOW_MS = 2 * 60_000;
@@ -150,26 +150,26 @@ export function rainState(db: DB, userId: string | null, now: number) {
 export function joinRain(db: DB, userId: string, now: number) {
   return tx(db, () => {
     const cur = db.prepare('SELECT * FROM rain_rounds ORDER BY id DESC LIMIT 1').get() as unknown as RainRow | undefined;
-    if (!cur || cur.status !== 'open' || now >= cur.closes_at || now < cur.opens_at) fail('rain_closed', 'Gerade gibt es keinen Ölregen.', 409);
-    if (!promoEligible(db, userId, now)) fail('rg_blocked', 'Während einer Pause gibt es keinen Ölregen.', 403);
+    if (!cur || cur.status !== 'open' || now >= cur.closes_at || now < cur.opens_at) fail('rain_closed', 'There is no Oil Rain right now.', 409);
+    if (!promoEligible(db, userId, now)) fail('rg_blocked', 'No Oil Rain during a break.', 403);
     const p = progress(db, userId);
-    if (p.level < RAIN_MIN_LEVEL) fail('level_required', `Ölregen gibt es ab Level ${RAIN_MIN_LEVEL}.`, 403);
+    if (p.level < RAIN_MIN_LEVEL) fail('level_required', `Oil Rain unlocks at level ${RAIN_MIN_LEVEL}.`, 403);
     const wagered = (db.prepare('SELECT COALESCE(SUM(stake), 0) AS s FROM wagers WHERE user_id = ? AND created_at >= ?').get(userId, now - 86_400_000) as { s: number }).s;
-    if (wagered < frags(100)) fail('activity_required', 'Für den Ölregen brauchst du 100 Frags Einsatz in den letzten 24 Stunden.', 403);
+    if (wagered < frags(100)) fail('activity_required', 'Oil Rain needs 100 Frags wagered in the last 24 hours.', 403);
     db.prepare('INSERT OR IGNORE INTO rain_joins (rain_id, user_id, created_at) VALUES (?, ?, ?)').run(cur!.id, userId, now);
     return rainState(db, userId, now);
   });
 }
 
-/* ---------- Crew-Codes (affiliate) ---------- */
+/* ---------- Crew codes (affiliate) ---------- */
 
 export const CREW_BANDS: [number, number][] = [[0, 0.05], [10, 0.075], [50, 0.1]];
 
 export function createCrewCode(db: DB, userId: string, code: string, now: number) {
   const c = code.trim().toUpperCase();
-  if (!/^[A-Z0-9]{3,16}$/.test(c)) fail('invalid_code', 'Crew-Code: 3 bis 16 Buchstaben oder Ziffern.');
-  if (db.prepare('SELECT 1 FROM crew_codes WHERE owner_id = ?').get(userId)) fail('code_exists', 'Du hast schon einen Crew-Code.', 409);
-  if (db.prepare('SELECT 1 FROM crew_codes WHERE code = ?').get(c)) fail('code_taken', 'Dieser Code ist vergeben.', 409);
+  if (!/^[A-Z0-9]{3,16}$/.test(c)) fail('invalid_code', 'Crew code: 3 to 16 letters or digits.');
+  if (db.prepare('SELECT 1 FROM crew_codes WHERE owner_id = ?').get(userId)) fail('code_exists', 'You already have a crew code.', 409);
+  if (db.prepare('SELECT 1 FROM crew_codes WHERE code = ?').get(c)) fail('code_taken', 'This code is already taken.', 409);
   db.prepare('INSERT INTO crew_codes (code, owner_id, created_at) VALUES (?, ?, ?)').run(c, userId, now);
   return { code: c };
 }
@@ -177,11 +177,11 @@ export function createCrewCode(db: DB, userId: string, code: string, now: number
 export function redeemCrewCode(db: DB, userId: string, code: string, now: number) {
   return tx(db, () => {
     const c = db.prepare('SELECT code, owner_id FROM crew_codes WHERE code = ?').get(code.trim().toUpperCase()) as { code: string; owner_id: string } | undefined;
-    if (!c) fail('unknown_code', 'Diesen Crew-Code gibt es nicht.', 404);
-    if (c!.owner_id === userId) fail('own_code', 'Den eigenen Code kannst du nicht nutzen.');
+    if (!c) fail('unknown_code', 'This crew code does not exist.', 404);
+    if (c!.owner_id === userId) fail('own_code', 'You cannot use your own code.');
     const u = db.prepare('SELECT created_at, crew_code FROM users WHERE id = ?').get(userId) as { created_at: number; crew_code: string | null };
-    if (u.crew_code) fail('already_redeemed', 'Du nutzt schon einen Crew-Code.', 409);
-    if (now - u.created_at > 86_400_000) fail('too_late', 'Einen Crew-Code kannst du nur in den ersten 24 Stunden eintragen.', 403);
+    if (u.crew_code) fail('already_redeemed', 'You already joined a crew.', 409);
+    if (now - u.created_at > 86_400_000) fail('too_late', 'A crew code can only be entered within 24 hours of signing up.', 403);
     db.prepare('UPDATE users SET crew_code = ? WHERE id = ?').run(c!.code, userId);
     audit(db, userId, 'crew_redeem', { code: c!.code }, now);
     return { code: c!.code };
@@ -208,7 +208,7 @@ export function crewState(db: DB, userId: string) {
 export function claimCrew(db: DB, userId: string, now: number) {
   return tx(db, () => {
     const s = crewState(db, userId);
-    if (s.available < frags(1)) fail('nothing_to_claim', 'Noch weniger als 1 Frag Crew-Anteil.');
+    if (s.available < frags(1)) fail('nothing_to_claim', 'Less than 1 Frag of crew share so far.');
     transfer(db, HOUSE, userAccount(userId), s.available, 'affiliate', 'crew', now);
     recordClaim(db, userId, 'affiliate', s.available, { ngr: s.ngr, rate: s.rate, members: s.members }, now);
     return { amount: s.available };

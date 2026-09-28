@@ -27,7 +27,7 @@ export function transfer(db: DB, from: string, to: string, amount: number, kind:
   if (amount === 0) return;
   tx(db, () => {
     if (from.startsWith('user:') && balanceOf(db, from) < amount) {
-      fail('insufficient_balance', 'Guthaben reicht nicht aus.', 400, { balance: balanceOf(db, from), needed: amount });
+      fail('insufficient_balance', 'Insufficient balance.', 400, { balance: balanceOf(db, from), needed: amount });
     }
     const txId = `${now}-${Math.random().toString(36).slice(2, 10)}`;
     const ins = db.prepare('INSERT INTO ledger (tx_id, account, amount, kind, ref, created_at) VALUES (?, ?, ?, ?, ?, ?)');

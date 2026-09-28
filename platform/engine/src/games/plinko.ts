@@ -1,5 +1,5 @@
 /**
- * Schrottrutsche (plinko). n rows, n+1 buckets; each row one float: f < 0.5 → left, else right.
+ * Scrap Chute (plinko). n rows, n+1 buckets; each row one float: f < 0.5 → left, else right.
  * Bucket = number of rights  ⇒  P(bucket k) = C(n, k) / 2ⁿ.
  * RTP(table) = Σ C(n,k)·mult_k / 2ⁿ  — computed exactly below; every table is in [96.5 %, 97.0 %].
  * Tables are SCRAPLINE-original: shaped from centre/edge anchors, then rounded to readable values.

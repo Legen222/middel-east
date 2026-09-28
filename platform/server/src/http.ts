@@ -23,12 +23,12 @@ export function createApp(deps: AppDeps) {
     };
     const headers = headersOf(req);
     if (req.url?.split('?')[0] === '/crash/stream' && req.method === 'GET') {
-      if (!router.streamAllowed(headers)) return send(451, { error: 'geo_blocked', message: 'Aus deinem Land ist SCRAPLINE nicht verfügbar.' });
+      if (!router.streamAllowed(headers)) return send(451, { error: 'geo_blocked', message: 'SCRAPLINE is not available in your country.' });
       return stream(res);
     }
     let body: unknown;
     try { body = await readBody(req); } catch (e) {
-      const err = e instanceof AppError ? e : new AppError('invalid_json', 'Ungültiges JSON.');
+      const err = e instanceof AppError ? e : new AppError('invalid_json', 'Invalid JSON.');
       return send(err.status, { error: err.code, message: err.message });
     }
     const out = await router.dispatch({ method: req.method ?? 'GET', url: req.url ?? '/', headers, body, ip: req.socket.remoteAddress ?? 'unknown' });
@@ -53,12 +53,12 @@ function readBody(req: IncomingMessage): Promise<unknown> {
     let size = 0; const chunks: Buffer[] = [];
     req.on('data', (c: Buffer) => {
       size += c.length;
-      if (size > MAX_BODY) { reject(new AppError('payload_too_large', 'Anfrage zu groß.', 413)); req.destroy(); return; }
+      if (size > MAX_BODY) { reject(new AppError('payload_too_large', 'Request too large.', 413)); req.destroy(); return; }
       chunks.push(c);
     });
     req.on('end', () => {
       if (!chunks.length) return resolve(null);
-      try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))); } catch { reject(new AppError('invalid_json', 'Ungültiges JSON.')); }
+      try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))); } catch { reject(new AppError('invalid_json', 'Invalid JSON.')); }
     });
     req.on('error', reject);
   });

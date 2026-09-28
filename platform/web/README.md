@@ -13,20 +13,20 @@ npm run build                                           # dist/
 
 | Ansicht | Route | Inhalt |
 |---|---|---|
-| Werkstatt | `#/` | Lobby, Originals mit RTP, tatsächlicher RTP der letzten 30 Tage |
+| Workshop | `#/` | Lobby, Originals mit RTP, tatsächlicher RTP der letzten 30 Tage |
 | Raid | `#/raid` | Signature-Modus, Sprengstoff pro Wand, Multiplikator-Vorschau |
-| Kisten | `#/kisten` | Kistenauswahl, Walze (4,2 s Ease-out), vollständige Chancen-Tabelle |
-| Kisten-Battle | `#/battle` | PvP 2–4 Plätze, Normal/Crazy/Terminal, Demo-Bots |
-| Schrottpresse | `#/schrottpresse` | Live-Crash per SSE, Kurve auf Canvas, Auto- und manuelle Auszahlung, Prüfung der Kette im Browser |
-| Münzwurf | `#/muenzwurf` | PvP, Countdown bis zur Beacon-Runde, Seed nach der Entscheidung |
-| Minenfeld | `#/minenfeld` | 5×5, 1–24 Minen, Multiplikator-Leiter |
-| Würfel | `#/wuerfel` | Chance per Slider, unter/über, Zählanimation |
-| Schrottrutsche | `#/schrottrutsche` | 8/12/16 Reihen, 3 Risikostufen, RTP je Tabelle |
-| Werkbank | `#/werkbank` | Ziel-Multiplikator, Chancen-Anzeige, Zeiger-Animation |
-| Belohnungen | `#/belohnungen` | Level-Fortschritt, Rakeback, Schrottkiste, Ölregen, Crew-Code |
-| Limits & Pausen | `#/limits` | Limits, Pause, Selbstausschluss, Reality-Check, Hilfe-Links |
+| Cases | `#/cases` | Kistenauswahl, Walze (4,2 s Ease-out), vollständige Chancen-Tabelle |
+| Case Battle | `#/battle` | PvP 2–4 Plätze, Normal/Crazy/Terminal, Demo-Bots |
+| Scrap Press | `#/scrap-press` | Live-Crash per SSE, Kurve auf Canvas, Auto- und manuelle Auszahlung, Prüfung der Kette im Browser |
+| Coinflip | `#/coinflip` | PvP, Countdown bis zur Beacon-Runde, Seed nach der Entscheidung |
+| Minefield | `#/minefield` | 5×5, 1–24 Minen, Multiplikator-Leiter |
+| Dice | `#/dice` | Chance per Slider, unter/über, Zählanimation |
+| Scrap Chute | `#/scrap-chute` | 8/12/16 Reihen, 3 Risikostufen, RTP je Tabelle |
+| Workbench | `#/workbench` | Ziel-Multiplikator, Chancen-Anzeige, Zeiger-Animation |
+| Rewards | `#/rewards` | Level-Fortschritt, Rakeback, Schrottkiste, Ölregen, Crew-Code |
+| Limits & Breaks | `#/limits` | Limits, Pause, Selbstausschluss, Reality-Check, Hilfe-Links |
 | Provably Fair | `#/fair` | aktives Seed-Paar, Rotation, offengelegte Seeds |
-| Verlauf | `#/verlauf` | letzte 100 Wetten mit Nonce und (nach Rotation) Server-Seed |
+| History | `#/history` | letzte 100 Wetten mit Nonce und (nach Rotation) Server-Seed |
 
 Immer sichtbar: Demo-Guthaben und die Session-Leiste mit Spielzeit und Netto-Ergebnis. Der Reality-Check öffnet
 sich zu dem Zeitpunkt, den der Server vorgibt. Offene Minenfeld- und Raid-Runden werden nach einem Neuladen der Seite

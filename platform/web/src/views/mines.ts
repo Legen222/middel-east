@@ -7,24 +7,24 @@ const binom = (n: number, k: number) => { let r = 1; for (let i = 1; i <= k; i++
 const ladder = (m: number, k: number) => (k === 0 ? 1 : (0.97 * binom(25, k)) / binom(25 - m, k));
 
 export const minesView: View = {
-  title: 'Minenfeld',
+  title: 'Minefield',
   html: () => `
   <section class="game">
     <div class="game-stage">
       <div class="game-head">
-        <div><p class="eyebrow">Original</p><h1 class="h-display">Minenfeld</h1>
-          <p>Decke sichere Felder auf und steig aus, bevor du auf eine Mine trittst. Multiplikator = 0,97 · C(25, k) / C(25 − m, k).</p></div>
-        <div class="big-mult" id="mult">1,00×</div>
+        <div><p class="eyebrow">Original</p><h1 class="h-display">Minefield</h1>
+          <p>Reveal safe tiles and cash out before you step on a mine. Multiplier = 0.97 · C(25, k) / C(25 − m, k).</p></div>
+        <div class="big-mult" id="mult">1.00×</div>
       </div>
-      <div class="minefield" id="field">${Array.from({ length: 25 }, (_, i) => `<button type="button" class="cell" data-t="${i}" aria-label="Feld ${i + 1}" disabled></button>`).join('')}</div>
-      <p class="status" id="status" role="status">Minenzahl und Einsatz wählen.</p>
+      <div class="minefield" id="field">${Array.from({ length: 25 }, (_, i) => `<button type="button" class="cell" data-t="${i}" aria-label="Tile ${i + 1}" disabled></button>`).join('')}</div>
+      <p class="status" id="status" role="status">Pick the number of mines and your stake.</p>
     </div>
     <aside class="game-side">
       ${stakeField('stake', 10)}
-      <label class="field">Minen <input id="mines" type="range" min="1" max="24" value="3"></label>
-      <div class="row" style="justify-content:space-between;font-size:13px"><span class="muted">Minen: <b class="num" id="m-count">3</b></span><span class="muted">1. Feld: <b class="num" id="m-first"></b> · 5. Feld: <b class="num" id="m-fifth"></b></span></div>
-      <button class="btn block" id="start" type="button">Runde starten</button>
-      <button class="btn win block" id="cash" type="button" hidden>Auszahlen</button>
+      <label class="field">Mines <input id="mines" type="range" min="1" max="24" value="3"></label>
+      <div class="row" style="justify-content:space-between;font-size:13px"><span class="muted">Mines: <b class="num" id="m-count">3</b></span><span class="muted">1st tile: <b class="num" id="m-first"></b> · 5th tile: <b class="num" id="m-fifth"></b></span></div>
+      <button class="btn block" id="start" type="button">Start round</button>
+      <button class="btn win block" id="cash" type="button" hidden>Cash out</button>
       <div id="fair"></div>
     </aside>
   </section>`,
@@ -62,7 +62,7 @@ export const minesView: View = {
       const cash = $<HTMLButtonElement>('#cash', root);
       cash.hidden = !open;
       cash.disabled = !open || revealed.size === 0;
-      if (open) cash.textContent = `Auszahlen · ${frags(bet!.stake * (bet!.currentMultiplier ?? 1))}`;
+      if (open) cash.textContent = `Cash out · ${frags(bet!.stake * (bet!.currentMultiplier ?? 1))}`;
       const m = $('#mult', root);
       m.textContent = mult(open ? bet!.currentMultiplier ?? 1 : bet?.multiplier ?? 1);
       m.className = `big-mult ${bet?.status === 'settled' ? (bet.payout > 0 ? 'win' : 'lose') : ''}`;
@@ -71,12 +71,12 @@ export const minesView: View = {
 
     api<MinesBet[]>('GET', '/games/open').then((g) => {
       const r = g.find((x) => x.game === 'mines');
-      if (r) { bet = r; minesInput.value = String(r.mines); preview(); status('Offene Runde gefunden. Weiter aufdecken oder auszahlen.'); draw(); }
+      if (r) { bet = r; minesInput.value = String(r.mines); preview(); status('Open round found. Keep revealing or cash out.'); draw(); }
     }).catch(() => null);
 
     $('#start', root).addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {
       bet = await api<MinesBet>('POST', '/mines/start', { stake: readNum($<HTMLInputElement>('#stake', root).value), mines: Number(minesInput.value) });
-      status(`Nächstes Feld: ${mult(bet.nextMultiplier ?? 1)}`);
+      status(`Next tile: ${mult(bet.nextMultiplier ?? 1)}`);
       draw();
       await c.refresh();
     }));
@@ -84,15 +84,15 @@ export const minesView: View = {
       if (!bet || bet.status !== 'open') return;
       bet = await api<MinesBet>('POST', `/mines/${bet.id}/reveal`, { tile: Number(cell.dataset.t) });
       if (bet.status === 'settled') {
-        status(bet.payout > 0 ? `Alle sicheren Felder gefunden: +${frags(bet.payout)} Frags.` : 'Mine! Runde verloren.', bet.payout > 0 ? 'win' : 'lose');
+        status(bet.payout > 0 ? `All safe tiles found: +${frags(bet.payout)} Frags.` : 'Mine! Round lost.', bet.payout > 0 ? 'win' : 'lose');
         await c.refresh();
-      } else status(`Sicher. Nächstes Feld: ${mult(bet.nextMultiplier ?? 1)}`);
+      } else status(`Safe. Next tile: ${mult(bet.nextMultiplier ?? 1)}`);
       draw();
     })));
     $('#cash', root).addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {
       if (!bet) return;
       bet = await api<MinesBet>('POST', `/mines/${bet.id}/cashout`, {});
-      status(`Ausgezahlt: ${frags(bet.payout)} Frags.`, 'win');
+      status(`Cashed out: ${frags(bet.payout)} Frags.`, 'win');
       draw();
       await c.refresh();
     }));

@@ -1,5 +1,5 @@
 /**
- * Kisten (case opening) and Kisten-Battle.
+ * Cases (case opening) and Case Battle.
  *
  * A case lists items with integer ticket weights. One float per opening:
  *   ticket = ⌊f · W⌋,  W = Σ weights  → the item whose cumulative range contains the ticket.
@@ -81,8 +81,8 @@ export function playBattle(src: FloatSource, cases: CaseDef[], seats: number, mo
 /** Example SCRAPLINE cases. Item values are placeholders until the price feed is connected. */
 export const SAMPLE_CASES: CaseDef[] = [
   {
-    id: 'werkzeugkiste',
-    name: 'Werkzeugkiste',
+    id: 'toolbox',
+    name: 'Toolbox',
     items: [
       { name: 'Tape Hoodie', value: 40, weight: 42000 },
       { name: 'Rusty Hatchet', value: 90, weight: 26000 },
@@ -94,8 +94,8 @@ export const SAMPLE_CASES: CaseDef[] = [
     ],
   },
   {
-    id: 'militaerkiste',
-    name: 'Militärkiste',
+    id: 'military-crate',
+    name: 'Military Crate',
     items: [
       { name: 'Camo Bandana', value: 120, weight: 38000 },
       { name: 'No Mercy Box', value: 310, weight: 27000 },
@@ -108,7 +108,7 @@ export const SAMPLE_CASES: CaseDef[] = [
   },
   {
     id: 'elite-crate',
-    name: 'Elite-Crate',
+    name: 'Elite Crate',
     items: [
       { name: 'Alien Red', value: 1900, weight: 40000 },
       { name: 'Night Stalker', value: 4200, weight: 30000 },
@@ -119,8 +119,8 @@ export const SAMPLE_CASES: CaseDef[] = [
     ],
   },
   {
-    id: 'tresor',
-    name: 'Tresor',
+    id: 'vault',
+    name: 'Vault',
     items: [
       { name: 'Tempered AK', value: 8420, weight: 50000 },
       { name: 'Glory AK', value: 21000, weight: 30000 },

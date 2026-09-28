@@ -1,5 +1,5 @@
 /**
- * Würfel (dice).
+ * Dice.
  *   roll       = ⌊f · 10000⌋ / 100              uniform over 0.00 … 99.99 (10 000 values)
  *   win chance c ∈ [0.01, 98.00] % in 0.01 steps
  *   under:  win ⇔ roll <  c                      (c·100 values)

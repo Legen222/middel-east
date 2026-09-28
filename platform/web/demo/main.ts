@@ -21,8 +21,8 @@ import { createRouter } from '../../server/src/router';
 import { toHex } from '../../engine/src/pf/sha256';
 import { configureSqlJs, exportDatabase } from './shims/node-sqlite';
 
-const DB_KEY = 'scrapline.demo.db.v1';
-const BEACON_KEY = 'scrapline.demo.beacon.v1';
+const DB_KEY = 'scrapline.demo.db.v2';
+const BEACON_KEY = 'scrapline.demo.beacon.v2';
 
 const store = {
   get(k: string) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -86,7 +86,7 @@ async function start() {
     busy = true;
     try { await crash.tick(Date.now()); await settleDue(db, beacon, Date.now()); rainTick(db, cfg, Date.now()); } catch (e) { console.error(e); } finally { busy = false; }
   }, 200);
-  const save = () => { const bytes = exportDatabase(); if (bytes && !store.set(DB_KEY, toB64(bytes))) console.warn('Demo-Stand konnte nicht gespeichert werden (Speicher voll oder blockiert).'); };
+  const save = () => { const bytes = exportDatabase(); if (bytes && !store.set(DB_KEY, toB64(bytes))) console.warn('Could not save demo state (storage full or blocked).'); };
   setInterval(save, 5000);
   addEventListener('pagehide', save);
 
@@ -104,5 +104,5 @@ async function start() {
 start().catch((e) => {
   console.error(e);
   const app = document.getElementById('app');
-  if (app) app.innerHTML = '<p style="padding:24px;color:#EAE2D3">Die Demo konnte nicht starten. Bitte die Seite neu laden.</p>';
+  if (app) app.innerHTML = '<p style="padding:24px;color:#EAE2D3">The demo failed to start. Please reload the page.</p>';
 });

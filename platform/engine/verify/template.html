@@ -1,5 +1,5 @@
-<title>SCRAPLINE Fairness-Prüfer</title>
-<meta name="description" content="Jede SCRAPLINE-Runde offline nachrechnen: Server-Seed, Client-Seed, Nonce, HMAC-SHA256.">
+<title>SCRAPLINE Fairness Verifier</title>
+<meta name="description" content="Replay any SCRAPLINE round offline: server seed, client seed, nonce, HMAC-SHA256.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Stencil:wght@900&family=Barlow:wght@400;600&family=Barlow+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -43,41 +43,41 @@ footer{color:var(--muted);font-size:13px;border-top:1px solid var(--line);paddin
 <div class="wrap">
   <header>
     <div class="stripe" aria-hidden="true"></div>
-    <h1 class="brand">SCRAP<span>LINE</span> · Fairness-Prüfer</h1>
-    <p>Rechne jede Runde selbst nach. Diese Seite enthält denselben Engine-Code wie der Server (SHA-256 und HMAC in reinem JavaScript) und funktioniert auch offline. Die Felder sind mit einem Beispiel gefüllt.</p>
+    <h1 class="brand">SCRAP<span>LINE</span> · Fairness Verifier</h1>
+    <p>Replay any round yourself. This page contains the same engine code as the server (SHA-256 and HMAC in plain JavaScript) and also works offline. The fields are prefilled with an example.</p>
   </header>
 
   <div class="grid2">
-    <section class="panel" aria-label="Eingaben">
-      <h2>Runde</h2>
-      <label>Spiel<select id="game"></select></label>
+    <section class="panel" aria-label="Inputs">
+      <h2>Round</h2>
+      <label>Game<select id="game"></select></label>
       <div id="seed-mode" class="fields">
-        <label>Server-Seed (nach dem Rotieren sichtbar)<input id="s-seed" value="3f1e9c2a7b6d4e58a1c0f9e8d7b6a5c4b3a29181706f5e4d3c2b1a0918273645" spellcheck="false"></label>
-        <label>Veröffentlichter Hash (vor der Runde)<input id="s-hash" value="036b27df7fec37623c4f7a1d088c3bd394b68f40df007484c17c14beaee5823d" spellcheck="false"></label>
-        <label>Client-Seed<input id="s-client" value="scrapline" spellcheck="false"></label>
+        <label>Server seed (visible after rotation)<input id="s-seed" value="3f1e9c2a7b6d4e58a1c0f9e8d7b6a5c4b3a29181706f5e4d3c2b1a0918273645" spellcheck="false"></label>
+        <label>Published hash (before the round)<input id="s-hash" value="036b27df7fec37623c4f7a1d088c3bd394b68f40df007484c17c14beaee5823d" spellcheck="false"></label>
+        <label>Client seed<input id="s-client" value="scrapline" spellcheck="false"></label>
         <label>Nonce<input id="s-nonce" value="0" inputmode="numeric"></label>
       </div>
       <div id="crash-mode" class="fields" hidden>
-        <label>Spiel-Seed dieser Runde<input id="c-seed" value="9c1d7e3b5a2f4c6e8d0b1a3c5e7f9b2d4a6c8e0f1b3d5a7c9e2f4b6d8a0c1e3f" spellcheck="false"></label>
-        <label>Seed der Vorrunde oder Terminal-Hash (optional)<input id="c-prev" value="e7a538b196707e22aec4a2375e7ba6571084af113eed1179ed1c24eb4770cefc" spellcheck="false"></label>
-        <label>Client-Seed der Kette (öffentlicher Block-Hash)<input id="c-client" value="0000000000000000000a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcd" spellcheck="false"></label>
+        <label>Game seed of this round<input id="c-seed" value="9c1d7e3b5a2f4c6e8d0b1a3c5e7f9b2d4a6c8e0f1b3d5a7c9e2f4b6d8a0c1e3f" spellcheck="false"></label>
+        <label>Previous round's seed or terminal hash (optional)<input id="c-prev" value="e7a538b196707e22aec4a2375e7ba6571084af113eed1179ed1c24eb4770cefc" spellcheck="false"></label>
+        <label>Chain client seed (public block hash)<input id="c-client" value="0000000000000000000a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcd" spellcheck="false"></label>
       </div>
       <div id="fields" class="fields"></div>
-      <button type="button" id="go">Prüfen</button>
+      <button type="button" id="go">Verify</button>
     </section>
-    <section class="panel" aria-live="polite" aria-label="Ergebnis">
-      <h2>Ergebnis</h2>
+    <section class="panel" aria-live="polite" aria-label="Result">
+      <h2>Result</h2>
       <div id="out"></div>
     </section>
   </div>
 
-  <section class="how" aria-label="So funktioniert es">
-    <div><b>1 · Commitment</b>Vor deiner ersten Wette zeigen wir <code>sha256(serverSeed)</code>. Der Seed selbst bleibt geheim, bis du rotierst.</div>
-    <div><b>2 · Dein Einfluss</b>Dein Client-Seed und die Nonce gehen in jede Runde ein. Du kannst den Client-Seed jederzeit ändern.</div>
-    <div><b>3 · Zufall</b><code>HMAC-SHA256(serverSeed, client:nonce:runde)</code> ergibt 32 Bytes. Je 4 Bytes bilden einen Float in [0, 1).</div>
-    <div><b>4 · Nachrechnen</b>Nach dem Rotieren prüfst du hier den Hash und spielst jede Runde exakt nach.</div>
+  <section class="how" aria-label="How it works">
+    <div><b>1 · Commitment</b>Before your first bet we show <code>sha256(serverSeed)</code>. The seed itself stays secret until you rotate.</div>
+    <div><b>2 · Your input</b>Your client seed and the nonce go into every round. You can change the client seed at any time.</div>
+    <div><b>3 · Randomness</b><code>HMAC-SHA256(serverSeed, client:nonce:round)</code> gives 32 bytes. Every 4 bytes form a float in [0, 1).</div>
+    <div><b>4 · Replay</b>After rotating, check the hash here and replay every round exactly.</div>
   </section>
 
-  <footer>Spielgeld-Demo. Echtgeld- und Skin-Betrieb nur mit Lizenz, ab 18, mit Geo-Blocking und Responsible-Gambling-Tools. Quellcode: <code>platform/engine</code>.</footer>
+  <footer>Play-money demo. Real money and skins only with a licence, 18+, with geo-blocking and responsible-gambling tools. Source: <code>platform/engine</code>.</footer>
 </div>
 <script>/*BUNDLE*/</script>

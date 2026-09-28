@@ -1,5 +1,5 @@
 /**
- * Minenfeld (mines), 5×5 = 25 tiles, m ∈ [1, 24] mines.
+ * Minefield (mines), 5×5 = 25 tiles, m ∈ [1, 24] mines.
  *   Mine layout: partial Fisher–Yates over tiles 0…24; for i < m pick j = i + ⌊f·(25 − i)⌋, swap.
  *   After k safe reveals:  mult(k) = (1 − e) · C(25, k) / C(25 − m, k)
  *   P(survive k)          = C(25 − m, k) / C(25, k)

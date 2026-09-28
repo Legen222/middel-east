@@ -1,5 +1,5 @@
 /**
- * Schrottpresse (crash).
+ * Scrap Press (crash).
  *   h     = first 52 bits of HMAC-SHA256(gameSeed, clientSeed)   uniform on {0, …, 2⁵² − 1}
  *   E     = 2⁵²
  *   crash = max(1, ⌊100 · (1 − e) · E / (E − h)⌋ / 100)

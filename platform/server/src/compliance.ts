@@ -23,9 +23,9 @@ import type { UserRow } from './accounts';
 
 export function checkGeo(cfg: Config, country: string | null, realMoney: boolean): void {
   const c = (country ?? '').toUpperCase();
-  if (cfg.sanctioned.includes(c)) fail('geo_blocked', 'Aus deinem Land ist SCRAPLINE nicht verfügbar.', 451, { country: c });
+  if (cfg.sanctioned.includes(c)) fail('geo_blocked', 'SCRAPLINE is not available in your country.', 451, { country: c });
   if (realMoney && (c === '' || c === 'XX' || c === 'T1' || cfg.realMoneyBlocked.includes(c))) {
-    fail('geo_blocked', 'Echtgeld-Spiel ist in deinem Land nicht erlaubt. Der Demo-Modus bleibt verfügbar.', 451, { country: c });
+    fail('geo_blocked', 'Real-money play is not allowed in your country. Demo mode stays available.', 451, { country: c });
   }
 }
 
@@ -38,7 +38,7 @@ export interface KycProvider {
 
 /** Demo provider: never verifies anyone. Real providers (Sumsub, Veriff, Onfido) implement the same interface. */
 export const demoKyc: KycProvider = {
-  async start() { return fail('not_available', 'Verifizierung ist im Demo-Modus nicht nötig.', 400); },
+  async start() { return fail('not_available', 'Verification is not needed in demo mode.', 400); },
   async webhook() { return null; },
 };
 
@@ -46,18 +46,18 @@ export interface WithdrawalCheck { allowed: boolean; reasons: { code: string; me
 
 export function withdrawalCheck(db: DB, cfg: Config, user: UserRow, amount: number): WithdrawalCheck {
   const reasons: WithdrawalCheck['reasons'] = [];
-  if (cfg.demo) reasons.push({ code: 'demo', message: 'Im Demo-Modus gibt es keine Auszahlungen. Demo-Guthaben hat keinen Wert.' });
+  if (cfg.demo) reasons.push({ code: 'demo', message: 'There are no withdrawals in demo mode. Demo balance has no value.' });
   const account = `user:${user.id}`;
   const lastW = (db.prepare("SELECT COALESCE(MAX(created_at), 0) AS t FROM ledger WHERE account = ? AND kind = 'withdrawal'").get(account) as { t: number }).t;
   const deposits = (db.prepare("SELECT COALESCE(SUM(amount), 0) AS s FROM ledger WHERE account = ? AND kind = 'deposit' AND amount > 0 AND created_at > ?").get(account, lastW) as { s: number }).s;
   const allDeposits = (db.prepare("SELECT COALESCE(SUM(amount), 0) AS s FROM ledger WHERE account = ? AND kind = 'deposit' AND amount > 0").get(account) as { s: number }).s;
   const wagered = (db.prepare('SELECT COALESCE(SUM(stake), 0) AS s FROM wagers WHERE user_id = ? AND created_at > ?').get(user.id, lastW) as { s: number }).s;
-  if (user.kyc_level < 1) reasons.push({ code: 'kyc_1', message: 'Bitte verifiziere deine Identität (Ausweis und Selfie).' });
-  if (allDeposits > cfg.kycDepositThreshold && user.kyc_level < 2) reasons.push({ code: 'kyc_2', message: 'Ab dieser Einzahlungssumme brauchen wir einen Herkunftsnachweis der Mittel.' });
+  if (user.kyc_level < 1) reasons.push({ code: 'kyc_1', message: 'Please verify your identity (ID document and selfie).' });
+  if (allDeposits > cfg.kycDepositThreshold && user.kyc_level < 2) reasons.push({ code: 'kyc_2', message: 'Above this deposit total we need proof of the source of your funds.' });
   if (wagered < deposits * cfg.amlWagerMultiple) {
-    reasons.push({ code: 'aml_wager', message: `Setze vor der Auszahlung mindestens deine Einzahlungen einmal um (noch ${(deposits * cfg.amlWagerMultiple - wagered) / 1000} Frags).` });
+    reasons.push({ code: 'aml_wager', message: `Wager your deposits at least once before withdrawing (${(deposits * cfg.amlWagerMultiple - wagered) / 1000} Frags to go).` });
   }
-  if (amount <= 0) reasons.push({ code: 'invalid_amount', message: 'Betrag muss positiv sein.' });
+  if (amount <= 0) reasons.push({ code: 'invalid_amount', message: 'Amount must be positive.' });
   return { allowed: reasons.length === 0, reasons };
 }
 

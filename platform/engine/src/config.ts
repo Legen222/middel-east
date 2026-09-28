@@ -10,15 +10,15 @@ export const EDGE = {
   cases: 0.07, // target; each case is priced so its RTP is at most 1 − 0.07
 } as const;
 
-/** SCRAPLINE display names. Code uses the English ids. */
+/** SCRAPLINE display names. */
 export const DISPLAY_NAME = {
-  dice: 'Würfel',
-  crash: 'Schrottpresse',
-  mines: 'Minenfeld',
-  plinko: 'Schrottrutsche',
+  dice: 'Dice',
+  crash: 'Scrap Press',
+  mines: 'Minefield',
+  plinko: 'Scrap Chute',
   raid: 'Raid',
-  upgrader: 'Werkbank',
-  coinflip: 'Münzwurf',
-  cases: 'Kisten',
-  battles: 'Kisten-Battle',
+  upgrader: 'Workbench',
+  coinflip: 'Coinflip',
+  cases: 'Cases',
+  battles: 'Case Battle',
 } as const;

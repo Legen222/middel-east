@@ -2,10 +2,10 @@ import { type RaidBet, api } from '../api';
 import type { View } from '../main';
 import { $, $$, bindStake, esc, fairBox, frags, guard, mult, readNum, sleep, stakeField } from '../ui';
 
-const LAYERS: [string, string][] = [['Twig', '#8a6a3c'], ['Holz', '#a0763f'], ['Stein', '#8b8680'], ['Metall', '#7d8a93'], ['HQM', '#5b6a78'], ['Tool Cupboard', '#B7471D']];
+const LAYERS: [string, string][] = [['Twig', '#8a6a3c'], ['Wood', '#a0763f'], ['Stone', '#8b8680'], ['Metal', '#7d8a93'], ['HQM', '#5b6a78'], ['Tool Cupboard', '#B7471D']];
 const TOOLS = [
   { id: 'c4', name: 'C4', p: 0.8 },
-  { id: 'rocket', name: 'Rakete', p: 0.6 },
+  { id: 'rocket', name: 'Rocket', p: 0.6 },
   { id: 'satchel', name: 'Satchel', p: 0.4 },
 ] as const;
 const E = 0.03;
@@ -17,19 +17,19 @@ export const raidView: View = {
     <div class="game-stage">
       <div class="game-head">
         <div><p class="eyebrow">Signature</p><h1 class="h-display">Raid</h1>
-          <p>Pro Wand wählst du den Sprengstoff. Aussteigen zahlt Einsatz × 0,97 ÷ (Produkt der Chancen). Egal wie du spielst: 97 % RTP.</p></div>
-        <div class="big-mult" id="mult">1,00×</div>
+          <p>Pick an explosive for every wall. Cashing out pays stake × 0.97 ÷ (product of the chances). However you play: 97 % RTP.</p></div>
+        <div class="big-mult" id="mult">1.00×</div>
       </div>
       <div class="walls" id="walls"></div>
-      <p class="status" id="status" role="status">Einsatz wählen und Raid starten.</p>
+      <p class="status" id="status" role="status">Set your stake and start the raid.</p>
     </div>
     <aside class="game-side">
       ${stakeField('stake', 10)}
-      <div class="tools" id="tools">${TOOLS.map((t) => `<button type="button" class="tool" data-tool="${t.id}" disabled><b>${t.name}</b><span>${Math.round(t.p * 100)} % · ×${(1 / t.p).toFixed(2).replace('.', ',')}</span></button>`).join('')}</div>
-      <button class="btn block" id="start" type="button">Raid starten</button>
-      <button class="btn win block" id="cash" type="button" hidden>Loot sichern</button>
+      <div class="tools" id="tools">${TOOLS.map((t) => `<button type="button" class="tool" data-tool="${t.id}" disabled><b>${t.name}</b><span>${Math.round(t.p * 100)} % · ×${(1 / t.p).toFixed(2)}</span></button>`).join('')}</div>
+      <button class="btn block" id="start" type="button">Start raid</button>
+      <button class="btn win block" id="cash" type="button" hidden>Secure loot</button>
       <div id="fair"></div>
-      <p class="muted" style="font-size:12px">Jede Wand: ein Wurf f ∈ [0, 1), durch bei f &lt; Chance. Der Wurf steht schon beim Start fest (Seed + Nonce).</p>
+      <p class="muted" style="font-size:12px">Each wall: one roll f ∈ [0, 1), breached when f &lt; chance. The rolls are fixed when the raid starts (seed + nonce).</p>
     </aside>
   </section>`,
   mount: (root, c) => {
@@ -50,7 +50,7 @@ export const raidView: View = {
       const cash = $<HTMLButtonElement>('#cash', root);
       cash.hidden = !open;
       cash.disabled = !open || breached === 0;
-      if (open) cash.textContent = `Loot sichern · ${frags(bet!.stake * (bet!.currentMultiplier ?? 1))}`;
+      if (open) cash.textContent = `Secure loot · ${frags(bet!.stake * (bet!.currentMultiplier ?? 1))}`;
       $('#mult', root).textContent = mult(open ? bet!.currentMultiplier ?? 1 : bet?.status === 'settled' ? bet.multiplier : 1);
       $('#mult', root).className = `big-mult ${bet?.status === 'settled' ? (bet.payout > 0 ? 'win' : 'lose') : ''}`;
       $('#fair', root).innerHTML = bet ? fairBox(bet.fairness) : fairBox({ ...c.me.seed, nonce: c.me.seed.nextNonce });
@@ -65,20 +65,20 @@ export const raidView: View = {
 
     api<RaidBet[]>('GET', '/games/open').then((g) => {
       const r = g.find((x) => x.game === 'raid');
-      if (r) { bet = r; tools = []; status(`Offener Raid gefunden: ${r.layersBreached} Wände durch. Weiter oder sichern?`); draw(); }
+      if (r) { bet = r; tools = []; status(`Open raid found: ${r.layersBreached} walls breached. Keep going or secure the loot?`); draw(); }
     }).catch(() => null);
 
     $('#start', root).addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {
       bet = await api<RaidBet>('POST', '/raid/start', { stake: readNum($<HTMLInputElement>('#stake', root).value) });
       tools = [];
-      status('Basis gefunden. Erste Wand: Twig.');
+      status('Base found. First wall: Twig.');
       draw();
       await c.refresh();
     }));
     $$<HTMLButtonElement>('.tool', root).forEach((b) => b.addEventListener('click', () => guard(b, async () => {
       if (!bet) return;
       const layer = LAYERS[bet.layersBreached ?? 0][0];
-      status(`Sprengsatz an ${layer} …`);
+      status(`Charge placed on ${layer} …`);
       await sleep(450);
       const res = await api<RaidBet>('POST', `/raid/${bet.id}/blast`, { tool: b.dataset.tool });
       tools.push(b.dataset.tool!);
@@ -86,18 +86,18 @@ export const raidView: View = {
       if (res.status === 'settled') {
         const held = res.payout === 0;
         draw(held ? tools.length - 1 : -1);
-        status(held ? `${layer} hält. Raid abgewehrt.` : `Tool Cupboard geknackt: +${frags(res.payout)} Frags.`, held ? 'lose' : 'win');
+        status(held ? `${layer} holds. Raid repelled.` : `Tool Cupboard cracked: +${frags(res.payout)} Frags.`, held ? 'lose' : 'win');
         await c.refresh();
       } else {
         draw();
-        status(`${esc(layer)} ist durch. Nächste Wand: ${res.nextLayer}. Weiter oder sichern?`);
+        status(`${esc(layer)} is breached. Next wall: ${res.nextLayer}. Keep going or secure the loot?`);
       }
     })));
     $('#cash', root).addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {
       if (!bet) return;
       bet = await api<RaidBet>('POST', `/raid/${bet.id}/cashout`, {});
       draw();
-      status(`Loot gesichert: ${frags(bet.payout)} Frags.`, 'win');
+      status(`Loot secured: ${frags(bet.payout)} Frags.`, 'win');
       await c.refresh();
     }));
     draw();

@@ -17,12 +17,12 @@ const until = (t: number) => {
 };
 
 export const rewardsView: View = {
-  title: 'Belohnungen',
+  title: 'Rewards',
   html: () => `
   <section class="card">
-    <p class="eyebrow">Werkbank-Stufe</p>
-    <h1 class="h-display">Belohnungen</h1>
-    <p class="muted" style="max-width:66ch">Alles hier zählt nach <b>erwartetem Verlust</b> (Einsatz × House Edge des Spiels), nicht nach Umsatz. Niedrige Edge bringt also weniger XP, und keine Strategie bringt mehr Belohnung, als sie im Schnitt kostet.</p>
+    <p class="eyebrow">Workbench tier</p>
+    <h1 class="h-display">Rewards</h1>
+    <p class="muted" style="max-width:66ch">Everything here is based on <b>expected loss</b> (stake × the game's house edge), not on volume. A lower edge earns less XP, and no strategy earns more in rewards than it costs on average.</p>
     <div id="level"></div>
   </section>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:16px">
@@ -40,42 +40,42 @@ export const rewardsView: View = {
       const span = r.nextLevelXp - r.levelXp;
       const k = span ? (r.xp - r.levelXp) / span : 1;
       $('#level', root).innerHTML = `
-        <div class="row" style="justify-content:space-between"><b class="h-sect">Level ${r.level}</b><span class="num muted">${r.xp.toLocaleString('de-DE')} / ${r.nextLevelXp.toLocaleString('de-DE')} XP</span></div>
+        <div class="row" style="justify-content:space-between"><b class="h-sect">Level ${r.level}</b><span class="num muted">${r.xp.toLocaleString('en-US')} / ${r.nextLevelXp.toLocaleString('en-US')} XP</span></div>
         <div style="height:14px;border:1px solid var(--line);border-radius:2px;background:var(--bg);overflow:hidden"><div style="height:100%;width:${Math.round(k * 100)}%;background:repeating-linear-gradient(-45deg,var(--hazard) 0 10px,#c79612 10px 20px)"></div></div>
-        <p class="muted" style="font-size:13px">1 XP = 1 Frag erwarteter Verlust. Level L braucht 100 · (L − 1)^1,6 XP.</p>`;
+        <p class="muted" style="font-size:13px">1 XP = 1 Frag of expected loss. Level L needs 100 · (L − 1)^1.6 XP.</p>`;
 
       $('#rakeback', root).innerHTML = `
         <h2 class="h-sect">${icon('gauge')} Rakeback</h2>
-        <p>Dein Satz: <b class="num">${pct(r.rakebackRate, 0)}</b> des erwarteten Verlusts.</p>
+        <p>Your rate: <b class="num">${pct(r.rakebackRate, 0)}</b> of expected loss.</p>
         <p class="big-mult num" style="font-size:36px">${frags(r.rakebackAvailable)}</p>
-        <button class="btn" id="rb" type="button" ${r.rakebackAvailable < 1 ? 'disabled' : ''}>Abholen</button>
-        <p class="muted" style="font-size:12px">${r.rakebackBands.map(([l, x]) => `ab Lvl ${l}: ${pct(x, 0)}`).join(' · ')}</p>`;
+        <button class="btn" id="rb" type="button" ${r.rakebackAvailable < 1 ? 'disabled' : ''}>Claim</button>
+        <p class="muted" style="font-size:12px">${r.rakebackBands.map(([l, x]) => `from lvl ${l}: ${pct(x, 0)}`).join(' · ')}</p>`;
 
       const dailyReady = r.level >= 2 && Date.now() >= r.daily.nextAt && r.promoEligible;
       $('#daily', root).innerHTML = `
-        <h2 class="h-sect">${icon('crate')} Schrottkiste</h2>
-        <p class="muted">Einmal pro 24 Stunden gratis, ab Level 2. Gezogen aus deinem eigenen Seed, also nachprüfbar.</p>
+        <h2 class="h-sect">${icon('crate')} Scrap Crate</h2>
+        <p class="muted">Free once every 24 hours from level 2. Rolled from your own seed, so it is verifiable.</p>
         <div id="daily-out" class="big-mult" style="font-size:28px;min-height:1.2em">${esc(lastDaily)}</div>
-        <button class="btn" id="dl" type="button" ${dailyReady ? '' : 'disabled'}>${r.level < 2 ? 'Ab Level 2' : !r.promoEligible ? 'Pause aktiv' : Date.now() < r.daily.nextAt ? `Wieder in ${until(r.daily.nextAt)}` : 'Öffnen'}</button>
-        <details><summary class="muted" style="cursor:pointer;font-size:13px">Inhalt</summary><table style="margin-top:6px"><tbody>${r.daily.items.map((i) => `<tr><td>${esc(i.name)}</td><td class="r num">${frags(i.value, 0)}</td><td class="r num">${pctShort(i.chance)}</td></tr>`).join('')}</tbody></table></details>`;
+        <button class="btn" id="dl" type="button" ${dailyReady ? '' : 'disabled'}>${r.level < 2 ? 'From level 2' : !r.promoEligible ? 'Break active' : Date.now() < r.daily.nextAt ? `Again in ${until(r.daily.nextAt)}` : 'Open'}</button>
+        <details><summary class="muted" style="cursor:pointer;font-size:13px">Contents</summary><table style="margin-top:6px"><tbody>${r.daily.items.map((i) => `<tr><td>${esc(i.name)}</td><td class="r num">${frags(i.value, 0)}</td><td class="r num">${pctShort(i.chance)}</td></tr>`).join('')}</tbody></table></details>`;
 
       const rain = r.rain;
       $('#rain', root).innerHTML = `
-        <h2 class="h-sect">${icon('rain')} Ölregen</h2>
-        <p class="muted">Alle 30 Minuten 2 Minuten lang: Topf = 1 % des erwarteten Verlusts der Periode (Demo mindestens 500 Frags), gleich verteilt. Ab Level 5 und 100 Frags Einsatz in 24 h.</p>
-        <p><b class="num">${frags(rain.pot, 0)}</b> Frags · ${rain.joiners} dabei</p>
-        <button class="btn" id="rn" type="button" ${rain.open && !rain.joined && r.promoEligible ? '' : 'disabled'}>${rain.joined ? 'Du bist dabei' : rain.open ? `Mitmachen · noch ${until(rain.closesAt!)}` : `Nächster Regen in ${until(rain.nextAt)}`}</button>`;
+        <h2 class="h-sect">${icon('rain')} Oil Rain</h2>
+        <p class="muted">Every 30 minutes, open for 2 minutes: pot = 1 % of the period's expected loss (demo minimum 500 Frags), split equally. Requires level 5 and 100 Frags wagered in 24 h.</p>
+        <p><b class="num">${frags(rain.pot, 0)}</b> Frags · ${rain.joiners} joined</p>
+        <button class="btn" id="rn" type="button" ${rain.open && !rain.joined && r.promoEligible ? '' : 'disabled'}>${rain.joined ? 'You are in' : rain.open ? `Join · ${until(rain.closesAt!)} left` : `Next rain in ${until(rain.nextAt)}`}</button>`;
 
       const crew = r.crew;
       $('#crew', root).innerHTML = `
-        <h2 class="h-sect">${icon('user')} Crew-Code</h2>
-        ${crew.code ? `<p>Dein Code: <b class="num" style="color:var(--hazard)">${esc(crew.code)}</b> · ${crew.members} Mitglieder · Anteil ${pct(crew.rate, 1)} vom NGR</p>
-          <p class="muted" style="font-size:13px">NGR seit letzter Auszahlung: <span class="num">${frags(crew.ngr)}</span> Frags (Einsatz − Gewinne − Boni deiner Crew)</p>
-          <button class="btn" id="cc" type="button" ${crew.available < 1 ? 'disabled' : ''}>Abholen · ${frags(crew.available)}</button>`
-        : `<div class="row"><input id="code" class="num" maxlength="16" placeholder="EIGENER CODE" style="flex:1;min-width:140px;background:var(--bg);border:1px solid var(--line);border-radius:3px;padding:9px;color:var(--text)"><button class="btn ghost" id="mk" type="button">Anlegen</button></div>`}
-        ${crew.joinedCode ? `<p class="muted" style="font-size:13px">Du bist in der Crew <b>${esc(crew.joinedCode)}</b>.</p>`
-        : `<div class="row"><input id="redeem" class="num" maxlength="16" placeholder="Code eines Freundes" style="flex:1;min-width:140px;background:var(--bg);border:1px solid var(--line);border-radius:3px;padding:9px;color:var(--text)"><button class="btn ghost" id="rd" type="button">Eintragen</button></div>
-           <p class="muted" style="font-size:12px">Nur in den ersten 24 Stunden nach der Registrierung.</p>`}`;
+        <h2 class="h-sect">${icon('user')} Crew code</h2>
+        ${crew.code ? `<p>Your code: <b class="num" style="color:var(--hazard)">${esc(crew.code)}</b> · ${crew.members} members · share ${pct(crew.rate, 1)} of NGR</p>
+          <p class="muted" style="font-size:13px">NGR since last payout: <span class="num">${frags(crew.ngr)}</span> Frags (your crew's wagers − wins − bonuses)</p>
+          <button class="btn" id="cc" type="button" ${crew.available < 1 ? 'disabled' : ''}>Claim · ${frags(crew.available)}</button>`
+        : `<div class="row"><input id="code" class="num" maxlength="16" placeholder="YOUR OWN CODE" style="flex:1;min-width:140px;background:var(--bg);border:1px solid var(--line);border-radius:3px;padding:9px;color:var(--text)"><button class="btn ghost" id="mk" type="button">Create</button></div>`}
+        ${crew.joinedCode ? `<p class="muted" style="font-size:13px">You are in crew <b>${esc(crew.joinedCode)}</b>.</p>`
+        : `<div class="row"><input id="redeem" class="num" maxlength="16" placeholder="A friend's code" style="flex:1;min-width:140px;background:var(--bg);border:1px solid var(--line);border-radius:3px;padding:9px;color:var(--text)"><button class="btn ghost" id="rd" type="button">Redeem</button></div>
+           <p class="muted" style="font-size:12px">Only within 24 hours of signing up.</p>`}`;
       bind();
     };
     const bind = () => {
@@ -88,10 +88,10 @@ export const rewardsView: View = {
         out.textContent = lastDaily;
         await sleep(900); await c.refresh(); await load();
       }));
-      $('#rn', root)?.addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => { await api('POST', '/rewards/rain'); toast('Du bist beim Ölregen dabei.'); await load(); }));
-      $('#cc', root)?.addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => { const x = await api<{ amount: number }>('POST', '/crew/claim'); toast(`+${frags(x.amount)} Frags Crew-Anteil`); await c.refresh(); await load(); }));
+      $('#rn', root)?.addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => { await api('POST', '/rewards/rain'); toast('You joined the Oil Rain.'); await load(); }));
+      $('#cc', root)?.addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => { const x = await api<{ amount: number }>('POST', '/crew/claim'); toast(`+${frags(x.amount)} Frags crew share`); await c.refresh(); await load(); }));
       $('#mk', root)?.addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => { await api('POST', '/crew/code', { code: ($('#code', root) as HTMLInputElement).value }); await load(); }));
-      $('#rd', root)?.addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => { await api('POST', '/crew/redeem', { code: ($('#redeem', root) as HTMLInputElement).value }); toast('Crew-Code eingetragen.'); await load(); }));
+      $('#rd', root)?.addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => { await api('POST', '/crew/redeem', { code: ($('#redeem', root) as HTMLInputElement).value }); toast('Crew code redeemed.'); await load(); }));
     };
     void load();
     const t = setInterval(() => void load(), 10_000);

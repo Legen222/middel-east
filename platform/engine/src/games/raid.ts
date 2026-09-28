@@ -1,7 +1,7 @@
 /**
  * Raid — SCRAPLINE signature mode.
- * A base has 6 layers (Twig → Holz → Stein → Metall → HQM → Tool Cupboard). Before each layer the
- * player picks an explosive with breach probability p (C4 0.80, Rakete 0.60, Satchel 0.40).
+ * A base has 6 layers (Twig → Wood → Stone → Metal → HQM → Tool Cupboard). Before each layer the
+ * player picks an explosive with breach probability p (C4 0.80, Rocket 0.60, Satchel 0.40).
  * One float per blast: breach ⇔ f < p.
  * Cash-out after j breached layers pays  mult_j = (1 − e) / Π_{i≤j} p_i.
  *
@@ -14,7 +14,7 @@
 import { EDGE } from '../config';
 import type { FloatSource } from '../pf/stream';
 
-export const RAID_LAYERS = ['Twig', 'Holz', 'Stein', 'Metall', 'HQM', 'Tool Cupboard'] as const;
+export const RAID_LAYERS = ['Twig', 'Wood', 'Stone', 'Metal', 'HQM', 'Tool Cupboard'] as const;
 export const RAID_TOOLS = { c4: 0.8, rocket: 0.6, satchel: 0.4 } as const;
 export type RaidTool = keyof typeof RAID_TOOLS;
 

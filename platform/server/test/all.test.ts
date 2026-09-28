@@ -62,7 +62,7 @@ describe('bets settle correctly and replay exactly from the revealed seed', () =
       ['plinko', frags(5), { rows: 16, risk: 'high' }],
       ['plinko', frags(7), { rows: 8, risk: 'low' }],
       ['upgrader', frags(20), { multiplier: 3 }],
-      ['cases', 0, { caseId: 'werkzeugkiste' }],
+      ['cases', 0, { caseId: 'toolbox' }],
     ] as const;
     let expected = bal(db, userId);
     for (let i = 0; i < 40; i++) {
@@ -91,7 +91,7 @@ describe('bets settle correctly and replay exactly from the revealed seed', () =
   });
   it('case price is fixed by the server, the client stake is ignored', () => {
     const { db, cfg, userId } = setup();
-    const b = playInstant(db, cfg, userId, 'cases', frags(1), { caseId: 'militaerkiste' }, T0);
+    const b = playInstant(db, cfg, userId, 'cases', frags(1), { caseId: 'military-crate' }, T0);
     assert.equal(b.stake, priceCase(SAMPLE_CASES[1]) * MF_PER_FRAG);
   });
 });
@@ -347,13 +347,13 @@ describe('PvP (coinflip, battles)', () => {
   });
   it('battle: 3 seats with demo bots, payouts = pool, rest to house, escrow empty, replays', async () => {
     const { db, cfg, userId, beacon } = setup2();
-    const id = createBattle(db, cfg, userId, ['werkzeugkiste', 'militaerkiste'], 3, 'normal', T0);
+    const id = createBattle(db, cfg, userId, ['toolbox', 'military-crate'], 3, 'normal', T0);
     joinGame(db, cfg, beacon, id, null, T0);
     joinGame(db, cfg, beacon, id, null, T0);
     const at = publicGame(db, beacon, id).fairness.beacon.resolvesAt!;
     await settleDue(db, beacon, at);
     const g = publicGame(db, beacon, id);
-    const cases = ['werkzeugkiste', 'militaerkiste'].map((x) => SAMPLE_CASES.find((c) => c.id === x)!);
+    const cases = ['toolbox', 'military-crate'].map((x) => SAMPLE_CASES.find((c) => c.id === x)!);
     const o = playBattle(new FairStream(g.fairness.serverSeed!, g.fairness.beacon.value!, 0), cases, 3, 'normal');
     assert.deepEqual(g.result.winners, o.winners);
     const pool = o.totals.reduce((a, b) => a + b, 0);
@@ -365,7 +365,7 @@ describe('PvP (coinflip, battles)', () => {
     const { db, cfg, userId, beacon } = setup2();
     let above = 0, below = 0;
     for (let i = 0; i < 60; i++) { // P(no game above the stakes) ≈ 0.86⁶⁰ ≈ 0.01 %
-      const id = createBattle(db, cfg, userId, ['werkzeugkiste'], 2, 'normal', T0);
+      const id = createBattle(db, cfg, userId, ['toolbox'], 2, 'normal', T0);
       joinGame(db, cfg, beacon, id, null, T0);
       await settleDue(db, beacon, publicGame(db, beacon, id).fairness.beacon.resolvesAt!);
       const g = publicGame(db, beacon, id);

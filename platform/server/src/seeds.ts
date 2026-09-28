@@ -28,7 +28,7 @@ const newId = () => randomBytes(12).toString('hex');
 
 export function validateClientSeed(s: string): string {
   const v = s.trim();
-  if (v.length < 1 || v.length > 64 || !/^[\x21-\x7e]+$/.test(v)) fail('invalid_client_seed', 'Client-Seed: 1–64 sichtbare ASCII-Zeichen ohne Leerzeichen.');
+  if (v.length < 1 || v.length > 64 || !/^[\x21-\x7e]+$/.test(v)) fail('invalid_client_seed', 'Client seed: 1–64 visible ASCII characters, no spaces.');
   return v;
 }
 
@@ -42,7 +42,7 @@ export function createSeed(db: DB, userId: string, clientSeed: string, now: numb
 
 export function activeSeed(db: DB, userId: string): SeedRow {
   const row = db.prepare('SELECT * FROM seeds WHERE user_id = ? AND active = 1').get(userId) as SeedRow | undefined;
-  if (!row) fail('no_seed', 'Kein aktiver Seed.', 500);
+  if (!row) fail('no_seed', 'No active seed.', 500);
   return row!;
 }
 
@@ -57,7 +57,7 @@ export function rotateSeed(db: DB, userId: string, newClientSeed: string | null,
   return tx(db, () => {
     const cur = activeSeed(db, userId);
     const open = db.prepare("SELECT COUNT(*) AS n FROM bets WHERE seed_id = ? AND status = 'open'").get(cur.id) as { n: number };
-    if (open.n > 0) fail('open_game', 'Beende zuerst dein laufendes Spiel, dann kannst du den Seed rotieren.', 409);
+    if (open.n > 0) fail('open_game', 'Finish your running game first, then rotate the seed.', 409);
     db.prepare('UPDATE seeds SET active = 0, revealed_at = ? WHERE id = ?').run(now, cur.id);
     const next = createSeed(db, userId, newClientSeed ?? randomBytes(8).toString('hex'), now);
     audit(db, userId, 'seed_rotated', { revealedHash: cur.server_hash, bets: cur.nonce }, now);

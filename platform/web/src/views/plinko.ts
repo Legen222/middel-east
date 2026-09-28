@@ -6,24 +6,24 @@ const W = 560;
 const H = 420;
 
 export const plinkoView: View = {
-  title: 'Schrottrutsche',
+  title: 'Scrap Chute',
   html: () => `
   <section class="game">
     <div class="game-stage">
       <div class="game-head">
-        <div><p class="eyebrow">Original</p><h1 class="h-display">Schrottrutsche</h1>
-          <p>Jede Reihe ein Wurf: unter 0,5 links, sonst rechts. Das Fach ist die Zahl der Rechts-Sprünge.</p></div>
+        <div><p class="eyebrow">Original</p><h1 class="h-display">Scrap Chute</h1>
+          <p>One roll per row: below 0.5 goes left, otherwise right. The bucket is the number of right bounces.</p></div>
         <div class="big-mult" id="mult">–</div>
       </div>
-      <div class="plinko"><svg id="board" viewBox="0 0 ${W} ${H}" role="img" aria-label="Plinko-Brett"></svg><div class="buckets" id="buckets"></div></div>
+      <div class="plinko"><svg id="board" viewBox="0 0 ${W} ${H}" role="img" aria-label="Plinko board"></svg><div class="buckets" id="buckets"></div></div>
       <p class="status" id="status" role="status">&nbsp;</p>
     </div>
     <aside class="game-side">
       ${stakeField('stake', 10)}
-      <div class="seg" role="group" aria-label="Reihen">${[8, 12, 16].map((r) => `<button type="button" data-rows="${r}" aria-pressed="${r === 12}">${r} Reihen</button>`).join('')}</div>
-      <div class="seg" role="group" aria-label="Risiko">${[['low', 'Niedrig'], ['medium', 'Mittel'], ['high', 'Hoch']].map(([k, l]) => `<button type="button" data-risk="${k}" aria-pressed="${k === 'medium'}">${l}</button>`).join('')}</div>
-      <p class="muted" style="font-size:13px">RTP dieser Tabelle: <b class="num" id="rtp"></b></p>
-      <button class="btn block" id="drop" type="button">Fallen lassen</button>
+      <div class="seg" role="group" aria-label="Rows">${[8, 12, 16].map((r) => `<button type="button" data-rows="${r}" aria-pressed="${r === 12}">${r} rows</button>`).join('')}</div>
+      <div class="seg" role="group" aria-label="Risk">${[['low', 'Low'], ['medium', 'Medium'], ['high', 'High']].map(([k, l]) => `<button type="button" data-risk="${k}" aria-pressed="${k === 'medium'}">${l}</button>`).join('')}</div>
+      <p class="muted" style="font-size:13px">RTP of this table: <b class="num" id="rtp"></b></p>
+      <button class="btn block" id="drop" type="button">Drop</button>
       <div id="fair"></div>
     </aside>
   </section>`,
@@ -65,7 +65,7 @@ export const plinkoView: View = {
       $$('.bucket', root).forEach((b) => b.classList.toggle('hit', Number(b.dataset.b) === bet.result!.bucket));
       const m = $('#mult', root); m.textContent = mult(bet.multiplier); m.className = `big-mult ${bet.multiplier >= 1 ? 'win' : 'lose'}`;
       const s = $('#status', root);
-      s.textContent = `Fach ${bet.result!.bucket} · ${bet.payout >= bet.stake ? '+' : '−'}${frags(Math.abs(bet.payout - bet.stake))} Frags`;
+      s.textContent = `Bucket ${bet.result!.bucket} · ${bet.payout >= bet.stake ? '+' : '−'}${frags(Math.abs(bet.payout - bet.stake))} Frags`;
       s.className = `status ${bet.payout >= bet.stake ? 'win' : 'lose'}`;
       $('#fair', root).innerHTML = fairBox(bet.fairness);
       await c.refresh();

@@ -79,7 +79,7 @@ function run(game: string, config: string, theory: number | ((rounds: number) =>
 }
 const pick = <T,>(rng: Xoshiro, xs: readonly T[]): T => xs[Math.floor(rng.next() * xs.length)];
 
-/* ---------- Würfel ---------- */
+/* ---------- Dice ---------- */
 run('dice', 'under 49.50 %', 1 - EDGE.dice, N, (r) => ({ stake: 1, payout: playDice(r, { chance: 49.5, direction: 'under' }).multiplier }));
 run('dice', 'over 2.00 % (49× payout)', 1 - EDGE.dice, N, (r) => ({ stake: 1, payout: playDice(r, { chance: 2, direction: 'over' }).multiplier }));
 run('dice', 'mixed: chance 0.01…98, both sides', 1 - EDGE.dice, N, (r) => {
@@ -93,7 +93,7 @@ run('dice', 'mixed: chance 0.01…98, both sides', 1 - EDGE.dice, N, (r) => {
   run('dice', 'under 49.50 % via HMAC stream', 1 - EDGE.dice, N, () => ({ stake: 1, payout: playDice(new FairStream(server, 'mc-client', nonce++, nodeHmac), { chance: 49.5, direction: 'under' }).multiplier }));
 }
 
-/* ---------- Schrottpresse ---------- */
+/* ---------- Scrap Press ---------- */
 const drawH = (r: Xoshiro) => (r.u32() >>> 12) * 4294967296 + r.u32(); // 20 + 32 = 52 bits
 for (const target of [1.01, 2, 10, 100]) {
   run('crash', `auto cash-out ${target.toFixed(2)}×`, 1 - EDGE.crash, N, (r) => ({ stake: 1, payout: crashFromH(drawH(r)) >= target ? target : 0 }));
@@ -109,7 +109,7 @@ run('crash', 'mixed: target log-uniform 1.01…1000×', 1 - EDGE.crash, N, (r) =
   return o;
 });
 
-/* ---------- Minenfeld ---------- */
+/* ---------- Minefield ---------- */
 const minesRound = (r: Xoshiro, m: number, k: number) => {
   const mines = new Set(layMines(r, m));
   // player reveals k tiles in a fixed order 24, 23, … (any fixed or adaptive order is equivalent by symmetry)
@@ -127,7 +127,7 @@ run('mines', `mixed: ${minesCombos.length} (m, k) with ≤ 1 000×`, 1 - EDGE.mi
   return { stake: 1, payout: minesRound(r, m, k) };
 });
 
-/* ---------- Schrottrutsche ---------- */
+/* ---------- Scrap Chute ---------- */
 for (const rows of [8, 12, 16] as PlinkoRows[]) {
   for (const risk of ['low', 'medium', 'high'] as PlinkoRisk[]) {
     run('plinko', `${rows} rows / ${risk}`, plinkoTheoreticalRtp(rows, risk), N, (r) => ({ stake: 1, payout: playPlinko(r, rows, risk).multiplier }));
@@ -143,7 +143,7 @@ run('raid', 'mixed: random tool, 30 % stop chance', 1 - EDGE.raid, N, (r) => ({
   payout: playRaid(r, (steps) => (steps.length > 0 && r.next() < 0.3 ? null : pick(r, tools))).multiplier,
 }));
 
-/* ---------- Werkbank ---------- */
+/* ---------- Workbench ---------- */
 run('upgrader', '100 → 200 (47.5 %)', 1 - EDGE.upgrader, N, (r) => ({ stake: 100, payout: playUpgrader(r, 100, 200).value }));
 run('upgrader', 'mixed: chance 1 %…80 %', 1 - EDGE.upgrader, N, (r) => {
   const chance = 0.01 + r.next() * 0.79;
@@ -152,25 +152,25 @@ run('upgrader', 'mixed: chance 1 %…80 %', 1 - EDGE.upgrader, N, (r) => {
   return { stake: input, payout: playUpgrader(r, input, target).value };
 });
 
-/* ---------- Münzwurf ---------- */
+/* ---------- Coinflip ---------- */
 run('coinflip', 'creator seat, random side', 1 - EDGE.coinflip, N, (r) => {
   const o = playCoinflip(r, r.next() < 0.5 ? 'rust' : 'scrap');
   return { stake: 1, payout: o.creatorWins ? o.winnerMultiplier : 0 };
 });
 
-/* ---------- Kisten ---------- */
+/* ---------- Cases ---------- */
 for (const c of SAMPLE_CASES) {
   const price = priceCase(c);
-  run('cases', `${c.name} (Preis ${price} Frags)`, caseRtp(c), N, (r) => ({ stake: price, payout: openCase(r, c).item.value }));
+  run('cases', `${c.name} (price ${price} Frags)`, caseRtp(c), N, (r) => ({ stake: price, payout: openCase(r, c).item.value }));
 }
 
-/* ---------- Kisten-Battle: every seat checked ---------- */
+/* ---------- Case Battle: every seat checked ---------- */
 const battleCases = [SAMPLE_CASES[0], SAMPLE_CASES[1], SAMPLE_CASES[2]];
 const battleCost = battleCases.reduce((s, c) => s + priceCase(c), 0);
 const battleEv = battleCases.reduce((s, c) => s + caseRtp(c) * priceCase(c), 0) / battleCost;
 for (const [seats, mode] of [[2, 'normal'], [3, 'crazy'], [4, 'terminal']] as [number, BattleMode][]) {
   for (let seat = 0; seat < seats; seat++) {
-    run('battles', `${seats} Plätze / ${mode} / Platz ${seat + 1}`, battleEv, N, (r) => ({ stake: battleCost, payout: playBattle(r, battleCases, seats, mode).payouts[seat] }));
+    run('battles', `${seats} seats / ${mode} / seat ${seat + 1}`, battleEv, N, (r) => ({ stake: battleCost, payout: playBattle(r, battleCases, seats, mode).payouts[seat] }));
   }
 }
 
@@ -178,9 +178,9 @@ for (const [seats, mode] of [[2, 'normal'], [3, 'crazy'], [4, 'terminal']] as [n
 const failed = results.filter((r) => !r.pass);
 writeFileSync('sim/results.json', JSON.stringify({ roundsPerRun: N, seed: SEED, node: process.version, results }, null, 1));
 const md = [
-  `| Spiel | Konfiguration | Runden | RTP Theorie | RTP Monte-Carlo | ±95 % | z | Treffer | max × | OK |`,
+  `| Game | Configuration | Rounds | RTP theory | RTP Monte Carlo | ±95 % | z | Hit rate | max × | OK |`,
   `|---|---|---:|---:|---:|---:|---:|---:|---:|:-:|`,
-  ...results.map((r) => `| ${r.game} | ${r.config} | ${r.rounds.toLocaleString('de-DE')} | ${(r.theory * 100).toFixed(4)} % | ${(r.rtp * 100).toFixed(4)} % | ${(1.96 * r.se * 100).toFixed(4)} pp | ${r.z.toFixed(2)} | ${(r.hitRate * 100).toFixed(2)} % | ${+r.maxMult.toFixed(2)} | ${r.pass ? '✔' : '✘'} |`),
+  ...results.map((r) => `| ${r.game} | ${r.config} | ${r.rounds.toLocaleString('en-US')} | ${(r.theory * 100).toFixed(4)} % | ${(r.rtp * 100).toFixed(4)} % | ${(1.96 * r.se * 100).toFixed(4)} pp | ${r.z.toFixed(2)} | ${(r.hitRate * 100).toFixed(2)} % | ${+r.maxMult.toFixed(2)} | ${r.pass ? '✔' : '✘'} |`),
 ].join('\n');
 writeFileSync('sim/RESULTS.md', `<!-- generated by sim/montecarlo.ts · seed ${SEED} · ${N.toLocaleString('en')} rounds per run -->\n${md}\n`);
 console.log(`\n${results.length} runs, ${failed.length} failed.`);

@@ -57,7 +57,7 @@ export function createRouter(deps: AppDeps) {
     const days = Math.min(90, Math.max(1, Number(c.url.searchParams.get('days') ?? 30)));
     return { days, games: liveRtp(db, clock() - days * 86_400_000).map((g) => ({ ...g, theory: theoryRtp(g.game) })) };
   });
-  route('GET', '/bets/:id', (_c, p) => { const b = getBet(db, p.id) ?? fail('not_found', 'Wette nicht gefunden.', 404); const pb = publicBet(b, db); return b.status === 'open' ? { ...pb, result: null } : pb; });
+  route('GET', '/bets/:id', (_c, p) => { const b = getBet(db, p.id) ?? fail('not_found', 'Bet not found.', 404); const pb = publicBet(b, db); return b.status === 'open' ? { ...pb, result: null } : pb; });
 
   /* ---------- auth ---------- */
   route('POST', '/auth/demo', (c) => {
@@ -67,7 +67,7 @@ export function createRouter(deps: AppDeps) {
   route('GET', '/auth/steam', () => ({ url: loginUrl(`${deps.publicUrl}/auth/steam/return?age=1`, deps.publicUrl) }));
   route('GET', '/auth/steam/return', async (c) => {
     const { steamId } = await verifyAssertion(db, c.url.searchParams, `${deps.publicUrl}/auth/steam/return`, deps.fetch, clock())
-      .catch((e: Error) => fail('steam_login_failed', 'Steam-Login fehlgeschlagen. Bitte erneut versuchen.', 401, { reason: e.message }));
+      .catch((e: Error) => fail('steam_login_failed', 'Steam login failed. Please try again.', 401, { reason: e.message }));
     const { userId } = signUp(db, cfg, { displayName: `Steam ${steamId.slice(-4)}`, ageConfirmed: c.url.searchParams.get('age') === '1', steamId, country: c.country }, clock());
     return { token: createSession(db, cfg, userId, clock()), userId };
   });
@@ -114,7 +114,7 @@ export function createRouter(deps: AppDeps) {
   /* ---------- PvP ---------- */
   const viewer = (c: Ctx) => resolveSession(db, c.token, clock())?.user.id ?? null;
   route('GET', '/pvp/list/:type', async (c, p) => {
-    if (p.type !== 'coinflip' && p.type !== 'battle') fail('not_found', 'Unbekannter Spieltyp.', 404);
+    if (p.type !== 'coinflip' && p.type !== 'battle') fail('not_found', 'Unknown game type.', 404);
     await settleDue(db, deps.beacon, clock());
     return listGames(db, deps.beacon, p.type as 'coinflip' | 'battle', clock() - 10 * 60_000, viewer(c));
   });
@@ -125,7 +125,7 @@ export function createRouter(deps: AppDeps) {
   route('POST', '/pvp/:id/bot', (c, p) => {
     const u = c.auth().user.id;
     const g = publicGame(db, deps.beacon, p.id, u);
-    if (!g.mine) fail('forbidden', 'Nur der Ersteller kann einen Bot holen.', 403);
+    if (!g.mine) fail('forbidden', 'Only the creator can add a bot.', 403);
     return publicGame(db, deps.beacon, joinGame(db, cfg, deps.beacon, p.id, null, clock()), u);
   });
   route('POST', '/pvp/:id/cancel', (c, p) => { const u = c.auth().user.id; return publicGame(db, deps.beacon, cancelGame(db, p.id, u, clock()), u); });
@@ -182,24 +182,24 @@ export function createRouter(deps: AppDeps) {
 
   async function dispatch(req: ApiRequest): Promise<ApiResponse> {
     try {
-      if (rateLimited(req.ip)) fail('rate_limited', 'Zu viele Anfragen. Bitte kurz warten.', 429);
+      if (rateLimited(req.ip)) fail('rate_limited', 'Too many requests. Please wait a moment.', 429);
       const url = new URL(req.url, 'http://local');
       const country = req.headers[cfg.countryHeader]?.toUpperCase() ?? null;
       if (url.pathname !== '/health') checkGeo(cfg, country, !cfg.demo);
       const token = /^Bearer ([0-9a-f]{64})$/.exec(req.headers.authorization ?? '')?.[1];
-      const ctx: Ctx = { url, body: req.body, ip: req.ip, country, token, auth: () => resolveSession(db, token, clock()) ?? fail('unauthorized', 'Bitte einloggen.', 401) };
+      const ctx: Ctx = { url, body: req.body, ip: req.ip, country, token, auth: () => resolveSession(db, token, clock()) ?? fail('unauthorized', 'Please sign in.', 401) };
       for (const r of routes) {
         const m = r.method === req.method ? r.pattern.exec(url.pathname) : null;
         if (!m) continue;
         const params = Object.fromEntries(r.keys.map((k, i) => [k, m[i + 1]]));
         return { status: 200, payload: await r.handler(ctx, params) };
       }
-      return fail('not_found', 'Unbekannter Endpunkt.', 404);
+      return fail('not_found', 'Unknown endpoint.', 404);
     } catch (e) {
       if (e instanceof AppError) return { status: e.status, payload: { error: e.code, message: e.message, details: e.details } };
       if (e instanceof RangeError) return { status: 400, payload: { error: 'invalid_params', message: e.message } };
       console.error(e);
-      return { status: 500, payload: { error: 'internal', message: 'Interner Fehler.' } };
+      return { status: 500, payload: { error: 'internal', message: 'Internal error.' } };
     }
   }
 

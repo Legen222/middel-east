@@ -1,5 +1,5 @@
 /**
- * Werkbank (upgrader). Risk an item (or balance) worth `input` for a target item worth `target`.
+ * Workbench (upgrader). Risk an item (or balance) worth `input` for a target item worth `target`.
  *   chance = (input / target) · (1 − e)          win ⇔ f < chance
  *   RTP    = chance · target / input = 1 − e     exactly
  * The platform refuses targets whose chance would exceed MAX_CHANCE or fall below MIN_CHANCE,

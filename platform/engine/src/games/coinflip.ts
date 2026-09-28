@@ -1,5 +1,5 @@
 /**
- * Münzwurf (PvP coinflip). Two players stake B each; the pot is 2B.
+ * Coinflip (PvP). Two players stake B each; the pot is 2B.
  *   side = f < 0.5 ? 'rust' : 'scrap'
  *   winner receives 2B · (1 − r), r = rake on the pot
  *   RTP per player = ½ · 2(1 − r) = 1 − r

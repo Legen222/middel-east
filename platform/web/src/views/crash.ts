@@ -13,27 +13,27 @@ interface CrashState {
 const sha256 = async (s: string) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))].map((b) => b.toString(16).padStart(2, '0')).join('');
 
 export const crashView: View = {
-  title: 'Schrottpresse',
+  title: 'Scrap Press',
   html: () => `
   <section class="game">
     <div class="game-stage">
       <div class="game-head">
-        <div><p class="eyebrow">Live · Crash</p><h1 class="h-display">Schrottpresse</h1>
-          <p>Die Presse fährt hoch, der Multiplikator steigt. Raus, bevor sie zuschlägt. P(Crash ≥ x) = 0,98 ÷ x, also 98 % RTP bei jedem Ziel ab 1,01×.</p></div>
+        <div><p class="eyebrow">Live · Crash</p><h1 class="h-display">Scrap Press</h1>
+          <p>The press rises and the multiplier climbs. Get out before it slams down. P(crash ≥ x) = 0.98 ÷ x, so 98 % RTP for every target from 1.01×.</p></div>
       </div>
       <div style="position:relative;border:1px solid var(--line);border-radius:3px;background:var(--bg);aspect-ratio:16/8;max-width:100%">
         <canvas id="cv" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
         <div id="big" class="big-mult" style="position:absolute;left:18px;top:14px">–</div>
         <div id="phase" class="eyebrow" style="position:absolute;right:16px;top:18px"></div>
       </div>
-      <div class="chips" id="hist" aria-label="Letzte Runden"></div>
-      <div class="tablewrap"><table><thead><tr><th>Spieler</th><th class="r">Einsatz</th><th class="r">Auto</th><th class="r">Raus bei</th><th class="r">Gewinn</th></tr></thead><tbody id="bets"></tbody></table></div>
+      <div class="chips" id="hist" aria-label="Recent rounds"></div>
+      <div class="tablewrap"><table><thead><tr><th>Player</th><th class="r">Stake</th><th class="r">Auto</th><th class="r">Out at</th><th class="r">Payout</th></tr></thead><tbody id="bets"></tbody></table></div>
     </div>
     <aside class="game-side">
       ${stakeField('stake', 10)}
-      <label class="field">Auto-Auszahlung (×)<input id="target" inputmode="decimal" value="2.00"></label>
-      <button class="btn block" id="bet" type="button">Setzen</button>
-      <button class="btn win block" id="out" type="button" hidden>Auszahlen</button>
+      <label class="field">Auto cash-out (×)<input id="target" inputmode="decimal" value="2.00"></label>
+      <button class="btn block" id="bet" type="button">Place bet</button>
+      <button class="btn win block" id="out" type="button" hidden>Cash out</button>
       <p class="status" id="status" role="status">&nbsp;</p>
       <dl class="fairbox" id="fair"></dl>
     </aside>
@@ -62,20 +62,20 @@ export const crashView: View = {
       if (!st) return;
       const r = st.round;
       $('#hist', root).innerHTML = st.history.map((h) => `<span class="chip ${h.crash >= 2 ? 'win' : h.crash < 1.2 ? 'lose' : ''}">${mult(h.crash)}</span>`).join('');
-      $('#bets', root).innerHTML = st.bets.length ? st.bets.map((b) => `<tr${b.you ? ' style="color:var(--hazard)"' : ''}><td>${esc(b.name)}${b.you ? ' (du)' : ''}</td><td class="r num">${frags(b.stake)}</td><td class="r num">${mult(b.target)}</td><td class="r num">${b.cashedAt ? mult(b.cashedAt) : r?.status === 'crashed' && b.payout ? mult(b.target) : '–'}</td><td class="r num ${b.payout ? 'pos' : b.payout === 0 ? 'neg' : ''}">${b.payout === null ? '–' : frags(b.payout)}</td></tr>`).join('')
-        : '<tr><td colspan="5" class="muted">Noch keine Einsätze in dieser Runde.</td></tr>';
+      $('#bets', root).innerHTML = st.bets.length ? st.bets.map((b) => `<tr${b.you ? ' style="color:var(--hazard)"' : ''}><td>${esc(b.name)}${b.you ? ' (you)' : ''}</td><td class="r num">${frags(b.stake)}</td><td class="r num">${mult(b.target)}</td><td class="r num">${b.cashedAt ? mult(b.cashedAt) : r?.status === 'crashed' && b.payout ? mult(b.target) : '–'}</td><td class="r num ${b.payout ? 'pos' : b.payout === 0 ? 'neg' : ''}">${b.payout === null ? '–' : frags(b.payout)}</td></tr>`).join('')
+        : '<tr><td colspan="5" class="muted">No bets in this round yet.</td></tr>';
       const mine = st.bets.find((b) => b.you);
       ($('#bet', root) as HTMLButtonElement).disabled = !(r?.status === 'betting') || Boolean(mine);
       const out = $<HTMLButtonElement>('#out', root);
       out.hidden = !(mine && mine.payout === null && r?.status === 'running');
       let link = '';
-      if (r?.seed && r.previousSeed) link = (await sha256(r.seed)) === r.previousSeed ? '✓ passt zur Vorrunde' : '✗ passt NICHT';
+      if (r?.seed && r.previousSeed) link = (await sha256(r.seed)) === r.previousSeed ? '✓ matches previous round' : '✗ does NOT match';
       $('#fair', root).innerHTML = st.chain ? `
-        <dt>Ketten-Endhash</dt><dd>${esc(st.chain.terminalHash)}</dd>
-        <dt>Client-Seed</dt><dd>${st.chain.clientSeed ? esc(st.chain.clientSeed) : 'wartet auf Beacon-Runde ' + st.chain.beaconRound}</dd>
+        <dt>Chain terminal hash</dt><dd>${esc(st.chain.terminalHash)}</dd>
+        <dt>Client seed</dt><dd>${st.chain.clientSeed ? esc(st.chain.clientSeed) : 'waiting for beacon round ' + st.chain.beaconRound}</dd>
         <dt>Beacon</dt><dd>${esc(st.chain.beacon.name)}${st.chain.beacon.trustless ? '' : ' <span class="neg">(Demo)</span>'}</dd>
-        <dt>Runde</dt><dd>#${r ? r.index : '–'}</dd>
-        ${r?.seed ? `<dt>Seed</dt><dd>${esc(r.seed)}</dd><dt>Kette</dt><dd>${link}</dd>` : ''}` : '';
+        <dt>Round</dt><dd>#${r ? r.index : '–'}</dd>
+        ${r?.seed ? `<dt>Seed</dt><dd>${esc(r.seed)}</dd><dt>Chain</dt><dd>${link}</dd>` : ''}` : '';
     };
 
     const draw = () => {
@@ -89,7 +89,7 @@ export const crashView: View = {
       const now = serverNow();
       if (r.status === 'betting' || now < r.bettingEndsAt) {
         const left = Math.max(0, (r.bettingEndsAt - now) / 1000);
-        big.textContent = `${left.toFixed(1).replace('.', ',')} s`; big.className = 'big-mult'; phase.textContent = 'Einsätze offen';
+        big.textContent = `${left.toFixed(1)} s`; big.className = 'big-mult'; phase.textContent = 'Bets open';
         return;
       }
       const elapsed = now - r.bettingEndsAt;
@@ -108,7 +108,7 @@ export const crashView: View = {
       for (let i = 0; i <= 120; i++) { const t = (tEnd * i) / 120; const v = Math.exp(st.rate * t); i ? ctx.lineTo(X(t), Y(v)) : ctx.moveTo(X(t), Y(v)); }
       ctx.stroke();
       big.textContent = mult(Math.floor(m * 100) / 100); big.className = `big-mult ${crashed ? 'lose' : ''}`;
-      phase.textContent = crashed ? 'Gepresst' : 'Läuft';
+      phase.textContent = crashed ? 'Crushed' : 'Running';
     };
     draw(); // the curve is information, not decoration, so it also runs with reduced motion
 
@@ -119,11 +119,11 @@ export const crashView: View = {
 
     $('#bet', root).addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {
       await api('POST', '/crash/bet', { stake: readNum($<HTMLInputElement>('#stake', root).value), target: readNum($<HTMLInputElement>('#target', root).value) });
-      status('Einsatz steht. Auto-Auszahlung aktiv.'); await load(); await c.refresh();
+      status('Bet placed. Auto cash-out armed.'); await load(); await c.refresh();
     }));
     $('#out', root).addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {
       const r = await api<{ multiplier: number; payout: number }>('POST', '/crash/cashout', {});
-      status(`Raus bei ${mult(r.multiplier)}: +${frags(r.payout)} Frags`, 'win'); toast(`Ausgezahlt bei ${mult(r.multiplier)}`);
+      status(`Out at ${mult(r.multiplier)}: +${frags(r.payout)} Frags`, 'win'); toast(`Cashed out at ${mult(r.multiplier)}`);
       await load(); await c.refresh();
     }));
 

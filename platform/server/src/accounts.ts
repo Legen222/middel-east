@@ -27,13 +27,13 @@ export function getUser(db: DB, id: string): UserRow | undefined {
 
 function validateName(name: string): string {
   const n = name.trim();
-  if (n.length < 2 || n.length > 24 || /[<>]/.test(n)) fail('invalid_name', 'Name: 2 bis 24 Zeichen.');
+  if (n.length < 2 || n.length > 24 || /[<>]/.test(n)) fail('invalid_name', 'Name: 2 to 24 characters.');
   return n;
 }
 
 /** Creates (or finds, when steamId is given) an account. `ageConfirmed` must be true. */
 export function signUp(db: DB, cfg: Config, input: { displayName: string; ageConfirmed: boolean; steamId?: string; country: string | null }, now: number) {
-  if (input.ageConfirmed !== true) fail('age_required', 'Du musst bestätigen, dass du mindestens 18 Jahre alt bist.', 403);
+  if (input.ageConfirmed !== true) fail('age_required', 'You must confirm that you are at least 18 years old.', 403);
   return tx(db, () => {
     if (input.steamId) {
       const existing = db.prepare('SELECT id FROM users WHERE steam_id = ?').get(input.steamId) as { id: string } | undefined;
@@ -69,12 +69,12 @@ export function endSession(db: DB, token: string): void {
 
 /** Demo only: tops the balance back up once per 24 h when it has fallen below the refill amount. */
 export function demoRefill(db: DB, cfg: Config, userId: string, now: number): number {
-  if (!cfg.demo) fail('not_demo', 'Nur im Demo-Modus.', 403);
+  if (!cfg.demo) fail('not_demo', 'Demo mode only.', 403);
   return tx(db, () => {
     const u = getUser(db, userId)!;
-    if (u.last_refill_at && now - u.last_refill_at < 86_400_000) fail('refill_wait', 'Nachschub gibt es einmal pro 24 Stunden.', 429, { nextAt: u.last_refill_at + 86_400_000 });
+    if (u.last_refill_at && now - u.last_refill_at < 86_400_000) fail('refill_wait', 'Refills are available once every 24 hours.', 429, { nextAt: u.last_refill_at + 86_400_000 });
     const bal = balanceOf(db, userAccount(userId));
-    if (bal >= cfg.demoRefill) fail('refill_not_needed', 'Du hast noch genug Demo-Guthaben.', 400);
+    if (bal >= cfg.demoRefill) fail('refill_not_needed', 'You still have enough demo balance.', 400);
     transfer(db, FAUCET, userAccount(userId), cfg.demoRefill - bal, 'demo_grant', 'refill', now);
     db.prepare('UPDATE users SET last_refill_at = ? WHERE id = ?').run(now, userId);
     return balanceOf(db, userAccount(userId));

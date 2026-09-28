@@ -54,7 +54,7 @@ export class DrandBeacon implements Beacon {
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 
 export class LocalBeacon implements Beacon {
-  readonly name = 'Demo-Beacon (lokal, nicht vertrauenslos)';
+  readonly name = 'Demo beacon (local, not trustless)';
   readonly trustless = false;
   readonly periodMs: number;
   readonly terminal: string;

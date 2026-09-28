@@ -1,5 +1,5 @@
 /**
- * Schrottpresse (crash): one shared round at a time.
+ * Scrap Press (crash): one shared round at a time.
  *
  *   betting (6 s) ──▶ running ──(t = ln(crash) / RATE)──▶ crashed ──(3 s)──▶ next round
  *
@@ -118,11 +118,11 @@ export class CrashService {
   placeBet(userId: string, stake: number, target: number, now: number) {
     return tx(this.db, () => {
       const r = this.current();
-      if (!r || r.status !== 'betting' || now >= r.betting_ends_at) fail('not_betting', 'Wetten sind gerade geschlossen. Warte auf die nächste Runde.', 409);
-      if (!Number.isInteger(target) || target < MIN_TARGET || target > MAX_TARGET) fail('invalid_params', 'Auto-Auszahlung: 1,01× bis 10 000×.');
-      if (!Number.isSafeInteger(stake) || stake < this.cfg.minStake || stake > this.cfg.maxStake) fail('invalid_stake', `Einsatz: ${this.cfg.minStake / MF_PER_FRAG} bis ${this.cfg.maxStake / MF_PER_FRAG} Frags.`);
-      if ((stake * target) / 100 > this.cfg.maxWin) fail('max_win', `Maximalgewinn ${this.cfg.maxWin / MF_PER_FRAG} Frags: Einsatz oder Auto-Auszahlung senken.`);
-      if (this.db.prepare('SELECT 1 FROM crash_bets WHERE round_id = ? AND user_id = ?').get(r!.id, userId)) fail('already_bet', 'Du hast in dieser Runde schon gesetzt.', 409);
+      if (!r || r.status !== 'betting' || now >= r.betting_ends_at) fail('not_betting', 'Betting is closed. Wait for the next round.', 409);
+      if (!Number.isInteger(target) || target < MIN_TARGET || target > MAX_TARGET) fail('invalid_params', 'Auto cash-out: 1.01× to 10,000×.');
+      if (!Number.isSafeInteger(stake) || stake < this.cfg.minStake || stake > this.cfg.maxStake) fail('invalid_stake', `Stake: ${this.cfg.minStake / MF_PER_FRAG} to ${this.cfg.maxStake / MF_PER_FRAG} Frags.`);
+      if ((stake * target) / 100 > this.cfg.maxWin) fail('max_win', `Max win is ${this.cfg.maxWin / MF_PER_FRAG} Frags: lower the stake or the auto cash-out.`);
+      if (this.db.prepare('SELECT 1 FROM crash_bets WHERE round_id = ? AND user_id = ?').get(r!.id, userId)) fail('already_bet', 'You already placed a bet this round.', 409);
       checkBet(this.db, userId, stake, now);
       const id = randomBytes(10).toString('hex');
       transfer(this.db, userAccount(userId), HOUSE, stake, 'stake', id, now);
@@ -135,9 +135,9 @@ export class CrashService {
   cashout(userId: string, now: number) {
     return tx(this.db, () => {
       const r = this.current();
-      if (!r || r.status === 'crashed' || now < r.betting_ends_at || now >= r.crash_at) fail('not_running', 'Gerade läuft keine Runde.', 409);
+      if (!r || r.status === 'crashed' || now < r.betting_ends_at || now >= r.crash_at) fail('not_running', 'No round is running right now.', 409);
       const b = this.db.prepare("SELECT * FROM crash_bets WHERE round_id = ? AND user_id = ? AND status = 'open'").get(r!.id, userId) as unknown as BetRow | undefined;
-      if (!b) fail('no_bet', 'Keine offene Wette in dieser Runde.', 404);
+      if (!b) fail('no_bet', 'No open bet in this round.', 404);
       const m = Math.min(multiplierAt(now - r!.betting_ends_at), b!.target, r!.crash - 1);
       const payout = Math.floor((b!.stake * m) / 100);
       transfer(this.db, HOUSE, userAccount(userId), payout, 'payout', b!.id, now);
