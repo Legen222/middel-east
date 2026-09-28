@@ -17,7 +17,10 @@ import { FAUCET, balanceOf, transfer, userAccount } from './wallet';
 export interface UserRow {
   id: string; steam_id: string | null; display_name: string; country: string | null;
   age_confirmed_at: number | null; kyc_level: number; last_refill_at: number | null; created_at: number;
+  role: Role;
 }
+
+export type Role = 'player' | 'moderator' | 'admin';
 
 const hashToken = (t: string) => createHash('sha256').update(t).digest('hex');
 

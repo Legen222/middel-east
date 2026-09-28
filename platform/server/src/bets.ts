@@ -20,9 +20,11 @@ import {
   minesMultiplier, openCase, playDice, playPlinko, playUpgrader, priceCase, raidMultiplier,
   upgraderChance, validateDice, type DiceBet, type PlinkoRisk, type PlinkoRows, type RaidTool,
 } from '../../engine/src/index';
-import { type Config, MF_PER_FRAG } from './config';
+import { type Config, MF_PER_FRAG, fmtFrags } from './config';
 import { type DB, tx } from './db';
 import { fail } from './errors';
+import { systemMessage } from './chat';
+import { GAME_NAME, type GameId, assertGameEnabled } from './flags';
 import { checkBet } from './rg';
 import { activeSeed, takeNonce, type SeedRow } from './seeds';
 import { HOUSE, balanceOf, transfer, userAccount } from './wallet';
@@ -50,6 +52,7 @@ function checkMaxWin(cfg: Config, stake: number, maxMult: number): void {
 }
 
 function open(db: DB, userId: string, game: Game, stake: number, params: unknown, now: number): { bet: string; seed: SeedRow; nonce: number } {
+  assertGameEnabled(db, game);
   checkBet(db, userId, stake, now);
   const id = newBetId();
   transfer(db, userAccount(userId), HOUSE, stake, 'stake', id, now);
@@ -59,11 +62,18 @@ function open(db: DB, userId: string, game: Game, stake: number, params: unknown
   return { bet: id, seed, nonce };
 }
 
+/** Wins announced in chat: at least 10× and 100 Frags. */
+export const BIG_WIN = { minMultiple: 10, minPayout: 100 * MF_PER_FRAG };
+
 function settle(db: DB, betId: string, userId: string, stake: number, mult: number, result: unknown, now: number): BetRow {
   const payout = payoutFor(stake, mult);
   if (payout > 0) transfer(db, HOUSE, userAccount(userId), payout, 'payout', betId, now);
   db.prepare("UPDATE bets SET status = 'settled', payout = ?, multiplier = ?, result = ?, state = NULL, settled_at = ? WHERE id = ?")
     .run(payout, mult, JSON.stringify(result), now, betId);
+  if (payout >= BIG_WIN.minPayout && payout >= stake * BIG_WIN.minMultiple) {
+    const b = db.prepare('SELECT u.display_name AS name, b.game FROM bets b JOIN users u ON u.id = b.user_id WHERE b.id = ?').get(betId) as { name: string; game: GameId };
+    systemMessage(db, 'win', `${b.name} hit ${+(payout / stake).toFixed(2)}× on ${GAME_NAME[b.game] ?? b.game}: +${fmtFrags(payout)} Frags`, now);
+  }
   return getBet(db, betId)!;
 }
 
@@ -133,6 +143,7 @@ export function minesStart(db: DB, cfg: Config, userId: string, stake: number, m
 export function minesReveal(db: DB, cfg: Config, userId: string, betId: string, tile: number, now: number) {
   return tx(db, () => {
     const b = openBet(db, userId, betId, 'mines');
+    assertGameEnabled(db, 'mines');
     const s = JSON.parse(b.state!) as MinesState;
     const m = JSON.parse(b.params).mines as number;
     if (!Number.isInteger(tile) || tile < 0 || tile >= TILES || s.revealed.includes(tile)) fail('invalid_params', 'Invalid tile.');
@@ -180,6 +191,7 @@ export function raidStart(db: DB, cfg: Config, userId: string, stake: number, no
 export function raidBlast(db: DB, cfg: Config, userId: string, betId: string, tool: RaidTool, now: number) {
   return tx(db, () => {
     const b = openBet(db, userId, betId, 'raid');
+    assertGameEnabled(db, 'raid');
     if (!(tool in RAID_TOOLS)) fail('invalid_params', 'Explosive: c4, rocket or satchel.');
     const s = JSON.parse(b.state!) as RaidState;
     const next = [...s.tools, tool];

@@ -15,6 +15,8 @@ const GAMES = [
   { path: 'workbench', name: 'Workbench', icon: 'upgrade', rtp: 0.95, line: 'Upgrade your stake' },
 ];
 
+const GAME_ID: Record<string, string> = { raid: 'raid', cases: 'cases', 'scrap-press': 'crash', battle: 'battle', coinflip: 'coinflip', minefield: 'mines', dice: 'dice', 'scrap-chute': 'plinko', workbench: 'upgrader' };
+
 export const lobbyView: View = {
   title: 'Workshop',
   html: (c) => `
@@ -28,7 +30,7 @@ export const lobbyView: View = {
 
     <section class="card" style="gap:14px">
       <div class="row" style="justify-content:space-between"><h2 class="h-sect">Originals</h2><span class="muted" style="font-size:13px">RTP per game, proven and checked by Monte Carlo</span></div>
-      <div class="tiles">${GAMES.map((g) => `<a class="tile ${g.sig ? 'sig' : ''}" href="#/${g.path}">${icon(g.icon)}<b>${g.name}</b><span class="muted" style="font-size:13px">${g.line}</span><span class="meta"><span>RTP</span><em>${g.path === 'scrap-chute' ? '96.5–97 %' : g.path === 'cases' || g.path === 'battle' ? '≤ 93 %' : pct(g.rtp, 0)}</em></span></a>`).join('')}</div>
+      <div class="tiles">${GAMES.map((g) => `<a class="tile ${g.sig ? 'sig' : ''}" href="#/${g.path}" data-game="${GAME_ID[g.path]}">${icon(g.icon)}<b>${g.name}</b><span class="paused-tag" hidden>PAUSED</span><span class="muted" style="font-size:13px">${g.line}</span><span class="meta"><span>RTP</span><em>${g.path === 'scrap-chute' ? '96.5–97 %' : g.path === 'cases' || g.path === 'battle' ? '≤ 93 %' : pct(g.rtp, 0)}</em></span></a>`).join('')}</div>
     </section>
 
     <section class="card">
@@ -37,9 +39,18 @@ export const lobbyView: View = {
       <p class="muted" style="font-size:13px">Few bets swing a lot. The number becomes meaningful after a few thousand rounds.</p>
     </section>
 
-    ${c.me.block ? `<section class="card" style="border-color:var(--lose)"><p>Your account is on a break. You cannot play until the break ends.</p></section>` : ''}
+    ${c.me.block ? `<section class="card" style="border-color:var(--lose)"><p>${c.me.block.kind === 'operator' ? 'Your account is on hold. Please contact support.' : 'Your account is on a break. You cannot play until the break ends.'}</p></section>` : ''}
   `,
   mount: (root) => {
+    api<{ game: string; enabled: boolean; reason: string | null }[]>('GET', '/games/status').then((list) => {
+      for (const g of list) {
+        const tile = root.querySelector<HTMLElement>(`[data-game="${g.game}"]`);
+        if (!tile) continue;
+        tile.classList.toggle('paused', !g.enabled);
+        (tile.querySelector('.paused-tag') as HTMLElement).hidden = g.enabled;
+        if (!g.enabled) tile.title = `Paused for maintenance${g.reason ? `: ${g.reason}` : ''}`;
+      }
+    }).catch(() => null);
     const names: Record<string, string> = { raid: 'Raid', cases: 'Cases', mines: 'Minefield', dice: 'Dice', plinko: 'Scrap Chute', upgrader: 'Workbench', crash: 'Scrap Press', coinflip: 'Coinflip', battle: 'Case Battle' };
     api<{ games: { game: string; bets: number; wagered: number; paid: number; rtp: number | null }[] }>('GET', '/stats/rtp?days=30').then((s) => {
       const body = $('#rtp', root);

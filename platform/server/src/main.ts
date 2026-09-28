@@ -8,6 +8,7 @@ import { CrashService } from './crash';
 import { openDb } from './db';
 import { createApp } from './http';
 import { settleDue } from './pvp';
+import { rgScan } from './admin';
 import { rainTick } from './rewards';
 
 const port = Number(process.env.PORT ?? 8787);
@@ -25,8 +26,10 @@ const app = createApp({ db, cfg, clock: systemClock, fetch: httpFetch, publicUrl
 app.listen(port, () => console.log(`SCRAPLINE demo API on http://localhost:${port} (db: ${dbPath}, beacon: ${beacon.name})`));
 
 let busy = false;
+let lastScan = 0;
 setInterval(async () => {
   if (busy) return;
   busy = true;
-  try { await crash.tick(Date.now()); await settleDue(db, beacon, Date.now()); rainTick(db, cfg, Date.now()); } catch (e) { console.error('ticker', e); } finally { busy = false; }
+  try { await crash.tick(Date.now()); await settleDue(db, beacon, Date.now()); rainTick(db, cfg, Date.now());
+    if (Date.now() - lastScan > 60_000) { lastScan = Date.now(); rgScan(db, cfg, lastScan); } } catch (e) { console.error('ticker', e); } finally { busy = false; }
 }, 200);

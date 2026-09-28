@@ -195,3 +195,59 @@ td.r,th.r{text-align:right}
 .check input{margin-top:3px;accent-color:var(--hazard);width:18px;height:18px}
 
 @media (prefers-reduced-motion: reduce){ *{animation:none!important;transition:none!important} }
+
+/* ---------- chat ---------- */
+.chatside{border-left:1px solid var(--line);background:rgba(33,28,23,.6);position:sticky;top:var(--topbar-h,62px);height:calc(100vh - var(--topbar-h,62px));display:flex;min-width:0}
+@media (min-width: 1280px){ .shell{grid-template-columns:220px minmax(0,1fr) 320px} }
+@media (max-width: 1279px){ .chatside{display:none} }
+.chat{display:flex;flex-direction:column;min-height:0;width:100%;height:100%}
+.chat-page{height:calc(100vh - 140px);min-height:420px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);display:flex}
+@media (max-width: 860px){ .chat-page{height:calc(100dvh - 190px)} }
+.chat-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line)}
+.chat-head .h-sect{display:flex;align-items:center;gap:8px;font-size:16px}
+.rainbox{display:flex;align-items:center;gap:10px;margin:10px 12px 0;padding:10px;border:1px dashed var(--line);border-radius:var(--r);font-size:13px;line-height:1.35}
+.rainbox .ico{color:var(--muted)}
+.rainbox>div{flex:1;min-width:0}
+.rainbox.open{border-style:solid;border-color:var(--hazard);background:rgba(232,178,26,.07)}
+.rainbox.open .ico{color:var(--hazard)}
+.chat-msgs{list-style:none;margin:0;padding:8px 6px;overflow-y:auto;flex:1;min-height:0;display:flex;flex-direction:column;gap:2px}
+.msg{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;padding:5px 8px;border-radius:var(--r);font-size:14px;line-height:1.4;overflow-wrap:anywhere}
+.msg:hover{background:var(--surface-2)}
+.msg .t{font-size:10px;color:var(--dim)}
+.msg .lv{font-size:10px;padding:1px 4px;border:1px solid var(--line);border-radius:2px;color:var(--muted)}
+.msg b{font:600 14px/1.3 var(--cond);letter-spacing:.03em}
+.msg.you b{color:var(--hazard)}
+.msg .body{flex-basis:100%;padding-left:2px}
+.msg .badge{font:700 9px/1 var(--mono);letter-spacing:.1em;padding:2px 4px;border-radius:2px;background:var(--rust);color:#1b0f08}
+.msg .mod{margin-left:auto;display:flex;gap:4px;opacity:.55}
+.msg:hover .mod,.msg:focus-within .mod{opacity:1}
+.msg .mod button{border:1px solid var(--line);background:transparent;border-radius:2px;font:11px/1 var(--mono);padding:3px 5px;color:var(--muted)}
+.msg .mod button:hover{color:var(--text);border-color:var(--lose)}
+.msg.sys{font-size:13px;color:var(--muted);border-left:2px solid var(--line);border-radius:0;margin:2px 0}
+.msg.sys .ico{width:15px;height:15px;align-self:center}
+.msg.win{border-left-color:var(--patina)}.msg.win .ico{color:var(--patina-hi)}
+.msg.rain{border-left-color:var(--hazard)}.msg.rain .ico{color:var(--hazard)}
+.chat-form{display:flex;gap:6px;padding:10px 12px 4px;border-top:1px solid var(--line)}
+.chat-form input,.input{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:var(--r);padding:8px 10px;color:var(--text);font:14px var(--ui)}
+.chat-rules{font-size:11px;padding:0 12px 10px}
+
+/* ---------- backoffice ---------- */
+.tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+.tabs button{border:0;background:transparent;padding:10px 12px;color:var(--muted);font:600 14px/1 var(--cond);letter-spacing:.06em;text-transform:uppercase;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button[aria-selected="true"]{color:var(--text);border-bottom-color:var(--hazard)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(160px,100%),1fr));gap:10px}
+.kpi{border:1px solid var(--line-soft);border-radius:var(--r);padding:12px;background:var(--bg);display:flex;flex-direction:column;gap:6px;min-width:0}
+.kpi b{font-size:22px;font-weight:500}
+.kpi .muted{font-size:12px}
+.admin-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(380px,100%),1fr));gap:16px}
+.checks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;font-size:14px}
+.checks li{padding-left:22px;position:relative}
+.checks li::before{content:'';position:absolute;left:4px;top:6px;width:10px;height:10px;border-radius:2px;background:var(--patina)}
+.checks li.warn::before{background:var(--hazard)}.checks li.bad::before{background:var(--lose)}
+.checks b{margin-right:6px}
+tr.clickable{cursor:pointer}
+tr.clickable:hover,tr.clickable:focus-visible{background:var(--surface-2)}
+
+/* ---------- lobby: paused game ---------- */
+.tile.paused{opacity:.55}
+.tile .paused-tag{font:700 10px/1 var(--mono);letter-spacing:.1em;color:var(--lose)}

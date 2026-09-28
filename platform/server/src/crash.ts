@@ -21,6 +21,7 @@ import type { Beacon } from './beacon';
 import { type Config, MF_PER_FRAG } from './config';
 import { type DB, tx } from './db';
 import { fail } from './errors';
+import { assertGameEnabled } from './flags';
 import { checkBet } from './rg';
 import { HOUSE, transfer, userAccount } from './wallet';
 
@@ -117,6 +118,7 @@ export class CrashService {
 
   placeBet(userId: string, stake: number, target: number, now: number) {
     return tx(this.db, () => {
+      assertGameEnabled(this.db, 'crash');
       const r = this.current();
       if (!r || r.status !== 'betting' || now >= r.betting_ends_at) fail('not_betting', 'Betting is closed. Wait for the next round.', 409);
       if (!Number.isInteger(target) || target < MIN_TARGET || target > MAX_TARGET) fail('invalid_params', 'Auto cash-out: 1.01× to 10,000×.');

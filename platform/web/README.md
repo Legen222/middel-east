@@ -27,6 +27,8 @@ npm run build                                           # dist/
 | Limits & Breaks | `#/limits` | Limits, Pause, Selbstausschluss, Reality-Check, Hilfe-Links |
 | Provably Fair | `#/fair` | aktives Seed-Paar, Rotation, offengelegte Seeds |
 | History | `#/history` | letzte 100 Wetten mit Nonce und (nach Rotation) Server-Seed |
+| Chat | `#/chat` | Live-Chat mit Oil-Rain-Box; ab 1280 px zusätzlich als rechte Spalte auf jeder Seite |
+| Backoffice | `#/admin` | Operator-Dashboard: Overview, RTP monitor, Players, Games (Kill-Switch), RG cases, Audit log. In der Demo per „Become admin (demo)“ erreichbar |
 
 Immer sichtbar: Demo-Guthaben und die Session-Leiste mit Spielzeit und Netto-Ergebnis. Der Reality-Check öffnet
 sich zu dem Zeitpunkt, den der Server vorgibt. Offene Minenfeld- und Raid-Runden werden nach einem Neuladen der Seite

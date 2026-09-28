@@ -17,7 +17,8 @@
  */
 
 import { EDGE, FairStream, openCase, type CaseDef } from '../../engine/src/index';
-import { type Config, MF_PER_FRAG, frags } from './config';
+import { systemMessage } from './chat';
+import { type Config, MF_PER_FRAG, fmtFrags, frags } from './config';
 import { type DB, audit, tx } from './db';
 import { fail } from './errors';
 import { promoEligible } from './rg';
@@ -127,12 +128,14 @@ export function rainTick(db: DB, cfg: Config, now: number) {
       }
       db.prepare("UPDATE rain_rounds SET status = 'paid' WHERE id = ?").run(cur.id);
       audit(db, null, 'rain_paid', { rain: cur.id, joiners: joiners.length, share }, now);
+      if (joiners.length) systemMessage(db, 'rain', `Oil Rain paid ${fmtFrags(share)} Frags each to ${joiners.length} player${joiners.length === 1 ? '' : 's'}.`, now);
     }
     const slot = Math.floor(now / RAIN_PERIOD_MS) * RAIN_PERIOD_MS;
     if (!cur || cur.opens_at < slot) {
       const el = (db.prepare(`SELECT COALESCE(SUM(stake * ${edgeSql}), 0) AS el FROM wagers WHERE created_at >= ?`).get(slot - RAIN_PERIOD_MS) as { el: number }).el;
       const pot = Math.max(Math.floor(el * 0.01), cfg.demo ? frags(500) : 0);
       db.prepare("INSERT INTO rain_rounds (opens_at, closes_at, pot, status) VALUES (?, ?, ?, 'open')").run(slot, slot + RAIN_WINDOW_MS, pot);
+      if (now < slot + RAIN_WINDOW_MS) systemMessage(db, 'rain', `Oil Rain is open for 2 minutes: ${fmtFrags(pot)} Frags pot, split equally. Level ${RAIN_MIN_LEVEL}+.`, now);
     }
   });
 }

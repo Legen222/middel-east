@@ -14,14 +14,14 @@ export const token = {
   set(t: string | null) { try { t ? localStorage.setItem(KEY, t) : localStorage.removeItem(KEY); } catch { /* storage blocked */ } },
 };
 
-export async function api<T = any>(method: 'GET' | 'POST' | 'PUT', path: string, body?: unknown): Promise<T> {
+export async function api<T = any>(method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, body?: unknown): Promise<T> {
   const t = token.get();
   const res = await fetch(BASE + path, {
     method,
     headers: { 'content-type': 'application/json', ...(t ? { authorization: `Bearer ${t}` } : {}) },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  const json = await res.json().catch(() => ({ error: 'network', message: 'Keine Verbindung zum Server.' }));
+  const json = await res.json().catch(() => ({ error: 'network', message: 'No connection to the server.' }));
   if (!res.ok) {
     if (res.status === 401) token.set(null);
     throw new RequestError(res.status, json as ApiError);
@@ -44,6 +44,7 @@ export interface Me {
   id: string; displayName: string; steamLinked: boolean; kycLevel: number; balance: number; level: number;
   seed: { serverSeedHash: string; clientSeed: string; nextNonce: number };
   session: Session; block: { kind: string; until: number | null } | null; promoEligible: boolean;
+  role: 'player' | 'moderator' | 'admin';
 }
 export interface CaseInfo { id: string; name: string; price: number; rtp: number; items: { name: string; value: number; chance: number }[] }
 export interface PublicConfig {

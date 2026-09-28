@@ -4,6 +4,8 @@
  */
 export const MF_PER_FRAG = 1000;
 export const frags = (n: number): number => Math.round(n * MF_PER_FRAG);
+/** mF → "1,234.50" for server-written text (chat, audit). */
+export const fmtFrags = (mf: number): string => (mf / MF_PER_FRAG).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export interface Config {
   /** Demo mode: no deposits/withdrawals of skins, crypto or cards; balance comes from the faucet. */
@@ -29,6 +31,8 @@ export interface Config {
   /** AML: single deposit at or above this raises a review flag. */
   amlLargeDeposit: number;
   sessionTtlHours: number;
+  /** RG case queue triggers (admin backoffice). */
+  rgAlert: { netLoss24h: number; limitRaises30d: number; sessionHours: number };
 }
 
 export const DEFAULT_CONFIG: Config = {
@@ -46,6 +50,7 @@ export const DEFAULT_CONFIG: Config = {
   amlWagerMultiple: 1,
   amlLargeDeposit: frags(100_000), // 1 000 $
   sessionTtlHours: 24 * 7,
+  rgAlert: { netLoss24h: frags(50_000), limitRaises30d: 3, sessionHours: 3 },
 };
 
 export type Clock = () => number; // ms since epoch

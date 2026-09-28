@@ -11,7 +11,11 @@ import {
   GAMES, activeSeedPublic, balance, getBet, liveRtp, openGames, minesCashout, minesReveal, minesStart, playInstant,
   publicBet, raidBlast, raidCashout, raidStart, type InstantParams,
 } from './bets';
+import { auditLog, holdPlayer, listPlayers, overview, playerDetail, releaseHold, requireRole, rgCases, rgScan, rtpMonitor, setRole, updateCase } from './admin';
+import { activeMute, deleteMessage, listMessages, mute, postMessage, unmute } from './chat';
 import { checkGeo, withdrawalCheck } from './compliance';
+import { gameFlags, setGameFlag } from './flags';
+import type { Role } from './accounts';
 import { type Clock, type Config, MF_PER_FRAG } from './config';
 import type { DB } from './db';
 import { AppError, fail } from './errors';
@@ -41,7 +45,7 @@ export function createRouter(deps: AppDeps) {
     const pattern = new RegExp('^' + path.replace(/:(\w+)/g, (_, k) => { keys.push(k); return '([A-Za-z0-9_-]+)'; }) + '$');
     routes.push({ method, pattern, keys, handler });
   };
-  const num = (v: unknown, name: string) => (typeof v === 'number' && Number.isFinite(v) ? v : fail('invalid_params', `${name} fehlt oder ist keine Zahl.`));
+  const num = (v: unknown, name: string) => (typeof v === 'number' && Number.isFinite(v) ? v : fail('invalid_params', `${name} is missing or not a number.`));
   const stakeMf = (v: unknown) => Math.round(num(v, 'stake') * MF_PER_FRAG); // API takes Frags, stores mF
 
   /* ---------- public ---------- */
@@ -77,10 +81,15 @@ export function createRouter(deps: AppDeps) {
   route('GET', '/me', (c) => {
     const { user, startedAt } = c.auth();
     return {
-      id: user.id, displayName: user.display_name, steamLinked: Boolean(user.steam_id), kycLevel: user.kyc_level,
+      id: user.id, displayName: user.display_name, role: user.role, steamLinked: Boolean(user.steam_id), kycLevel: user.kyc_level,
       balance: balance(db, user.id) / MF_PER_FRAG, seed: activeSeedPublic(db, user.id), level: progress(db, user.id).level,
       session: fmtSession(sessionSummary(db, user.id, startedAt, clock())), block: activeBlock(db, user.id, clock()), promoEligible: promoEligible(db, user.id, clock()),
     };
+  });
+  route('POST', '/demo/role', (c) => {
+    // Demo only: lets a visitor look at the backoffice. Production roles are granted by an admin (PUT /admin/players/:id/role).
+    if (!cfg.demo) fail('not_demo', 'Demo mode only.', 403);
+    return setRole(db, c.auth().user.id, c.auth().user.id, String(c.body?.role) as Role, clock());
   });
   route('POST', '/demo/refill', (c) => ({ balance: demoRefill(db, cfg, c.auth().user.id, clock()) / MF_PER_FRAG }));
   route('GET', '/wallet/withdrawal-check', (c) => withdrawalCheck(db, cfg, c.auth().user, Math.round(Number(c.url.searchParams.get('amount') ?? 0) * MF_PER_FRAG)));
@@ -155,6 +164,41 @@ export function createRouter(deps: AppDeps) {
   route('POST', '/crew/code', (c) => createCrewCode(db, c.auth().user.id, String(c.body?.code ?? ''), clock()));
   route('POST', '/crew/redeem', (c) => redeemCrewCode(db, c.auth().user.id, String(c.body?.code ?? ''), clock()));
   route('POST', '/crew/claim', (c) => { const r = claimCrew(db, c.auth().user.id, clock()); return { amount: r.amount / MF_PER_FRAG }; });
+
+  /* ---------- chat ---------- */
+  route('GET', '/games/status', () => gameFlags(db).map((g) => ({ game: g.game, enabled: g.enabled, reason: g.reason })));
+  route('GET', '/chat', (c) => {
+    const s = resolveSession(db, c.token, clock());
+    return { messages: listMessages(db, s?.user.id ?? null), rain: rainState(db, s?.user.id ?? null, clock()), mute: s ? activeMute(db, s.user.id, clock()) : null, role: s?.user.role ?? null };
+  });
+  route('POST', '/chat', (c) => { const { user } = c.auth(); return postMessage(db, user, progress(db, user.id).level, c.body?.body, clock()); });
+  const mod = (c: Ctx) => { const { user } = c.auth(); requireRole(user, 'moderator', 'admin'); return user; };
+  route('DELETE', '/mod/chat/:id', (c, p) => deleteMessage(db, mod(c).id, Number(p.id), clock()));
+  route('POST', '/mod/mute', (c) => mute(db, mod(c).id, String(c.body?.userId ?? ''), c.body?.minutes === null ? null : num(c.body?.minutes, 'minutes'), String(c.body?.reason ?? ''), clock()));
+  route('DELETE', '/mod/mute/:userId', (c, p) => unmute(db, mod(c).id, p.userId, clock()));
+
+  /* ---------- admin backoffice ---------- */
+  const admin = (c: Ctx) => { const { user } = c.auth(); requireRole(user, 'admin'); return user; };
+  route('GET', '/admin/overview', (c) => { admin(c); return overview(db, cfg, clock()); });
+  route('GET', '/admin/rtp', (c) => {
+    admin(c);
+    const days = Math.min(90, Math.max(1, Number(c.url.searchParams.get('days') ?? 30)));
+    return { days, games: rtpMonitor(db, clock() - days * 86_400_000) };
+  });
+  route('GET', '/admin/players', (c) => { admin(c); return listPlayers(db, c.url.searchParams.get('q') ?? '', clock()); });
+  route('GET', '/admin/players/:id', (c, p) => { admin(c); return playerDetail(db, p.id, clock()); });
+  route('POST', '/admin/players/:id/hold', (c, p) => holdPlayer(db, admin(c).id, p.id, c.body?.hours === null ? null : num(c.body?.hours, 'hours'), String(c.body?.reason ?? ''), clock()));
+  route('DELETE', '/admin/players/:id/hold', (c, p) => releaseHold(db, admin(c).id, p.id, clock()));
+  route('PUT', '/admin/players/:id/role', (c, p) => setRole(db, admin(c).id, p.id, String(c.body?.role) as Role, clock()));
+  route('GET', '/admin/games', (c) => { admin(c); return gameFlags(db); });
+  route('PUT', '/admin/games/:game', (c, p) => setGameFlag(db, admin(c).id, p.game, c.body?.enabled === true, c.body?.reason == null ? null : String(c.body.reason), clock()));
+  route('GET', '/admin/rg-cases', (c) => { admin(c); rgScan(db, cfg, clock()); return rgCases(db, c.url.searchParams.get('status') === 'all' ? 'all' : 'open'); });
+  route('PUT', '/admin/rg-cases/:id', (c, p) => updateCase(db, admin(c).id, Number(p.id), String(c.body?.status ?? ''), String(c.body?.note ?? ''), clock()));
+  route('GET', '/admin/audit', (c) => {
+    admin(c);
+    const q = c.url.searchParams;
+    return auditLog(db, { userId: q.get('user') ?? undefined, event: q.get('event') ?? undefined, before: q.get('before') ? Number(q.get('before')) : undefined });
+  });
 
   /* ---------- responsible gambling ---------- */
   route('GET', '/rg', (c) => {

@@ -1,6 +1,8 @@
 import { type Me, type PublicConfig, RequestError, api, token } from './api';
+import { chatPanelHtml, chatView, mountChatPanel } from './chatpanel';
 import { SPRITE, icon } from './icons';
 import { $, errorText, esc, frags, guard, modal, toast } from './ui';
+import { adminView } from './views/admin';
 import { casesView } from './views/cases';
 import { crashView } from './views/crash';
 import { battleView, coinflipView } from './views/pvp';
@@ -20,6 +22,8 @@ export interface Ctx {
   me: Me;
   /** Reloads /me and repaints balance + session bar. Call after every bet. */
   refresh: () => Promise<void>;
+  /** Rebuilds the shell (navigation depends on the role) and the current view. */
+  rerender: () => void;
 }
 export interface View { title: string; html: (c: Ctx) => string; mount?: (root: HTMLElement, c: Ctx) => void | (() => void) }
 
@@ -41,20 +45,26 @@ const ACCOUNT: { path: string; label: string; icon: string; view: View }[] = [
   { path: 'fair', label: 'Provably Fair', icon: 'shield', view: fairView },
   { path: 'history', label: 'History', icon: 'clock', view: historyView },
 ];
-const ALL = [...NAV, ...ACCOUNT];
+const COMMUNITY: { path: string; label: string; icon: string; view: View }[] = [
+  { path: 'chat', label: 'Chat', icon: 'chat', view: chatView },
+  { path: 'admin', label: 'Backoffice', icon: 'wrench', view: adminView },
+];
+const ALL = [...NAV, ...ACCOUNT, ...COMMUNITY];
+const WIDE = matchMedia('(min-width: 1280px)');
 
 const app = $('#app');
 document.body.insertAdjacentHTML('afterbegin', SPRITE);
 let ctx: Ctx | null = null;
 let unmount: (() => void) | void;
 let realityTimer = 0;
+let unmountAside: (() => void) | null = null;
 
 async function boot() {
   const cfg = await api<PublicConfig>('GET', '/config').catch((e) => { renderFatal(e); throw e; });
   if (!token.get()) return renderGate(cfg);
   try {
     const me = await api<Me>('GET', '/me');
-    ctx = { cfg, me, refresh };
+    ctx = { cfg, me, refresh, rerender: () => { renderShell(); route(); } };
     renderShell();
     route();
   } catch (e) {
@@ -98,6 +108,7 @@ function renderGate(cfg: PublicConfig) {
 /* ---------- shell ---------- */
 function renderShell() {
   const c = ctx!;
+  if (unmountAside) { unmountAside(); unmountAside = null; }
   const link = (n: (typeof ALL)[number] & { tag?: string }) => `<a class="nav" href="#/${n.path}" data-path="${n.path}">${icon(n.icon)}<span>${n.label}</span>${n.tag ? `<em>${n.tag}</em>` : ''}</a>`;
   app.innerHTML = `
   <div class="shell">
@@ -113,17 +124,42 @@ function renderShell() {
     <nav class="side" aria-label="Games">
       <h4>Games</h4>${NAV.map(link).join('')}
       <h4>Account</h4>${ACCOUNT.map(link).join('')}
+      <h4>Community</h4>${COMMUNITY.filter((n) => n.path !== 'admin' || c.cfg.demo || c.me.role !== 'player').map(link).join('')}
     </nav>
     <main id="view" tabindex="-1"></main>
+    <aside class="chatside" id="chatside"></aside>
     <nav class="bottomnav" aria-label="Navigation">
-      ${([[ALL[0], 'Start'], [ALL[1], 'Raid'], [ALL[4], 'Press'], [ALL[NAV.length + 1], 'Limits'], [ALL[NAV.length + 2], 'Fair']] as const).map(([n, l]) => `<a href="#/${n.path}" data-path="${n.path}">${icon(n.icon)}${l}</a>`).join('')}
+      ${([[ALL[0], 'Start'], [ALL[1], 'Raid'], [ALL.find((n) => n.path === 'chat')!, 'Chat'], [ALL[NAV.length + 1], 'Limits'], [ALL[NAV.length + 2], 'Fair']] as const).map(([n, l]) => `<a href="#/${n.path}" data-path="${n.path}">${icon(n.icon)}${l}</a>`).join('')}
     </nav>
   </div>`;
   $('#refill').addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => { await api('POST', '/demo/refill'); await refresh(); toast('Demo balance refilled.'); }));
-  $('#logout').addEventListener('click', async () => { await api('POST', '/auth/logout').catch(() => null); token.set(null); location.hash = ''; boot(); });
+  $('#logout').addEventListener('click', async () => { if (unmountAside) { unmountAside(); unmountAside = null; } ctx = null; await api('POST', '/auth/logout').catch(() => null); token.set(null); location.hash = ''; boot(); });
   paintSession();
   scheduleRealityCheck();
+  syncAside();
 }
+
+/* Chat aside: mounted only while the screen is wide and the chat is not already the main view. */
+function syncAside() {
+  const aside = document.getElementById('chatside');
+  if (!ctx || !aside) return;
+  const want = WIDE.matches && !location.hash.startsWith('#/chat');
+  aside.hidden = !want;
+  if (want && !unmountAside) { aside.innerHTML = chatPanelHtml('chat-aside'); unmountAside = mountChatPanel($('#chat-aside'), ctx); }
+  if (!want && unmountAside) { unmountAside(); unmountAside = null; aside.innerHTML = ''; }
+  fitAside();
+}
+WIDE.addEventListener('change', syncAside);
+/* Keeps the sticky chat exactly as tall as the visible space below the top bar (banners above it scroll away). */
+function fitAside() {
+  const aside = document.getElementById('chatside');
+  const bar = document.querySelector<HTMLElement>('.topbar');
+  if (!aside || !bar || aside.hidden) return;
+  aside.style.setProperty('--topbar-h', `${bar.offsetHeight}px`);
+  aside.style.height = `${Math.max(320, innerHeight - Math.max(bar.offsetHeight, aside.getBoundingClientRect().top))}px`;
+}
+addEventListener('scroll', fitAside, { passive: true });
+addEventListener('resize', fitAside);
 
 async function refresh() {
   if (!ctx) return;
@@ -179,6 +215,7 @@ function route() {
   root.innerHTML = entry.view.html(ctx);
   document.title = `${entry.view.title} · SCRAPLINE Demo`;
   unmount = entry.view.mount?.(root, ctx);
+  syncAside();
   root.focus({ preventScroll: true });
   window.scrollTo({ top: 0 });
 }

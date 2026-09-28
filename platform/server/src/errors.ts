@@ -1,4 +1,4 @@
-/** Errors the API returns to the player. Messages are German, codes are stable for the frontend. */
+/** Errors the API returns to the player. Messages are English, codes are stable for the frontend. */
 export class AppError extends Error {
   constructor(
     readonly code: string,

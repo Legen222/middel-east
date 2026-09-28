@@ -42,7 +42,7 @@ export const limitsView: View = {
   mount: (root, c) => {
     const load = async () => {
       const s = await api<RgState>('GET', '/rg');
-      $('#block', root).innerHTML = s.block ? `<p class="status lose">Active: ${s.block.kind === 'cooldown' ? 'Break' : 'Self-exclusion'} ${s.block.until ? `until ${when(s.block.until)}` : '(permanent)'}</p>` : '';
+      $('#block', root).innerHTML = s.block ? `<p class="status lose">Active: ${s.block.kind === 'cooldown' ? 'Break' : s.block.kind === 'operator' ? 'Account hold (support)' : 'Self-exclusion'} ${s.block.until ? `until ${when(s.block.until)}` : '(permanent)'}</p>` : '';
       $('#limits', root).innerHTML = KINDS.map(([k, label]) => `<tr><td>${label}</td>${PERIODS.map(([p]) => {
         const l = s.limits.find((x) => x.kind === k && x.period === p);
         const pend = l?.pending ? `<br><span class="muted" style="font-size:12px">from ${when(l.pending.effectiveAt)}: ${l.pending.amount === null ? 'no limit' : frags(l.pending.amount, 0)}</span>` : '';

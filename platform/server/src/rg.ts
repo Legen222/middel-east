@@ -73,8 +73,12 @@ function usage(db: DB, userId: string, kind: LimitKind, period: LimitPeriod, now
   return kind === 'wager' ? r.staked : Math.max(0, r.staked - r.paid);
 }
 
-export function activeBlock(db: DB, userId: string, now: number): { kind: 'cooldown' | 'exclusion'; until: number | null } | null {
-  const row = db.prepare('SELECT kind, until_at FROM rg_blocks WHERE user_id = ? AND (until_at IS NULL OR until_at > ?) ORDER BY until_at IS NULL DESC, until_at DESC LIMIT 1').get(userId, now) as { kind: 'cooldown' | 'exclusion'; until_at: number | null } | undefined;
+export type BlockKind = 'cooldown' | 'exclusion' | 'operator';
+
+/** Longest running block. Self-exclusion wins over an operator hold, which wins over a cooldown, at equal length. */
+export function activeBlock(db: DB, userId: string, now: number): { kind: BlockKind; until: number | null } | null {
+  const row = db.prepare(`SELECT kind, until_at FROM rg_blocks WHERE user_id = ? AND (until_at IS NULL OR until_at > ?)
+    ORDER BY until_at IS NULL DESC, until_at DESC, CASE kind WHEN 'exclusion' THEN 0 WHEN 'operator' THEN 1 ELSE 2 END LIMIT 1`).get(userId, now) as { kind: BlockKind; until_at: number | null } | undefined;
   return row ? { kind: row.kind, until: row.until_at } : null;
 }
 
@@ -82,6 +86,7 @@ export function assertNotBlocked(db: DB, userId: string, now: number): void {
   const b = activeBlock(db, userId, now);
   if (b) {
     const when = b.until ? `until ${new Date(b.until).toISOString().slice(0, 16).replace('T', ' ')} UTC` : 'permanently';
+    if (b.kind === 'operator') fail('account_hold', `Your account is on hold (${when}). Please contact support.`, 403, { until: b.until });
     fail(b.kind === 'cooldown' ? 'rg_cooldown' : 'rg_excluded', b.kind === 'cooldown' ? `You are on a break (${when}).` : `Your account is closed (self-exclusion, ${when}).`, 403, { until: b.until });
   }
 }

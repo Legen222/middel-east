@@ -16,6 +16,7 @@ import { DEFAULT_CONFIG } from '../../server/src/config';
 import { CrashService } from '../../server/src/crash';
 import { openDb } from '../../server/src/db';
 import { settleDue } from '../../server/src/pvp';
+import { rgScan } from '../../server/src/admin';
 import { rainTick } from '../../server/src/rewards';
 import { createRouter } from '../../server/src/router';
 import { toHex } from '../../engine/src/pf/sha256';
@@ -81,10 +82,11 @@ async function start() {
 
   /* background jobs the real server runs every 200 ms */
   let busy = false;
+  let lastScan = 0;
   setInterval(async () => {
     if (busy) return;
     busy = true;
-    try { await crash.tick(Date.now()); await settleDue(db, beacon, Date.now()); rainTick(db, cfg, Date.now()); } catch (e) { console.error(e); } finally { busy = false; }
+    try { await crash.tick(Date.now()); await settleDue(db, beacon, Date.now()); rainTick(db, cfg, Date.now()); if (Date.now() - lastScan > 60_000) { lastScan = Date.now(); rgScan(db, cfg, lastScan); } } catch (e) { console.error(e); } finally { busy = false; }
   }, 200);
   const save = () => { const bytes = exportDatabase(); if (bytes && !store.set(DB_KEY, toB64(bytes))) console.warn('Could not save demo state (storage full or blocked).'); };
   setInterval(save, 5000);

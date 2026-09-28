@@ -20,6 +20,7 @@ import type { Beacon } from './beacon';
 import { type Config, MF_PER_FRAG } from './config';
 import { type DB, audit, tx } from './db';
 import { fail } from './errors';
+import { assertGameEnabled } from './flags';
 import { checkBet } from './rg';
 import { HOUSE, transfer, userAccount } from './wallet';
 
@@ -37,6 +38,7 @@ const getSeats = (db: DB, id: string) => db.prepare('SELECT * FROM pvp_seats WHE
 const rnd = (n: number) => new Uint8Array(randomBytes(n));
 
 function takeSeat(db: DB, cfg: Config, game: GameRow, seat: number, userId: string | null, now: number) {
+  assertGameEnabled(db, game.type);
   if (userId) {
     checkBet(db, userId, game.seat_stake, now);
     transfer(db, userAccount(userId), ESCROW, game.seat_stake, 'stake', game.id, now);

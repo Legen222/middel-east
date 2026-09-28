@@ -6,7 +6,7 @@ Diese Phase liefert:
 1. die **Zielarchitektur** für Demo- und späteren Echtgeld-Betrieb,
 2. ein **lauffähiges Demo-Backend**: Wallet mit doppelter Buchführung, Wett-Service für 6 Spiele,
    Seed-Verwaltung, Responsible Gambling, Geo-Blocking, Steam-Login, KYC- und AML-Prüfungen, HTTP-API,
-3. **33 Tests**, darunter das Nachspielen jeder Wette aus dem offengelegten Seed, PvP-, Crash- und Belohnungs-Abläufe und ein End-to-End-Test der API.
+3. **40 Tests**, darunter das Nachspielen jeder Wette aus dem offengelegten Seed, PvP-, Crash- und Belohnungs-Abläufe und ein End-to-End-Test der API.
 
 ---
 
@@ -211,7 +211,7 @@ Größenlimit (16 KB) und Geo-Prüfung.
 
 ```bash
 cd platform/server && npm install
-npm test     # 33 Tests
+npm test     # 40 Tests
 npm start    # http://localhost:8787, Datei data/scrapline-demo.sqlite
 ```
 
@@ -233,7 +233,7 @@ npm start    # http://localhost:8787, Datei data/scrapline-demo.sqlite
 | Thema | Vorgabe |
 |---|---|
 | Umgebungen | dev → staging (Spielgeld, echte Anbieter im Sandbox-Modus) → prod |
-| CI | Typprüfung, Engine-Tests (57), Server-Tests (20), Monte-Carlo-Kurzlauf (1 Mio. Runden) bei jedem Merge, voller Lauf (10 Mio.) nächtlich |
+| CI | Typprüfung, Engine-Tests (57), Server-Tests (40), Monte-Carlo-Kurzlauf (1 Mio. Runden) bei jedem Merge, voller Lauf (10 Mio.) nächtlich |
 | Deployment | Container. API und Worker mit mehreren Replikas. Crash-Leader mit Leader-Election (genau 1 aktiv) |
 | Daten | Postgres mit Replika und Point-in-Time-Recovery. Tägliches Backup mit Test-Wiederherstellung |
 | Monitoring | Traces, Metriken und Logs. **RTP-Monitor** je Spiel: Alarm, wenn der rollierende RTP mehr als 4 Standardfehler von der Theorie abweicht. Ledger-Integrität stündlich |
@@ -248,4 +248,5 @@ npm start    # http://localhost:8787, Datei data/scrapline-demo.sqlite
 | 5 | ✔ **Frontend** im SCRAPLINE-Design (`platform/web`): Lobby, alle Spiele, RG-Center, Provably Fair, Verlauf |
 | 6 | ✔ PvP-Lobby (Münzwurf, Battles) mit Beacon-Zufall, Crash-Service mit Hash-Kette und SSE, alles im Frontend |
 | 7 | ✔ Retention: Level/XP auf erwarteten Verlust, Rakeback 5–30 %, Schrottkiste (täglich, nachprüfbar), Ölregen, Crew-Codes mit NGR-Anteil. Während Pausen keine Promo-Guthaben |
-| 8 | Echtgeld-Vorbereitung: Lizenz, Rechtsgutachten (Steam!), KYC-Anbieter, Zahlungswege, externes RNG-Audit |
+| 8 | ✔ Echtgeld-Vorbereitung dokumentiert ([05-go-live.md](05-go-live.md)): Lizenz, Rechtsgutachten (Steam!), KYC-Anbieter, Zahlungswege, externes RNG-Audit |
+| 9 | ✔ Backoffice (KPIs, RTP-Monitor mit z-Wert, Spieler, Holds, Kill-Switch, RG-Fälle, Audit) und Live-Chat mit Moderation ([06-backoffice-und-chat.md](06-backoffice-und-chat.md)) |

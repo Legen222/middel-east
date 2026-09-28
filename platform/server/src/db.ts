@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS ledger (
   created_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ledger_account ON ledger(account, created_at);
+
 CREATE TABLE IF NOT EXISTS balances (
   account TEXT PRIMARY KEY,
   amount INTEGER NOT NULL
@@ -208,6 +209,47 @@ CREATE TABLE IF NOT EXISTS crew_codes (
   created_at INTEGER NOT NULL
 );
 
+-- Operations: per-game kill switch, chat, responsible-gambling case queue.
+CREATE TABLE IF NOT EXISTS game_flags (
+  game TEXT PRIMARY KEY,
+  enabled INTEGER NOT NULL,
+  reason TEXT,
+  updated_by TEXT,
+  updated_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT,                   -- NULL = system message
+  name TEXT NOT NULL,
+  level INTEGER,
+  role TEXT,
+  kind TEXT NOT NULL,             -- user | system | win | rain
+  body TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  deleted_at INTEGER,
+  deleted_by TEXT
+);
+CREATE INDEX IF NOT EXISTS chat_recent ON chat_messages(created_at);
+CREATE TABLE IF NOT EXISTS chat_mutes (
+  user_id TEXT PRIMARY KEY REFERENCES users(id),
+  until_at INTEGER,               -- NULL = until lifted
+  reason TEXT,
+  by_user TEXT,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS rg_cases (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  reason TEXT NOT NULL,           -- net_loss_24h | limit_raises_30d | long_session
+  data TEXT,
+  status TEXT NOT NULL,           -- open | contacted | closed
+  note TEXT,
+  handled_by TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS rg_cases_one_open ON rg_cases(user_id, reason) WHERE status != 'closed';
+
 CREATE TABLE IF NOT EXISTS audit (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id TEXT,
@@ -215,6 +257,7 @@ CREATE TABLE IF NOT EXISTS audit (
   data TEXT,
   created_at INTEGER NOT NULL
 );
+CREATE INDEX IF NOT EXISTS audit_user ON audit(user_id, created_at);
 `;
 
 export function openDb(path = ':memory:'): DB {
@@ -223,6 +266,7 @@ export function openDb(path = ':memory:'): DB {
   // Additive migrations for demo databases created by earlier versions.
   const cols = (db.prepare('PRAGMA table_info(users)').all() as { name: string }[]).map((c) => c.name);
   if (!cols.includes('crew_code')) db.exec('ALTER TABLE users ADD COLUMN crew_code TEXT');
+  if (!cols.includes('role')) db.exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'player'");
   return db;
 }
 
