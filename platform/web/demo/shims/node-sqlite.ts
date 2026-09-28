@@ -22,6 +22,7 @@ export class DatabaseSync {
     current = this.db;
   }
   exec(sql: string): void { this.db.exec(sql); }
+  close(): void { /* the page owns the database for its whole lifetime */ }
   prepare(sql: string) {
     const db = this.db;
     const withStmt = <T>(params: unknown[], fn: (s: ReturnType<Database['prepare']>) => T): T => {

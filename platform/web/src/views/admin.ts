@@ -14,9 +14,39 @@ const blockLabel = (b: { kind: string; until: number | null } | null) => (b ? `$
 const kpi = (label: string, value: string, sub = '') => `<div class="kpi"><span class="eyebrow">${label}</span><b class="num">${value}</b>${sub ? `<span class="muted">${sub}</span>` : ''}</div>`;
 const loadTab = (): Tab => { try { return (localStorage.getItem(TAB_KEY) as Tab) || 'overview'; } catch { return 'overview'; } };
 
+/* ---------- operator two-factor (TOTP) ---------- */
+const mfaHtml = (enrolled: boolean) => `
+  <section class="card" style="max-width:560px">
+    <p class="eyebrow">Operations · security</p>
+    <h1 class="h-display">${enrolled ? 'Confirm it’s you' : 'Set up two-factor'}</h1>
+    <p class="muted">${enrolled ? 'Enter the 6-digit code from your authenticator app. The backoffice stays unlocked for this session for 12 hours.'
+      : 'The backoffice needs a second factor. Add SCRAPLINE to an authenticator app (1Password, Google Authenticator, Authy, …), then enter the first code.'}</p>
+    ${enrolled ? '' : '<div id="mfa-secret"><button class="btn ghost" type="button" id="mfa-start">Show setup key</button></div>'}
+    <form class="row" id="mfa-form"><input class="input num" id="mfa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" aria-label="Authenticator code" style="max-width:160px">
+      <button class="btn" type="submit">${enrolled ? 'Unlock' : 'Activate'}</button></form>
+  </section>`;
+
+function mountMfa(root: HTMLElement, c: Parameters<NonNullable<View['mount']>>[1]) {
+  $('#mfa-start', root)?.addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {
+    const r = await api<{ secret: string; uri: string }>('POST', '/mfa/enroll');
+    $('#mfa-secret', root).innerHTML = `<dl class="fairbox"><dt>Key</dt><dd class="num">${esc(r.secret.replace(/(.{4})/g, '$1 ').trim())}</dd><dt>URI</dt><dd class="num" style="word-break:break-all">${esc(r.uri)}</dd></dl>
+      <p class="muted" style="font-size:13px">Type the key into your app, or paste the URI into an app that accepts otpauth links. Store it only there.</p>`;
+  }));
+  $('#mfa-form', root).addEventListener('submit', (e) => {
+    e.preventDefault();
+    void guard($<HTMLButtonElement>('#mfa-form button', root), async () => {
+      const code = $<HTMLInputElement>('#mfa-code', root).value.trim();
+      await api('POST', c.me.mfa.enrolled ? '/mfa/verify' : '/mfa/confirm', { code });
+      toast('Unlocked.');
+      await c.refresh();
+      c.rerender();
+    });
+  });
+}
+
 export const adminView: View = {
   title: 'Backoffice',
-  html: (c) => c.me.role !== 'admin' ? `
+  html: (c) => c.me.role !== 'player' && c.cfg.operatorMfa && !c.me.mfa.fresh ? mfaHtml(c.me.mfa.enrolled) : c.me.role !== 'admin' ? `
   <section class="card" style="max-width:720px">
     <p class="eyebrow">Operations</p>
     <h1 class="h-display">Backoffice</h1>
@@ -36,6 +66,7 @@ export const adminView: View = {
       await c.refresh();
       c.rerender();
     })));
+    if (c.me.role !== 'player' && c.cfg.operatorMfa && !c.me.mfa.fresh) return mountMfa(root, c);
     if (c.me.role !== 'admin') return;
 
     let tab: Tab = loadTab();

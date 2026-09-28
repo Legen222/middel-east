@@ -39,7 +39,7 @@ export async function verifyAssertion(db: DB, query: URLSearchParams, expectedRe
   if (!nonce) throw new Error('openid: missing nonce');
   const issued = Date.parse(nonce.slice(0, 20));
   if (!Number.isFinite(issued) || Math.abs(now - issued) > 5 * 60_000) throw new Error('openid: stale nonce');
-  if (db.prepare('SELECT 1 FROM openid_nonces WHERE nonce = ?').get(nonce)) throw new Error('openid: replayed nonce');
+  if (await db.prepare('SELECT 1 FROM openid_nonces WHERE nonce = ?').get(nonce)) throw new Error('openid: replayed nonce');
 
   const body = new URLSearchParams();
   for (const [k, v] of query) if (k.startsWith('openid.')) body.set(k, v);
@@ -48,7 +48,8 @@ export async function verifyAssertion(db: DB, query: URLSearchParams, expectedRe
   const text = res.ok ? await res.text() : '';
   if (!/^is_valid\s*:\s*true\s*$/m.test(text)) throw new Error('openid: Steam rejected the assertion');
 
-  db.prepare('INSERT INTO openid_nonces (nonce, created_at) VALUES (?, ?)').run(nonce, now);
-  db.prepare('DELETE FROM openid_nonces WHERE created_at < ?').run(now - 10 * 60_000);
+  // The primary key makes a concurrent replay of the same assertion fail here.
+  await db.prepare('INSERT INTO openid_nonces (nonce, created_at) VALUES (?, ?)').run(nonce, now);
+  await db.prepare('DELETE FROM openid_nonces WHERE created_at < ?').run(now - 10 * 60_000);
   return { steamId: m[1] };
 }

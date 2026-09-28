@@ -15,6 +15,7 @@ import { LocalBeacon } from '../../server/src/beacon';
 import { DEFAULT_CONFIG } from '../../server/src/config';
 import { CrashService } from '../../server/src/crash';
 import { openDb } from '../../server/src/db';
+import { bus } from '../../server/src/events';
 import { settleDue } from '../../server/src/pvp';
 import { rgScan } from '../../server/src/admin';
 import { rainTick } from '../../server/src/rewards';
@@ -22,8 +23,8 @@ import { createRouter } from '../../server/src/router';
 import { toHex } from '../../engine/src/pf/sha256';
 import { configureSqlJs, exportDatabase } from './shims/node-sqlite';
 
-const DB_KEY = 'scrapline.demo.db.v2';
-const BEACON_KEY = 'scrapline.demo.beacon.v2';
+const DB_KEY = 'scrapline.demo.db.v3';
+const BEACON_KEY = 'scrapline.demo.beacon.v3';
 
 const store = {
   get(k: string) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -63,21 +64,26 @@ async function start() {
     return new Response(JSON.stringify(out.payload), { status: out.status, headers: { 'content-type': 'application/json' } });
   };
 
-  /* EventSource('/api/crash/stream') → CrashService events */
+  /* EventSource('/api/events' | '/api/crash/stream') → the server's event bus, named like http.ts does */
   const RealES = window.EventSource;
   class DemoEventSource {
     private listeners = new Map<string, ((e: MessageEvent) => void)[]>();
     private off: () => void;
     readyState = 1;
     constructor(readonly url: string) {
-      this.off = crash.on((e) => (this.listeners.get(e.type) ?? []).forEach((fn) => fn(new MessageEvent(e.type, { data: JSON.stringify(e) }))));
+      const crashOnly = url.includes('/crash/stream');
+      this.off = bus.subscribe((e) => {
+        if (crashOnly && e.topic !== 'crash') return;
+        const name = e.topic === 'crash' ? e.event.type : 'chat';
+        (this.listeners.get(name) ?? []).forEach((fn) => fn(new MessageEvent(name, { data: JSON.stringify(e.event) })));
+      });
     }
     addEventListener(type: string, fn: (e: MessageEvent) => void) { this.listeners.set(type, [...(this.listeners.get(type) ?? []), fn]); }
     removeEventListener(type: string, fn: (e: MessageEvent) => void) { this.listeners.set(type, (this.listeners.get(type) ?? []).filter((x) => x !== fn)); }
     close() { this.readyState = 2; this.off(); }
   }
   (window as unknown as { EventSource: unknown }).EventSource = function (url: string, init?: EventSourceInit) {
-    return url.includes('/api/crash/stream') ? new DemoEventSource(url) : new RealES(url, init);
+    return url.includes('/api/crash/stream') || url.includes('/api/events') ? new DemoEventSource(url) : new RealES(url, init);
   };
 
   /* background jobs the real server runs every 200 ms */
@@ -86,7 +92,7 @@ async function start() {
   setInterval(async () => {
     if (busy) return;
     busy = true;
-    try { await crash.tick(Date.now()); await settleDue(db, beacon, Date.now()); rainTick(db, cfg, Date.now()); if (Date.now() - lastScan > 60_000) { lastScan = Date.now(); rgScan(db, cfg, lastScan); } } catch (e) { console.error(e); } finally { busy = false; }
+    try { await crash.tick(Date.now()); await settleDue(db, beacon, Date.now()); await rainTick(db, cfg, Date.now()); if (Date.now() - lastScan > 60_000) { lastScan = Date.now(); await rgScan(db, cfg, lastScan); } } catch (e) { console.error(e); } finally { busy = false; }
   }, 200);
   const save = () => { const bytes = exportDatabase(); if (bytes && !store.set(DB_KEY, toB64(bytes))) console.warn('Could not save demo state (storage full or blocked).'); };
   setInterval(save, 5000);

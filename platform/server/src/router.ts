@@ -1,37 +1,43 @@
 /**
  * API routes, independent of the transport. `dispatch` takes a parsed request and returns status + JSON.
  * Order per request: rate limit (per IP) → geo check → auth (Bearer session token) → handler.
+ * Backoffice (/admin) and moderation (/mod) additionally check the operator IP allowlist, the role and,
+ * when required, a fresh TOTP step-up.
  * Errors are { error: code, message, details? } with a matching HTTP status.
  * node:http (http.ts) and the in-browser demo (platform/web/demo) both call dispatch.
  */
 
 import { PLINKO_TABLES, SAMPLE_CASES, caseRtp, plinkoTheoreticalRtp, priceCase, EDGE, type RaidTool } from '../../engine/src/index';
-import { createSession, demoRefill, endSession, resolveSession, signUp, type UserRow } from './accounts';
+import { type Role, type Session, createSession, demoRefill, endSession, resolveSession, signUp } from './accounts';
+import { auditLog, holdPlayer, listPlayers, overview, playerDetail, releaseHold, requireRole, rgCases, rgScan, rtpMonitor, setRole, updateCase } from './admin';
 import {
   GAMES, activeSeedPublic, balance, getBet, liveRtp, openGames, minesCashout, minesReveal, minesStart, playInstant,
   publicBet, raidBlast, raidCashout, raidStart, type InstantParams,
 } from './bets';
-import { auditLog, holdPlayer, listPlayers, overview, playerDetail, releaseHold, requireRole, rgCases, rgScan, rtpMonitor, setRole, updateCase } from './admin';
+import type { Beacon } from './beacon';
 import { activeMute, deleteMessage, listMessages, mute, postMessage, unmute } from './chat';
 import { checkGeo, withdrawalCheck } from './compliance';
-import { gameFlags, setGameFlag } from './flags';
-import type { Role } from './accounts';
-import { type Clock, type Config, MF_PER_FRAG } from './config';
+import { type Clock, type Config, MF_PER_FRAG, ipAllowed } from './config';
+import type { CrashService } from './crash';
 import type { DB } from './db';
 import { AppError, fail } from './errors';
-import { REALITY_CHECK_OPTIONS, activeBlock, getLimits, promoEligible, selfExclude, sessionSummary, setLimit, setRealityCheck, startCooldown, type LimitKind, type LimitPeriod } from './rg';
-import type { Beacon } from './beacon';
-import type { CrashService } from './crash';
+import { gameFlags, setGameFlag } from './flags';
+import { confirm as mfaConfirm, enroll as mfaEnroll, verify as mfaVerify } from './mfa';
 import { cancelGame, createBattle, createCoinflip, joinGame, listGames, publicGame, settleDue } from './pvp';
 import { DAILY_CASE, RAKEBACK_BANDS, claimCrew, claimRakeback, createCrewCode, crewState, joinRain, openDaily, progress, rainState, redeemCrewCode } from './rewards';
+import { REALITY_CHECK_OPTIONS, activeBlock, getLimits, promoEligible, selfExclude, sessionSummary, setLimit, setRealityCheck, startCooldown, type LimitKind, type LimitPeriod } from './rg';
 import { rotateSeed } from './seeds';
 import { type Fetch, loginUrl, verifyAssertion } from './steam';
 
-export interface AppDeps { db: DB; cfg: Config; clock: Clock; fetch: Fetch; publicUrl: string; beacon: Beacon; crash: CrashService }
+export interface AppDeps {
+  db: DB; cfg: Config; clock: Clock; fetch: Fetch; publicUrl: string; beacon: Beacon; crash: CrashService;
+  /** Readiness details for GET /ready (database reachable, leader status, …). */
+  ready?: () => Promise<Record<string, unknown>>;
+}
 
 interface Ctx {
   url: URL; body: any; ip: string; country: string | null; token?: string;
-  auth: () => { user: UserRow; startedAt: number };
+  auth: () => Promise<Session>;
 }
 
 export interface ApiRequest { method: string; url: string; headers: Record<string, string | undefined>; body: unknown; ip: string }
@@ -47,173 +53,206 @@ export function createRouter(deps: AppDeps) {
   };
   const num = (v: unknown, name: string) => (typeof v === 'number' && Number.isFinite(v) ? v : fail('invalid_params', `${name} is missing or not a number.`));
   const stakeMf = (v: unknown) => Math.round(num(v, 'stake') * MF_PER_FRAG); // API takes Frags, stores mF
+  const uid = async (c: Ctx) => (await c.auth()).user.id;
 
   /* ---------- public ---------- */
   route('GET', '/health', () => ({ ok: true, demo: cfg.demo }));
+  route('GET', '/ready', async () => {
+    await db.prepare('SELECT 1 AS ok').get();
+    return { ok: true, dialect: db.dialect, ...(deps.ready ? await deps.ready() : {}) };
+  });
   route('GET', '/config', () => ({
     demo: cfg.demo, currency: 'Frags', fragsPerDollar: 100, minStake: cfg.minStake / MF_PER_FRAG, maxStake: cfg.maxStake / MF_PER_FRAG, maxWin: cfg.maxWin / MF_PER_FRAG,
-    games: GAMES, houseEdge: EDGE,
+    games: GAMES, houseEdge: EDGE, operatorMfa: cfg.requireOperatorMfa,
     plinko: Object.fromEntries(Object.entries(PLINKO_TABLES).map(([r, t]) => [r, Object.fromEntries(Object.entries(t).map(([k, v]) => [k, { multipliers: v, rtp: plinkoTheoreticalRtp(Number(r) as 8, k as 'low') }]))])),
     cases: SAMPLE_CASES.map((c) => { const W = c.items.reduce((s, i) => s + i.weight, 0); return { id: c.id, name: c.name, price: priceCase(c), rtp: caseRtp(c), items: c.items.map((i) => ({ name: i.name, value: i.value, chance: i.weight / W })) }; }),
     responsibleGambling: { realityCheckOptions: REALITY_CHECK_OPTIONS, limitIncreaseDelayHours: cfg.limitIncreaseDelayHours },
   }));
-  route('GET', '/stats/rtp', (c) => {
+  route('GET', '/stats/rtp', async (c) => {
     const days = Math.min(90, Math.max(1, Number(c.url.searchParams.get('days') ?? 30)));
-    return { days, games: liveRtp(db, clock() - days * 86_400_000).map((g) => ({ ...g, theory: theoryRtp(g.game) })) };
+    return { days, games: (await liveRtp(db, clock() - days * 86_400_000)).map((g) => ({ ...g, theory: theoryRtp(g.game) })) };
   });
-  route('GET', '/bets/:id', (_c, p) => { const b = getBet(db, p.id) ?? fail('not_found', 'Bet not found.', 404); const pb = publicBet(b, db); return b.status === 'open' ? { ...pb, result: null } : pb; });
+  route('GET', '/bets/:id', async (_c, p) => {
+    const b = (await getBet(db, p.id)) ?? fail('not_found', 'Bet not found.', 404);
+    const pb = await publicBet(b, db);
+    return b.status === 'open' ? { ...pb, result: null } : pb;
+  });
 
   /* ---------- auth ---------- */
-  route('POST', '/auth/demo', (c) => {
-    const { userId } = signUp(db, cfg, { displayName: String(c.body?.displayName ?? ''), ageConfirmed: c.body?.ageConfirmed === true, country: c.country }, clock());
-    return { token: createSession(db, cfg, userId, clock()), userId };
+  route('POST', '/auth/demo', async (c) => {
+    const { userId } = await signUp(db, cfg, { displayName: String(c.body?.displayName ?? ''), ageConfirmed: c.body?.ageConfirmed === true, country: c.country }, clock());
+    return { token: await createSession(db, cfg, userId, clock()), userId };
   });
   route('GET', '/auth/steam', () => ({ url: loginUrl(`${deps.publicUrl}/auth/steam/return?age=1`, deps.publicUrl) }));
   route('GET', '/auth/steam/return', async (c) => {
     const { steamId } = await verifyAssertion(db, c.url.searchParams, `${deps.publicUrl}/auth/steam/return`, deps.fetch, clock())
       .catch((e: Error) => fail('steam_login_failed', 'Steam login failed. Please try again.', 401, { reason: e.message }));
-    const { userId } = signUp(db, cfg, { displayName: `Steam ${steamId.slice(-4)}`, ageConfirmed: c.url.searchParams.get('age') === '1', steamId, country: c.country }, clock());
-    return { token: createSession(db, cfg, userId, clock()), userId };
+    const { userId } = await signUp(db, cfg, { displayName: `Steam ${steamId.slice(-4)}`, ageConfirmed: c.url.searchParams.get('age') === '1', steamId, country: c.country }, clock());
+    return { token: await createSession(db, cfg, userId, clock()), userId };
   });
-  route('POST', '/auth/logout', (c) => { c.auth(); endSession(db, c.token!); return { ok: true }; });
+  route('POST', '/auth/logout', async (c) => { await c.auth(); await endSession(db, c.token!); return { ok: true }; });
+
+  /* ---------- operator MFA ---------- */
+  route('POST', '/mfa/enroll', async (c) => { const s = await c.auth(); requireRole(s.user, 'moderator', 'admin'); return mfaEnroll(db, s, 'SCRAPLINE', clock()); });
+  route('POST', '/mfa/confirm', async (c) => { const s = await c.auth(); requireRole(s.user, 'moderator', 'admin'); return mfaConfirm(db, s, String(c.body?.code ?? ''), clock()); });
+  route('POST', '/mfa/verify', async (c) => { const s = await c.auth(); requireRole(s.user, 'moderator', 'admin'); return mfaVerify(db, s, String(c.body?.code ?? ''), clock()); });
 
   /* ---------- account ---------- */
-  route('GET', '/me', (c) => {
-    const { user, startedAt } = c.auth();
+  route('GET', '/me', async (c) => {
+    const { user, startedAt, mfaAt } = await c.auth();
     return {
       id: user.id, displayName: user.display_name, role: user.role, steamLinked: Boolean(user.steam_id), kycLevel: user.kyc_level,
-      balance: balance(db, user.id) / MF_PER_FRAG, seed: activeSeedPublic(db, user.id), level: progress(db, user.id).level,
-      session: fmtSession(sessionSummary(db, user.id, startedAt, clock())), block: activeBlock(db, user.id, clock()), promoEligible: promoEligible(db, user.id, clock()),
+      balance: (await balance(db, user.id)) / MF_PER_FRAG, seed: await activeSeedPublic(db, user.id), level: (await progress(db, user.id)).level,
+      session: fmtSession(await sessionSummary(db, user.id, startedAt, clock())), block: await activeBlock(db, user.id, clock()), promoEligible: await promoEligible(db, user.id, clock()),
+      mfa: { enrolled: Boolean(user.totp_secret), fresh: mfaFresh(mfaAt), required: cfg.requireOperatorMfa },
     };
   });
-  route('POST', '/demo/role', (c) => {
+  route('POST', '/demo/role', async (c) => {
     // Demo only: lets a visitor look at the backoffice. Production roles are granted by an admin (PUT /admin/players/:id/role).
     if (!cfg.demo) fail('not_demo', 'Demo mode only.', 403);
-    return setRole(db, c.auth().user.id, c.auth().user.id, String(c.body?.role) as Role, clock());
+    const id = await uid(c);
+    return setRole(db, id, id, String(c.body?.role) as Role, clock());
   });
-  route('POST', '/demo/refill', (c) => ({ balance: demoRefill(db, cfg, c.auth().user.id, clock()) / MF_PER_FRAG }));
-  route('GET', '/wallet/withdrawal-check', (c) => withdrawalCheck(db, cfg, c.auth().user, Math.round(Number(c.url.searchParams.get('amount') ?? 0) * MF_PER_FRAG)));
+  route('POST', '/demo/refill', async (c) => ({ balance: (await demoRefill(db, cfg, await uid(c), clock())) / MF_PER_FRAG }));
+  route('GET', '/wallet/withdrawal-check', async (c) => withdrawalCheck(db, cfg, (await c.auth()).user, Math.round(Number(c.url.searchParams.get('amount') ?? 0) * MF_PER_FRAG)));
 
   /* ---------- seeds ---------- */
-  route('GET', '/seed', (c) => activeSeedPublic(db, c.auth().user.id));
-  route('POST', '/seed/rotate', (c) => rotateSeed(db, c.auth().user.id, c.body?.clientSeed ? String(c.body.clientSeed) : null, clock()));
+  route('GET', '/seed', async (c) => activeSeedPublic(db, await uid(c)));
+  route('POST', '/seed/rotate', async (c) => rotateSeed(db, await uid(c), c.body?.clientSeed ? String(c.body.clientSeed) : null, clock()));
 
   /* ---------- games ---------- */
   for (const g of ['dice', 'plinko', 'upgrader', 'cases'] as (keyof InstantParams)[]) {
-    route('POST', `/bets/${g}`, (c) => {
-      const { user } = c.auth();
+    route('POST', `/bets/${g}`, async (c) => {
+      const id = await uid(c);
       const stake = g === 'cases' ? cfg.minStake : stakeMf(c.body?.stake);
-      return fmtMoney(publicBet(playInstant(db, cfg, user.id, g, stake, c.body?.params ?? {}, clock()), db));
+      return fmtMoney(await publicBet(await playInstant(db, cfg, id, g, stake, c.body?.params ?? {}, clock()), db));
     });
   }
-  route('POST', '/mines/start', (c) => fmtMoney(minesStart(db, cfg, c.auth().user.id, stakeMf(c.body?.stake), num(c.body?.mines, 'mines'), clock())));
-  route('POST', '/mines/:id/reveal', (c, p) => fmtMoney(minesReveal(db, cfg, c.auth().user.id, p.id, num(c.body?.tile, 'tile'), clock())));
-  route('POST', '/mines/:id/cashout', (c, p) => fmtMoney(minesCashout(db, c.auth().user.id, p.id, clock())));
-  route('POST', '/raid/start', (c) => fmtMoney(raidStart(db, cfg, c.auth().user.id, stakeMf(c.body?.stake), clock())));
-  route('POST', '/raid/:id/blast', (c, p) => fmtMoney(raidBlast(db, cfg, c.auth().user.id, p.id, String(c.body?.tool) as RaidTool, clock())));
-  route('POST', '/raid/:id/cashout', (c, p) => fmtMoney(raidCashout(db, c.auth().user.id, p.id, clock())));
-  route('GET', '/games/open', (c) => openGames(db, c.auth().user.id).map((g) => fmtMoney(g)));
-  route('GET', '/bets', (c) => {
-    const { user } = c.auth();
+  route('POST', '/mines/start', async (c) => fmtMoney(await minesStart(db, cfg, await uid(c), stakeMf(c.body?.stake), num(c.body?.mines, 'mines'), clock())));
+  route('POST', '/mines/:id/reveal', async (c, p) => fmtMoney(await minesReveal(db, cfg, await uid(c), p.id, num(c.body?.tile, 'tile'), clock())));
+  route('POST', '/mines/:id/cashout', async (c, p) => fmtMoney(await minesCashout(db, await uid(c), p.id, clock())));
+  route('POST', '/raid/start', async (c) => fmtMoney(await raidStart(db, cfg, await uid(c), stakeMf(c.body?.stake), clock())));
+  route('POST', '/raid/:id/blast', async (c, p) => fmtMoney(await raidBlast(db, cfg, await uid(c), p.id, String(c.body?.tool) as RaidTool, clock())));
+  route('POST', '/raid/:id/cashout', async (c, p) => fmtMoney(await raidCashout(db, await uid(c), p.id, clock())));
+  route('GET', '/games/open', async (c) => (await openGames(db, await uid(c))).map((g) => fmtMoney(g)));
+  route('GET', '/bets', async (c) => {
+    const id = await uid(c);
     const limit = Math.min(100, Math.max(1, Number(c.url.searchParams.get('limit') ?? 20)));
-    const rows = db.prepare('SELECT id FROM bets WHERE user_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?').all(user.id, limit) as { id: string }[];
-    return rows.map((r) => { const b = getBet(db, r.id)!; return fmtMoney(b.status === 'open' ? { ...publicBet(b, db), result: null } : publicBet(b, db)); });
+    const rows = (await db.prepare('SELECT * FROM bets WHERE user_id = ? ORDER BY created_at DESC, nonce DESC LIMIT ?').all(id, limit)) as Parameters<typeof publicBet>[0][];
+    const out = [];
+    for (const b of rows) { const pb = await publicBet(b, db); out.push(fmtMoney(b.status === 'open' ? { ...pb, result: null } : pb)); }
+    return out;
   });
 
   /* ---------- PvP ---------- */
-  const viewer = (c: Ctx) => resolveSession(db, c.token, clock())?.user.id ?? null;
+  const viewer = async (c: Ctx) => (await resolveSession(db, c.token, clock()))?.user.id ?? null;
   route('GET', '/pvp/list/:type', async (c, p) => {
     if (p.type !== 'coinflip' && p.type !== 'battle') fail('not_found', 'Unknown game type.', 404);
     await settleDue(db, deps.beacon, clock());
-    return listGames(db, deps.beacon, p.type as 'coinflip' | 'battle', clock() - 10 * 60_000, viewer(c));
+    return listGames(db, deps.beacon, p.type as 'coinflip' | 'battle', clock() - 10 * 60_000, await viewer(c));
   });
-  route('GET', '/pvp/game/:id', async (c, p) => { await settleDue(db, deps.beacon, clock()); return publicGame(db, deps.beacon, p.id, viewer(c)); });
-  route('POST', '/pvp/coinflip', (c) => { const u = c.auth().user.id; return publicGame(db, deps.beacon, createCoinflip(db, cfg, u, stakeMf(c.body?.stake), c.body?.side, clock()), u); });
-  route('POST', '/pvp/battle', (c) => { const u = c.auth().user.id; return publicGame(db, deps.beacon, createBattle(db, cfg, u, c.body?.caseIds, num(c.body?.seats, 'seats'), c.body?.mode, clock()), u); });
-  route('POST', '/pvp/:id/join', (c, p) => { const u = c.auth().user.id; return publicGame(db, deps.beacon, joinGame(db, cfg, deps.beacon, p.id, u, clock()), u); });
-  route('POST', '/pvp/:id/bot', (c, p) => {
-    const u = c.auth().user.id;
-    const g = publicGame(db, deps.beacon, p.id, u);
+  route('GET', '/pvp/game/:id', async (c, p) => { await settleDue(db, deps.beacon, clock()); return publicGame(db, deps.beacon, p.id, await viewer(c)); });
+  route('POST', '/pvp/coinflip', async (c) => { const u = await uid(c); return publicGame(db, deps.beacon, await createCoinflip(db, cfg, u, stakeMf(c.body?.stake), c.body?.side, clock()), u); });
+  route('POST', '/pvp/battle', async (c) => { const u = await uid(c); return publicGame(db, deps.beacon, await createBattle(db, cfg, u, c.body?.caseIds, num(c.body?.seats, 'seats'), c.body?.mode, clock()), u); });
+  route('POST', '/pvp/:id/join', async (c, p) => { const u = await uid(c); return publicGame(db, deps.beacon, await joinGame(db, cfg, deps.beacon, p.id, u, clock()), u); });
+  route('POST', '/pvp/:id/bot', async (c, p) => {
+    const u = await uid(c);
+    const g = await publicGame(db, deps.beacon, p.id, u);
     if (!g.mine) fail('forbidden', 'Only the creator can add a bot.', 403);
-    return publicGame(db, deps.beacon, joinGame(db, cfg, deps.beacon, p.id, null, clock()), u);
+    return publicGame(db, deps.beacon, await joinGame(db, cfg, deps.beacon, p.id, null, clock()), u);
   });
-  route('POST', '/pvp/:id/cancel', (c, p) => { const u = c.auth().user.id; return publicGame(db, deps.beacon, cancelGame(db, p.id, u, clock()), u); });
+  route('POST', '/pvp/:id/cancel', async (c, p) => { const u = await uid(c); return publicGame(db, deps.beacon, await cancelGame(db, p.id, u, clock()), u); });
 
   /* ---------- crash ---------- */
-  route('GET', '/crash/state', (c) => deps.crash.state(clock(), viewer(c)));
-  route('POST', '/crash/bet', (c) => deps.crash.placeBet(c.auth().user.id, stakeMf(c.body?.stake), Math.round(num(c.body?.target, 'target') * 100), clock()));
-  route('POST', '/crash/cashout', (c) => deps.crash.cashout(c.auth().user.id, clock()));
+  route('GET', '/crash/state', async (c) => deps.crash.state(clock(), await viewer(c)));
+  route('POST', '/crash/bet', async (c) => deps.crash.placeBet(await uid(c), stakeMf(c.body?.stake), Math.round(num(c.body?.target, 'target') * 100), clock()));
+  route('POST', '/crash/cashout', async (c) => deps.crash.cashout(await uid(c), clock()));
 
   /* ---------- rewards ---------- */
-  route('GET', '/rewards', (c) => {
-    const u = c.auth().user.id;
-    const p = progress(db, u);
-    const lastDaily = db.prepare("SELECT created_at AS t FROM reward_claims WHERE user_id = ? AND kind = 'daily' ORDER BY created_at DESC LIMIT 1").get(u) as { t: number } | undefined;
+  route('GET', '/rewards', async (c) => {
+    const u = await uid(c);
+    const p = await progress(db, u);
+    const lastDaily = (await db.prepare("SELECT created_at AS t FROM reward_claims WHERE user_id = ? AND kind = 'daily' ORDER BY created_at DESC LIMIT 1").get(u)) as { t: number } | undefined;
     const W = DAILY_CASE.items.reduce((s, i) => s + i.weight, 0);
-    const crew = crewState(db, u);
+    const crew = await crewState(db, u);
     return {
       ...p, rakebackAvailable: p.rakebackAvailable / MF_PER_FRAG, rakebackBands: RAKEBACK_BANDS,
       daily: { nextAt: lastDaily ? lastDaily.t + 86_400_000 : 0, items: DAILY_CASE.items.map((i) => ({ name: i.name, value: i.value, chance: i.weight / W })) },
-      rain: rainState(db, u, clock()), promoEligible: promoEligible(db, u, clock()),
+      rain: await rainState(db, u, clock()), promoEligible: await promoEligible(db, u, clock()),
       crew: { ...crew, ngr: crew.ngr / MF_PER_FRAG, available: crew.available / MF_PER_FRAG },
     };
   });
-  route('POST', '/rewards/rakeback', (c) => { const r = claimRakeback(db, c.auth().user.id, clock()); return { amount: r.amount / MF_PER_FRAG }; });
-  route('POST', '/rewards/daily', (c) => openDaily(db, c.auth().user.id, clock()));
-  route('POST', '/rewards/rain', (c) => joinRain(db, c.auth().user.id, clock()));
-  route('POST', '/crew/code', (c) => createCrewCode(db, c.auth().user.id, String(c.body?.code ?? ''), clock()));
-  route('POST', '/crew/redeem', (c) => redeemCrewCode(db, c.auth().user.id, String(c.body?.code ?? ''), clock()));
-  route('POST', '/crew/claim', (c) => { const r = claimCrew(db, c.auth().user.id, clock()); return { amount: r.amount / MF_PER_FRAG }; });
+  route('POST', '/rewards/rakeback', async (c) => { const r = await claimRakeback(db, await uid(c), clock()); return { amount: r.amount / MF_PER_FRAG }; });
+  route('POST', '/rewards/daily', async (c) => openDaily(db, await uid(c), clock()));
+  route('POST', '/rewards/rain', async (c) => joinRain(db, await uid(c), clock()));
+  route('POST', '/crew/code', async (c) => createCrewCode(db, await uid(c), String(c.body?.code ?? ''), clock()));
+  route('POST', '/crew/redeem', async (c) => redeemCrewCode(db, await uid(c), String(c.body?.code ?? ''), clock()));
+  route('POST', '/crew/claim', async (c) => { const r = await claimCrew(db, await uid(c), clock()); return { amount: r.amount / MF_PER_FRAG }; });
 
   /* ---------- chat ---------- */
-  route('GET', '/games/status', () => gameFlags(db).map((g) => ({ game: g.game, enabled: g.enabled, reason: g.reason })));
-  route('GET', '/chat', (c) => {
-    const s = resolveSession(db, c.token, clock());
-    return { messages: listMessages(db, s?.user.id ?? null), rain: rainState(db, s?.user.id ?? null, clock()), mute: s ? activeMute(db, s.user.id, clock()) : null, role: s?.user.role ?? null };
+  route('GET', '/games/status', async () => (await gameFlags(db)).map((g) => ({ game: g.game, enabled: g.enabled, reason: g.reason })));
+  route('GET', '/chat', async (c) => {
+    const s = await resolveSession(db, c.token, clock());
+    return { messages: await listMessages(db, s?.user.id ?? null), rain: await rainState(db, s?.user.id ?? null, clock()), mute: s ? await activeMute(db, s.user.id, clock()) : null, role: s?.user.role ?? null };
   });
-  route('POST', '/chat', (c) => { const { user } = c.auth(); return postMessage(db, user, progress(db, user.id).level, c.body?.body, clock()); });
-  const mod = (c: Ctx) => { const { user } = c.auth(); requireRole(user, 'moderator', 'admin'); return user; };
-  route('DELETE', '/mod/chat/:id', (c, p) => deleteMessage(db, mod(c).id, Number(p.id), clock()));
-  route('POST', '/mod/mute', (c) => mute(db, mod(c).id, String(c.body?.userId ?? ''), c.body?.minutes === null ? null : num(c.body?.minutes, 'minutes'), String(c.body?.reason ?? ''), clock()));
-  route('DELETE', '/mod/mute/:userId', (c, p) => unmute(db, mod(c).id, p.userId, clock()));
+  route('POST', '/chat', async (c) => { const { user } = await c.auth(); return postMessage(db, user, (await progress(db, user.id)).level, c.body?.body, clock()); });
 
-  /* ---------- admin backoffice ---------- */
-  const admin = (c: Ctx) => { const { user } = c.auth(); requireRole(user, 'admin'); return user; };
-  route('GET', '/admin/overview', (c) => { admin(c); return overview(db, cfg, clock()); });
-  route('GET', '/admin/rtp', (c) => {
-    admin(c);
+  /* ---------- operators ---------- */
+  const mfaFresh = (mfaAt: number | null) => mfaAt !== null && clock() - mfaAt < cfg.operatorMfaMaxAgeMinutes * 60_000;
+  const operator = async (c: Ctx, ...roles: Role[]) => {
+    if (!ipAllowed(c.ip, cfg.operatorIpAllowlist)) fail('forbidden', 'You do not have access to this area.', 403);
+    const s = await c.auth();
+    requireRole(s.user, ...roles);
+    if (cfg.requireOperatorMfa) {
+      if (!s.user.totp_secret) fail('mfa_enroll_required', 'Set up two-factor authentication to continue.', 401);
+      if (!mfaFresh(s.mfaAt)) fail('mfa_required', 'Enter your authenticator code to continue.', 401);
+    }
+    return s.user;
+  };
+  const mod = (c: Ctx) => operator(c, 'moderator', 'admin');
+  const admin = (c: Ctx) => operator(c, 'admin');
+
+  route('DELETE', '/mod/chat/:id', async (c, p) => deleteMessage(db, (await mod(c)).id, Number(p.id), clock()));
+  route('POST', '/mod/mute', async (c) => mute(db, (await mod(c)).id, String(c.body?.userId ?? ''), c.body?.minutes === null ? null : num(c.body?.minutes, 'minutes'), String(c.body?.reason ?? ''), clock()));
+  route('DELETE', '/mod/mute/:userId', async (c, p) => unmute(db, (await mod(c)).id, p.userId, clock()));
+
+  route('GET', '/admin/overview', async (c) => { await admin(c); return overview(db, cfg, clock()); });
+  route('GET', '/admin/rtp', async (c) => {
+    await admin(c);
     const days = Math.min(90, Math.max(1, Number(c.url.searchParams.get('days') ?? 30)));
-    return { days, games: rtpMonitor(db, clock() - days * 86_400_000) };
+    return { days, games: await rtpMonitor(db, clock() - days * 86_400_000) };
   });
-  route('GET', '/admin/players', (c) => { admin(c); return listPlayers(db, c.url.searchParams.get('q') ?? '', clock()); });
-  route('GET', '/admin/players/:id', (c, p) => { admin(c); return playerDetail(db, p.id, clock()); });
-  route('POST', '/admin/players/:id/hold', (c, p) => holdPlayer(db, admin(c).id, p.id, c.body?.hours === null ? null : num(c.body?.hours, 'hours'), String(c.body?.reason ?? ''), clock()));
-  route('DELETE', '/admin/players/:id/hold', (c, p) => releaseHold(db, admin(c).id, p.id, clock()));
-  route('PUT', '/admin/players/:id/role', (c, p) => setRole(db, admin(c).id, p.id, String(c.body?.role) as Role, clock()));
-  route('GET', '/admin/games', (c) => { admin(c); return gameFlags(db); });
-  route('PUT', '/admin/games/:game', (c, p) => setGameFlag(db, admin(c).id, p.game, c.body?.enabled === true, c.body?.reason == null ? null : String(c.body.reason), clock()));
-  route('GET', '/admin/rg-cases', (c) => { admin(c); rgScan(db, cfg, clock()); return rgCases(db, c.url.searchParams.get('status') === 'all' ? 'all' : 'open'); });
-  route('PUT', '/admin/rg-cases/:id', (c, p) => updateCase(db, admin(c).id, Number(p.id), String(c.body?.status ?? ''), String(c.body?.note ?? ''), clock()));
-  route('GET', '/admin/audit', (c) => {
-    admin(c);
+  route('GET', '/admin/players', async (c) => { await admin(c); return listPlayers(db, c.url.searchParams.get('q') ?? '', clock()); });
+  route('GET', '/admin/players/:id', async (c, p) => { await admin(c); return playerDetail(db, p.id, clock()); });
+  route('POST', '/admin/players/:id/hold', async (c, p) => holdPlayer(db, (await admin(c)).id, p.id, c.body?.hours === null ? null : num(c.body?.hours, 'hours'), String(c.body?.reason ?? ''), clock()));
+  route('DELETE', '/admin/players/:id/hold', async (c, p) => releaseHold(db, (await admin(c)).id, p.id, clock()));
+  route('PUT', '/admin/players/:id/role', async (c, p) => setRole(db, (await admin(c)).id, p.id, String(c.body?.role) as Role, clock()));
+  route('GET', '/admin/games', async (c) => { await admin(c); return gameFlags(db); });
+  route('PUT', '/admin/games/:game', async (c, p) => setGameFlag(db, (await admin(c)).id, p.game, c.body?.enabled === true, c.body?.reason == null ? null : String(c.body.reason), clock()));
+  route('GET', '/admin/rg-cases', async (c) => { await admin(c); await rgScan(db, cfg, clock()); return rgCases(db, c.url.searchParams.get('status') === 'all' ? 'all' : 'open'); });
+  route('PUT', '/admin/rg-cases/:id', async (c, p) => updateCase(db, (await admin(c)).id, Number(p.id), String(c.body?.status ?? ''), String(c.body?.note ?? ''), clock()));
+  route('GET', '/admin/audit', async (c) => {
+    await admin(c);
     const q = c.url.searchParams;
     return auditLog(db, { userId: q.get('user') ?? undefined, event: q.get('event') ?? undefined, before: q.get('before') ? Number(q.get('before')) : undefined });
   });
 
   /* ---------- responsible gambling ---------- */
-  route('GET', '/rg', (c) => {
-    const { user, startedAt } = c.auth();
-    return { limits: getLimits(db, user.id, clock()).map((l) => ({ ...l, amount: l.amount === null ? null : l.amount / MF_PER_FRAG, used: l.used / MF_PER_FRAG, pending: l.pending && { ...l.pending, amount: l.pending.amount === null ? null : l.pending.amount / MF_PER_FRAG } })),
-      block: activeBlock(db, user.id, clock()), session: fmtSession(sessionSummary(db, user.id, startedAt, clock())) };
+  route('GET', '/rg', async (c) => {
+    const { user, startedAt } = await c.auth();
+    return {
+      limits: (await getLimits(db, user.id, clock())).map((l) => ({ ...l, amount: l.amount === null ? null : l.amount / MF_PER_FRAG, used: l.used / MF_PER_FRAG, pending: l.pending && { ...l.pending, amount: l.pending.amount === null ? null : l.pending.amount / MF_PER_FRAG } })),
+      block: await activeBlock(db, user.id, clock()), session: fmtSession(await sessionSummary(db, user.id, startedAt, clock())),
+    };
   });
-  route('PUT', '/rg/limits', (c) => {
-    const { user } = c.auth();
+  route('PUT', '/rg/limits', async (c) => {
+    const id = await uid(c);
     const amount = c.body?.amount === null ? null : Math.round(num(c.body?.amount, 'amount') * MF_PER_FRAG);
-    return setLimit(db, cfg, user.id, c.body?.kind as LimitKind, c.body?.period as LimitPeriod, amount, clock());
+    return setLimit(db, cfg, id, c.body?.kind as LimitKind, c.body?.period as LimitPeriod, amount, clock());
   });
-  route('POST', '/rg/cooldown', (c) => startCooldown(db, c.auth().user.id, num(c.body?.hours, 'hours'), clock()));
-  route('POST', '/rg/exclusion', (c) => selfExclude(db, c.auth().user.id, c.body?.months === null ? null : (num(c.body?.months, 'months') as 6 | 12 | 60), clock()));
-  route('PUT', '/rg/reality-check', (c) => { setRealityCheck(db, c.auth().user.id, num(c.body?.minutes, 'minutes'), clock()); return { ok: true }; });
+  route('POST', '/rg/cooldown', async (c) => startCooldown(db, await uid(c), num(c.body?.hours, 'hours'), clock()));
+  route('POST', '/rg/exclusion', async (c) => selfExclude(db, await uid(c), c.body?.months === null ? null : (num(c.body?.months, 'months') as 6 | 12 | 60), clock()));
+  route('PUT', '/rg/reality-check', async (c) => { await setRealityCheck(db, await uid(c), num(c.body?.minutes, 'minutes'), clock()); return { ok: true }; });
 
   /* ---------- plumbing ---------- */
   const buckets = new Map<string, { tokens: number; at: number }>();
@@ -223,15 +262,27 @@ export function createRouter(deps: AppDeps) {
     if (b.tokens < 1) { buckets.set(ip, b); return true; }
     b.tokens -= 1; buckets.set(ip, b); return false;
   };
+  // Buckets of idle clients are dropped so the map cannot grow without bound.
+  let lastSweep = 0;
+  const sweep = () => {
+    const now = clock();
+    if (now - lastSweep < 60_000) return;
+    lastSweep = now;
+    for (const [ip, b] of buckets) if (now - b.at > 120_000) buckets.delete(ip);
+  };
 
   async function dispatch(req: ApiRequest): Promise<ApiResponse> {
     try {
+      sweep();
       if (rateLimited(req.ip)) fail('rate_limited', 'Too many requests. Please wait a moment.', 429);
       const url = new URL(req.url, 'http://local');
       const country = req.headers[cfg.countryHeader]?.toUpperCase() ?? null;
-      if (url.pathname !== '/health') checkGeo(cfg, country, !cfg.demo);
+      if (url.pathname !== '/health' && url.pathname !== '/ready') checkGeo(cfg, country, !cfg.demo);
       const token = /^Bearer ([0-9a-f]{64})$/.exec(req.headers.authorization ?? '')?.[1];
-      const ctx: Ctx = { url, body: req.body, ip: req.ip, country, token, auth: () => resolveSession(db, token, clock()) ?? fail('unauthorized', 'Please sign in.', 401) };
+      const ctx: Ctx = {
+        url, body: req.body, ip: req.ip, country, token,
+        auth: async () => (await resolveSession(db, token, clock())) ?? fail('unauthorized', 'Please sign in.', 401),
+      };
       for (const r of routes) {
         const m = r.method === req.method ? r.pattern.exec(url.pathname) : null;
         if (!m) continue;
@@ -242,6 +293,10 @@ export function createRouter(deps: AppDeps) {
     } catch (e) {
       if (e instanceof AppError) return { status: e.status, payload: { error: e.code, message: e.message, details: e.details } };
       if (e instanceof RangeError) return { status: 400, payload: { error: 'invalid_params', message: e.message } };
+      const code = (e as { code?: string }).code;
+      if (code === '23505' || /UNIQUE constraint failed/.test(String((e as Error).message))) {
+        return { status: 409, payload: { error: 'conflict', message: 'That was already done. Please refresh.' } };
+      }
       console.error(e);
       return { status: 500, payload: { error: 'internal', message: 'Internal error.' } };
     }
@@ -256,5 +311,5 @@ export function createRouter(deps: AppDeps) {
 }
 
 const theoryRtp = (g: string) => ({ dice: 1 - EDGE.dice, plinko: null, upgrader: 1 - EDGE.upgrader, cases: null, mines: 1 - EDGE.mines, raid: 1 - EDGE.raid } as Record<string, number | null>)[g] ?? null;
-const fmtSession = (s: ReturnType<typeof sessionSummary>) => ({ ...s, wagered: s.wagered / MF_PER_FRAG, net: s.net / MF_PER_FRAG });
+const fmtSession = (s: Awaited<ReturnType<typeof sessionSummary>>) => ({ ...s, wagered: s.wagered / MF_PER_FRAG, net: s.net / MF_PER_FRAG });
 function fmtMoney<T extends { stake: number; payout: number }>(b: T): T { return { ...b, stake: b.stake / MF_PER_FRAG, payout: b.payout / MF_PER_FRAG }; }

@@ -1,6 +1,7 @@
 /**
  * Live chat panel with the Oil Rain box. Used as the right-hand aside on wide screens and as the
- * #/chat view everywhere else. Polls GET /chat; moderators and admins get delete and mute actions.
+ * #/chat view everywhere else. Reloads GET /chat when the server pushes a chat event over SSE (/events),
+ * with a slow poll as fallback; moderators and admins get delete and mute actions.
  */
 import { api } from './api';
 import { icon } from './icons';
@@ -110,10 +111,15 @@ export function mountChatPanel(el: HTMLElement, c: Ctx): () => void {
     });
   });
 
+  // Pushed updates over SSE; the slow poll only covers a dropped stream.
+  let queued = false;
+  const refresh = () => { if (queued) return; queued = true; setTimeout(() => { queued = false; void load().catch(() => null); }, 150); };
+  const es = new EventSource('/api/events');
+  es.addEventListener('chat', refresh);
   void load().catch(() => null);
-  const poll = window.setInterval(() => void load().catch(() => null), 2500);
+  const poll = window.setInterval(refresh, 15_000);
   const rainClock = window.setInterval(paintRain, 1000);
-  return () => { clearInterval(poll); clearInterval(rainClock); };
+  return () => { es.close(); clearInterval(poll); clearInterval(rainClock); };
 }
 
 export const chatView: View = {

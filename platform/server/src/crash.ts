@@ -12,6 +12,9 @@
  * settled when the round crashes; a manual cash-out pays the current multiplier (floored to 0.01) if it
  * arrives before the crash time. The crash point is computed at round creation and never leaves the
  * server before the crash.
+ *
+ * Several API instances: only the leader calls tick(); bets and cash-outs work on every instance, and
+ * all events travel over the shared bus after their transaction commits.
  */
 
 import { randomBytes } from 'node:crypto';
@@ -21,6 +24,7 @@ import type { Beacon } from './beacon';
 import { type Config, MF_PER_FRAG } from './config';
 import { type DB, tx } from './db';
 import { fail } from './errors';
+import { bus } from './events';
 import { assertGameEnabled } from './flags';
 import { checkBet } from './rg';
 import { HOUSE, transfer, userAccount } from './wallet';
@@ -45,139 +49,137 @@ export type CrashEvent =
   | { type: 'bet'; round: number; name: string; stake: number; target: number }
   | { type: 'cashout'; round: number; name: string; multiplier: number; payout: number };
 
+const chainOf = async (db: DB) => (await db.prepare('SELECT * FROM crash_chains ORDER BY id DESC LIMIT 1').get()) as ChainRow | undefined;
+const currentOf = async (db: DB) => (await db.prepare('SELECT * FROM crash_rounds ORDER BY id DESC LIMIT 1').get()) as RoundRow | undefined;
+const nameOf = async (db: DB, userId: string) => ((await db.prepare('SELECT display_name AS n FROM users WHERE id = ?').get(userId)) as { n: string } | undefined)?.n ?? '?';
+
 export class CrashService {
   private seeds: string[] = [];
-  private listeners = new Set<(e: CrashEvent) => void>();
+  private seedsFor = -1;
 
   constructor(private db: DB, private cfg: Config, private beacon: Beacon, private chainLength = 100_000) {}
 
-  on(fn: (e: CrashEvent) => void) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
-  private emit(e: CrashEvent) { for (const l of this.listeners) { try { l(e); } catch { /* a broken client must not stop the game */ } } }
-
-  private chain(): ChainRow | undefined {
-    return this.db.prepare('SELECT * FROM crash_chains ORDER BY id DESC LIMIT 1').get() as unknown as ChainRow | undefined;
+  /** Crash events of this process's bus (SSE and tests subscribe here). */
+  on(fn: (e: CrashEvent) => void): () => void {
+    return bus.subscribe((e) => { if (e.topic === 'crash') fn(e.event); });
   }
-  private current(): RoundRow | undefined {
-    return this.db.prepare('SELECT * FROM crash_rounds ORDER BY id DESC LIMIT 1').get() as unknown as RoundRow | undefined;
-  }
+  private emit(db: DB, e: CrashEvent) { db.afterCommit(() => bus.publish({ topic: 'crash', event: e })); }
 
   /** Creates the chain if needed and loads its seeds into memory. */
-  private ensureChain(now: number): ChainRow {
-    let c = this.chain();
+  private async ensureChain(now: number): Promise<ChainRow> {
+    let c = await chainOf(this.db);
     if (!c) {
       const tip = randomBytes(32).toString('hex');
       const { terminal } = buildChain(tip, this.chainLength);
-      this.db.prepare('INSERT INTO crash_chains (terminal_hash, tip, length, beacon_round, created_at) VALUES (?, ?, ?, ?, ?)')
+      await this.db.prepare('INSERT INTO crash_chains (terminal_hash, tip, length, beacon_round, created_at) VALUES (?, ?, ?, ?, ?)')
         .run(terminal, tip, this.chainLength, this.beacon.roundAt(now) + 2, now);
-      c = this.chain()!;
+      c = (await chainOf(this.db))!;
     }
-    if (this.seeds.length !== c.length) this.seeds = buildChain(c.tip, c.length).seeds;
+    if (this.seedsFor !== c.id) { this.seeds = buildChain(c.tip, c.length).seeds; this.seedsFor = c.id; }
     return c;
   }
 
-  /** Advances the state machine. Call every ~200 ms in production; tests call it with a fake clock. */
+  /** Advances the state machine. Call every ~200 ms on the leader; tests call it with a fake clock. */
   async tick(now: number): Promise<void> {
-    const c = this.ensureChain(now);
+    const c = await this.ensureChain(now);
     if (!c.client_seed) {
       const v = await this.beacon.get(c.beacon_round, now);
       if (!v) return;
-      this.db.prepare('UPDATE crash_chains SET client_seed = ? WHERE id = ?').run(v.randomness, c.id);
+      await this.db.prepare('UPDATE crash_chains SET client_seed = ? WHERE id = ?').run(v.randomness, c.id);
       c.client_seed = v.randomness;
     }
-    const r = this.current();
-    if (!r || (r.status === 'crashed' && now >= r.crash_at + PAUSE_MS)) {
-      const idx = r ? r.idx + 1 : 0;
-      if (idx >= c.length) return; // chain exhausted: a new chain must be published first
-      const seed = this.seeds[idx];
-      const crash = Math.round(crashPoint(seed, c.client_seed).crash * 100);
-      const bettingEndsAt = now + BETTING_MS;
-      const info = this.db.prepare("INSERT INTO crash_rounds (chain_id, idx, seed, crash, betting_ends_at, crash_at, status) VALUES (?, ?, ?, ?, ?, ?, 'betting')")
-        .run(c.id, idx, seed, crash, bettingEndsAt, bettingEndsAt + durationFor(crash));
-      this.emit({ type: 'betting', round: Number(info.lastInsertRowid), bettingEndsAt });
-      return;
-    }
-    if (r.status === 'betting' && now >= r.betting_ends_at) {
-      this.db.prepare("UPDATE crash_rounds SET status = 'running' WHERE id = ?").run(r.id);
-      this.emit({ type: 'running', round: r.id, startedAt: r.betting_ends_at });
-    }
-    if ((r.status === 'running' || r.status === 'betting') && now >= r.crash_at) this.crash(r, now);
+    await tx(this.db, async (db) => {
+      const r = await currentOf(db);
+      if (!r || (r.status === 'crashed' && now >= r.crash_at + PAUSE_MS)) {
+        const idx = r ? r.idx + 1 : 0;
+        if (idx >= c.length) return; // chain exhausted: a new chain must be published first
+        const seed = this.seeds[idx];
+        const crash = Math.round(crashPoint(seed, c.client_seed!).crash * 100);
+        const bettingEndsAt = now + BETTING_MS;
+        const row = (await db.prepare("INSERT INTO crash_rounds (chain_id, idx, seed, crash, betting_ends_at, crash_at, status) VALUES (?, ?, ?, ?, ?, ?, 'betting') RETURNING id")
+          .get(c.id, idx, seed, crash, bettingEndsAt, bettingEndsAt + durationFor(crash))) as { id: number };
+        this.emit(db, { type: 'betting', round: row.id, bettingEndsAt });
+        return;
+      }
+      if (r.status === 'betting' && now >= r.betting_ends_at) {
+        await db.prepare("UPDATE crash_rounds SET status = 'running' WHERE id = ?").run(r.id);
+        this.emit(db, { type: 'running', round: r.id, startedAt: r.betting_ends_at });
+      }
+      if ((r.status === 'running' || r.status === 'betting') && now >= r.crash_at) await this.crash(db, r, now);
+    });
   }
 
-  private crash(r: RoundRow, now: number) {
-    tx(this.db, () => {
-      const open = this.db.prepare("SELECT * FROM crash_bets WHERE round_id = ? AND status = 'open'").all(r.id) as unknown as BetRow[];
-      for (const b of open) {
-        const payout = b.target <= r.crash ? Math.floor((b.stake * b.target) / 100) : 0;
-        if (payout > 0) transfer(this.db, HOUSE, userAccount(b.user_id), payout, 'payout', b.id, now);
-        this.db.prepare("UPDATE crash_bets SET payout = ?, status = 'settled' WHERE id = ?").run(payout, b.id);
-      }
-      this.db.prepare("UPDATE crash_rounds SET status = 'crashed' WHERE id = ?").run(r.id);
-    });
-    this.emit({ type: 'crashed', round: r.id, crash: r.crash / 100, seed: r.seed });
+  private async crash(db: DB, r: RoundRow, now: number): Promise<void> {
+    const open = (await db.prepare("SELECT * FROM crash_bets WHERE round_id = ? AND status = 'open'").all(r.id)) as BetRow[];
+    for (const b of open) {
+      const payout = b.target <= r.crash ? Math.floor((b.stake * b.target) / 100) : 0;
+      if (payout > 0) await transfer(db, HOUSE, userAccount(b.user_id), payout, 'payout', b.id, now);
+      await db.prepare("UPDATE crash_bets SET payout = ?, status = 'settled' WHERE id = ?").run(payout, b.id);
+    }
+    await db.prepare("UPDATE crash_rounds SET status = 'crashed' WHERE id = ?").run(r.id);
+    this.emit(db, { type: 'crashed', round: r.id, crash: r.crash / 100, seed: r.seed });
   }
 
   placeBet(userId: string, stake: number, target: number, now: number) {
-    return tx(this.db, () => {
-      assertGameEnabled(this.db, 'crash');
-      const r = this.current();
+    return tx(this.db, async (db) => {
+      await assertGameEnabled(db, 'crash');
+      const r = await currentOf(db);
       if (!r || r.status !== 'betting' || now >= r.betting_ends_at) fail('not_betting', 'Betting is closed. Wait for the next round.', 409);
       if (!Number.isInteger(target) || target < MIN_TARGET || target > MAX_TARGET) fail('invalid_params', 'Auto cash-out: 1.01× to 10,000×.');
       if (!Number.isSafeInteger(stake) || stake < this.cfg.minStake || stake > this.cfg.maxStake) fail('invalid_stake', `Stake: ${this.cfg.minStake / MF_PER_FRAG} to ${this.cfg.maxStake / MF_PER_FRAG} Frags.`);
       if ((stake * target) / 100 > this.cfg.maxWin) fail('max_win', `Max win is ${this.cfg.maxWin / MF_PER_FRAG} Frags: lower the stake or the auto cash-out.`);
-      if (this.db.prepare('SELECT 1 FROM crash_bets WHERE round_id = ? AND user_id = ?').get(r!.id, userId)) fail('already_bet', 'You already placed a bet this round.', 409);
-      checkBet(this.db, userId, stake, now);
+      if (await db.prepare('SELECT 1 FROM crash_bets WHERE round_id = ? AND user_id = ?').get(r!.id, userId)) fail('already_bet', 'You already placed a bet this round.', 409);
+      await checkBet(db, userId, stake, now);
       const id = randomBytes(10).toString('hex');
-      transfer(this.db, userAccount(userId), HOUSE, stake, 'stake', id, now);
-      this.db.prepare("INSERT INTO crash_bets (id, round_id, user_id, stake, target, status, created_at) VALUES (?, ?, ?, ?, ?, 'open', ?)").run(id, r!.id, userId, stake, target, now);
-      this.emit({ type: 'bet', round: r!.id, name: this.name(userId), stake: stake / MF_PER_FRAG, target: target / 100 });
+      await transfer(db, userAccount(userId), HOUSE, stake, 'stake', id, now);
+      await db.prepare("INSERT INTO crash_bets (id, round_id, user_id, stake, target, status, created_at) VALUES (?, ?, ?, ?, ?, 'open', ?)").run(id, r!.id, userId, stake, target, now);
+      this.emit(db, { type: 'bet', round: r!.id, name: await nameOf(db, userId), stake: stake / MF_PER_FRAG, target: target / 100 });
       return { id, round: r!.id };
     });
   }
 
   cashout(userId: string, now: number) {
-    return tx(this.db, () => {
-      const r = this.current();
+    return tx(this.db, async (db) => {
+      const r = await currentOf(db);
       if (!r || r.status === 'crashed' || now < r.betting_ends_at || now >= r.crash_at) fail('not_running', 'No round is running right now.', 409);
-      const b = this.db.prepare("SELECT * FROM crash_bets WHERE round_id = ? AND user_id = ? AND status = 'open'").get(r!.id, userId) as unknown as BetRow | undefined;
+      const b = (await db.prepare("SELECT * FROM crash_bets WHERE round_id = ? AND user_id = ? AND status = 'open'").get(r!.id, userId)) as BetRow | undefined;
       if (!b) fail('no_bet', 'No open bet in this round.', 404);
       const m = Math.min(multiplierAt(now - r!.betting_ends_at), b!.target, r!.crash - 1);
       const payout = Math.floor((b!.stake * m) / 100);
-      transfer(this.db, HOUSE, userAccount(userId), payout, 'payout', b!.id, now);
-      this.db.prepare("UPDATE crash_bets SET cashed_at = ?, payout = ?, status = 'settled' WHERE id = ?").run(m, payout, b!.id);
-      this.emit({ type: 'cashout', round: r!.id, name: this.name(userId), multiplier: m / 100, payout: payout / MF_PER_FRAG });
+      await transfer(db, HOUSE, userAccount(userId), payout, 'payout', b!.id, now);
+      await db.prepare("UPDATE crash_bets SET cashed_at = ?, payout = ?, status = 'settled' WHERE id = ?").run(m, payout, b!.id);
+      this.emit(db, { type: 'cashout', round: r!.id, name: await nameOf(db, userId), multiplier: m / 100, payout: payout / MF_PER_FRAG });
       return { multiplier: m / 100, payout: payout / MF_PER_FRAG };
     });
   }
 
-  private name(userId: string) {
-    return (this.db.prepare('SELECT display_name AS n FROM users WHERE id = ?').get(userId) as { n: string } | undefined)?.n ?? '?';
-  }
-
   /** Public state. The crash point and seed of the current round stay hidden until it has crashed. */
-  state(now: number, viewerId: string | null) {
-    const c = this.chain();
-    const r = this.current();
-    const history = (this.db.prepare("SELECT id, idx, crash, seed FROM crash_rounds WHERE status = 'crashed' ORDER BY id DESC LIMIT 20").all() as { id: number; idx: number; crash: number; seed: string }[])
+  async state(now: number, viewerId: string | null) {
+    const c = await chainOf(this.db);
+    const r = await currentOf(this.db);
+    const history = ((await this.db.prepare("SELECT id, idx, crash, seed FROM crash_rounds WHERE status = 'crashed' ORDER BY id DESC LIMIT 20").all()) as { id: number; idx: number; crash: number; seed: string }[])
       .map((h) => ({ round: h.id, index: h.idx, crash: h.crash / 100, seed: h.seed }));
-    const bets = r ? (this.db.prepare('SELECT * FROM crash_bets WHERE round_id = ? ORDER BY created_at').all(r.id) as unknown as BetRow[]).map((b) => ({
-      name: this.name(b.user_id), you: b.user_id === viewerId, stake: b.stake / MF_PER_FRAG, target: b.target / 100,
+    const rows = r ? ((await this.db.prepare(`SELECT b.*, u.display_name AS name FROM crash_bets b JOIN users u ON u.id = b.user_id
+      WHERE b.round_id = ? ORDER BY b.created_at, b.id`).all(r.id)) as (BetRow & { name: string })[]) : [];
+    const bets = rows.map((b) => ({
+      name: b.name, you: b.user_id === viewerId, stake: b.stake / MF_PER_FRAG, target: b.target / 100,
       cashedAt: b.cashed_at === null ? null : b.cashed_at / 100, payout: b.status === 'settled' ? b.payout / MF_PER_FRAG : null,
-    })) : [];
+    }));
     return {
       now, rate: RATE,
       chain: c ? { terminalHash: c.terminal_hash, length: c.length, clientSeed: c.client_seed, beaconRound: c.beacon_round, beacon: { name: this.beacon.name, trustless: this.beacon.trustless, verifyUrl: this.beacon.verifyUrl(c.beacon_round) } } : null,
       round: r ? {
         id: r.id, index: r.idx, status: r.status, bettingEndsAt: r.betting_ends_at,
         crash: r.status === 'crashed' ? r.crash / 100 : null, seed: r.status === 'crashed' ? r.seed : null,
-        previousSeed: r.idx === 0 ? c?.terminal_hash ?? null : this.revealedPrev(r),
+        previousSeed: r.idx === 0 ? c?.terminal_hash ?? null : await this.revealedPrev(r),
       } : null,
       bets, history,
     };
   }
 
   /** The previous round's seed is public once that round crashed, so players can check the link. */
-  private revealedPrev(r: RoundRow): string | null {
-    const prev = this.db.prepare("SELECT seed FROM crash_rounds WHERE chain_id = ? AND idx = ? AND status = 'crashed'").get(r.chain_id, r.idx - 1) as { seed: string } | undefined;
+  private async revealedPrev(r: RoundRow): Promise<string | null> {
+    const prev = (await this.db.prepare("SELECT seed FROM crash_rounds WHERE chain_id = ? AND idx = ? AND status = 'crashed'").get(r.chain_id, r.idx - 1)) as { seed: string } | undefined;
     return prev?.seed ?? null;
   }
 }

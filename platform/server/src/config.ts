@@ -33,6 +33,13 @@ export interface Config {
   sessionTtlHours: number;
   /** RG case queue triggers (admin backoffice). */
   rgAlert: { netLoss24h: number; limitRaises30d: number; sessionHours: number };
+  /** Backoffice and moderation need a TOTP step-up in the current session (always on outside the demo). */
+  requireOperatorMfa: boolean;
+  operatorMfaMaxAgeMinutes: number;
+  /** Source IPs/CIDRs allowed to reach /admin and /mod (empty = no restriction). */
+  operatorIpAllowlist: string[];
+  /** Take the client IP from X-Forwarded-For (only behind a proxy that overwrites it). */
+  trustProxy: boolean;
 }
 
 export const DEFAULT_CONFIG: Config = {
@@ -51,7 +58,26 @@ export const DEFAULT_CONFIG: Config = {
   amlLargeDeposit: frags(100_000), // 1 000 $
   sessionTtlHours: 24 * 7,
   rgAlert: { netLoss24h: frags(50_000), limitRaises30d: 3, sessionHours: 3 },
+  requireOperatorMfa: false,
+  operatorMfaMaxAgeMinutes: 12 * 60,
+  operatorIpAllowlist: [],
+  trustProxy: false,
 };
+
+/** IPv4 CIDR or exact-address match (IPv6 exact only; IPv4-mapped IPv6 is unwrapped). */
+export function ipAllowed(ip: string, list: string[]): boolean {
+  if (!list.length) return true;
+  const v4 = ip.replace(/^::ffff:/, '');
+  const num = (a: string) => a.split('.').reduce((n, o) => n * 256 + Number(o), 0);
+  return list.some((entry) => {
+    const [base, bits] = entry.split('/');
+    if (!bits) return base === v4 || base === ip;
+    if (!/^\d+\.\d+\.\d+\.\d+$/.test(v4) || !/^\d+\.\d+\.\d+\.\d+$/.test(base)) return false;
+    const b = Number(bits);
+    const mask = b === 0 ? 0 : (0xffffffff << (32 - b)) >>> 0;
+    return ((num(v4) & mask) >>> 0) === ((num(base) & mask) >>> 0);
+  });
+}
 
 export type Clock = () => number; // ms since epoch
 export const systemClock: Clock = () => Date.now();

@@ -44,14 +44,14 @@ export const demoKyc: KycProvider = {
 
 export interface WithdrawalCheck { allowed: boolean; reasons: { code: string; message: string }[] }
 
-export function withdrawalCheck(db: DB, cfg: Config, user: UserRow, amount: number): WithdrawalCheck {
+export async function withdrawalCheck(db: DB, cfg: Config, user: UserRow, amount: number): Promise<WithdrawalCheck> {
   const reasons: WithdrawalCheck['reasons'] = [];
   if (cfg.demo) reasons.push({ code: 'demo', message: 'There are no withdrawals in demo mode. Demo balance has no value.' });
   const account = `user:${user.id}`;
-  const lastW = (db.prepare("SELECT COALESCE(MAX(created_at), 0) AS t FROM ledger WHERE account = ? AND kind = 'withdrawal'").get(account) as { t: number }).t;
-  const deposits = (db.prepare("SELECT COALESCE(SUM(amount), 0) AS s FROM ledger WHERE account = ? AND kind = 'deposit' AND amount > 0 AND created_at > ?").get(account, lastW) as { s: number }).s;
-  const allDeposits = (db.prepare("SELECT COALESCE(SUM(amount), 0) AS s FROM ledger WHERE account = ? AND kind = 'deposit' AND amount > 0").get(account) as { s: number }).s;
-  const wagered = (db.prepare('SELECT COALESCE(SUM(stake), 0) AS s FROM wagers WHERE user_id = ? AND created_at > ?').get(user.id, lastW) as { s: number }).s;
+  const lastW = ((await db.prepare("SELECT COALESCE(MAX(created_at), 0) AS t FROM ledger WHERE account = ? AND kind = 'withdrawal'").get(account)) as { t: number }).t;
+  const deposits = ((await db.prepare("SELECT COALESCE(SUM(amount), 0) AS s FROM ledger WHERE account = ? AND kind = 'deposit' AND amount > 0 AND created_at > ?").get(account, lastW)) as { s: number }).s;
+  const allDeposits = ((await db.prepare("SELECT COALESCE(SUM(amount), 0) AS s FROM ledger WHERE account = ? AND kind = 'deposit' AND amount > 0").get(account)) as { s: number }).s;
+  const wagered = ((await db.prepare('SELECT COALESCE(SUM(stake), 0) AS s FROM wagers WHERE user_id = ? AND created_at > ?').get(user.id, lastW)) as { s: number }).s;
   if (user.kyc_level < 1) reasons.push({ code: 'kyc_1', message: 'Please verify your identity (ID document and selfie).' });
   if (allDeposits > cfg.kycDepositThreshold && user.kyc_level < 2) reasons.push({ code: 'kyc_2', message: 'Above this deposit total we need proof of the source of your funds.' });
   if (wagered < deposits * cfg.amlWagerMultiple) {
@@ -62,11 +62,11 @@ export function withdrawalCheck(db: DB, cfg: Config, user: UserRow, amount: numb
 }
 
 /** AML monitoring hook for deposits (real money). Flags, never blocks silently. */
-export function flagDeposit(db: DB, cfg: Config, userId: string, amount: number, now: number): string[] {
+export async function flagDeposit(db: DB, cfg: Config, userId: string, amount: number, now: number): Promise<string[]> {
   const flags: string[] = [];
   if (amount >= cfg.amlLargeDeposit) flags.push('large_deposit');
-  const recent = db.prepare("SELECT COUNT(*) AS n FROM ledger WHERE account = ? AND kind = 'deposit' AND amount > 0 AND created_at > ?").get(`user:${userId}`, now - 86_400_000) as { n: number };
+  const recent = (await db.prepare("SELECT COUNT(*) AS n FROM ledger WHERE account = ? AND kind = 'deposit' AND amount > 0 AND created_at > ?").get(`user:${userId}`, now - 86_400_000)) as { n: number };
   if (recent.n >= 5) flags.push('structuring_pattern');
-  if (flags.length) audit(db, userId, 'aml_flag', { amount, flags }, now);
+  if (flags.length) await audit(db, userId, 'aml_flag', { amount, flags }, now);
   return flags;
 }

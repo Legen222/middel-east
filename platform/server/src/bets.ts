@@ -1,5 +1,5 @@
 /**
- * Bet service. One IMMEDIATE transaction per action:
+ * Bet service. One transaction per action:
  *   geo/age/RG checks → max-win check → debit stake → reserve nonce → resolve with the engine
  *   → credit floor(stake × multiplier) → write bet row.
  *
@@ -51,13 +51,13 @@ function checkMaxWin(cfg: Config, stake: number, maxMult: number): void {
   }
 }
 
-function open(db: DB, userId: string, game: Game, stake: number, params: unknown, now: number): { bet: string; seed: SeedRow; nonce: number } {
-  assertGameEnabled(db, game);
-  checkBet(db, userId, stake, now);
+async function open(db: DB, userId: string, game: Game, stake: number, params: unknown, now: number): Promise<{ bet: string; seed: SeedRow; nonce: number }> {
+  await assertGameEnabled(db, game);
+  await checkBet(db, userId, stake, now);
   const id = newBetId();
-  transfer(db, userAccount(userId), HOUSE, stake, 'stake', id, now);
-  const { seed, nonce } = takeNonce(db, userId);
-  db.prepare("INSERT INTO bets (id, user_id, game, status, stake, seed_id, nonce, params, created_at) VALUES (?, ?, ?, 'open', ?, ?, ?, ?, ?)")
+  await transfer(db, userAccount(userId), HOUSE, stake, 'stake', id, now);
+  const { seed, nonce } = await takeNonce(db, userId);
+  await db.prepare("INSERT INTO bets (id, user_id, game, status, stake, seed_id, nonce, params, created_at) VALUES (?, ?, ?, 'open', ?, ?, ?, ?, ?)")
     .run(id, userId, game, stake, seed.id, nonce, JSON.stringify(params), now);
   return { bet: id, seed, nonce };
 }
@@ -65,21 +65,21 @@ function open(db: DB, userId: string, game: Game, stake: number, params: unknown
 /** Wins announced in chat: at least 10× and 100 Frags. */
 export const BIG_WIN = { minMultiple: 10, minPayout: 100 * MF_PER_FRAG };
 
-function settle(db: DB, betId: string, userId: string, stake: number, mult: number, result: unknown, now: number): BetRow {
+async function settle(db: DB, betId: string, userId: string, stake: number, mult: number, result: unknown, now: number): Promise<BetRow> {
   const payout = payoutFor(stake, mult);
-  if (payout > 0) transfer(db, HOUSE, userAccount(userId), payout, 'payout', betId, now);
-  db.prepare("UPDATE bets SET status = 'settled', payout = ?, multiplier = ?, result = ?, state = NULL, settled_at = ? WHERE id = ?")
+  if (payout > 0) await transfer(db, HOUSE, userAccount(userId), payout, 'payout', betId, now);
+  await db.prepare("UPDATE bets SET status = 'settled', payout = ?, multiplier = ?, result = ?, state = NULL, settled_at = ? WHERE id = ?")
     .run(payout, mult, JSON.stringify(result), now, betId);
   if (payout >= BIG_WIN.minPayout && payout >= stake * BIG_WIN.minMultiple) {
-    const b = db.prepare('SELECT u.display_name AS name, b.game FROM bets b JOIN users u ON u.id = b.user_id WHERE b.id = ?').get(betId) as { name: string; game: GameId };
-    systemMessage(db, 'win', `${b.name} hit ${+(payout / stake).toFixed(2)}× on ${GAME_NAME[b.game] ?? b.game}: +${fmtFrags(payout)} Frags`, now);
+    const b = (await db.prepare('SELECT u.display_name AS name, b.game FROM bets b JOIN users u ON u.id = b.user_id WHERE b.id = ?').get(betId)) as { name: string; game: GameId };
+    await systemMessage(db, 'win', `${b.name} hit ${+(payout / stake).toFixed(2)}× on ${GAME_NAME[b.game] ?? b.game}: +${fmtFrags(payout)} Frags`, now);
   }
-  return getBet(db, betId)!;
+  return (await getBet(db, betId))!;
 }
 
-export const getBet = (db: DB, id: string): BetRow | undefined => db.prepare('SELECT * FROM bets WHERE id = ?').get(id) as unknown as BetRow | undefined;
+export const getBet = async (db: DB, id: string): Promise<BetRow | undefined> => (await db.prepare('SELECT * FROM bets WHERE id = ?').get(id)) as BetRow | undefined;
 const stream = (seed: SeedRow, nonce: number) => new FairStream(seed.server_seed, seed.client_seed, nonce);
-const seedById = (db: DB, id: string) => db.prepare('SELECT * FROM seeds WHERE id = ?').get(id) as unknown as SeedRow;
+const seedById = async (db: DB, id: string) => (await db.prepare('SELECT * FROM seeds WHERE id = ?').get(id)) as SeedRow;
 
 /* ---------- instant games ---------- */
 
@@ -90,8 +90,8 @@ export interface InstantParams {
   cases: { caseId: string };
 }
 
-export function playInstant<G extends keyof InstantParams>(db: DB, cfg: Config, userId: string, game: G, stakeIn: number, params: InstantParams[G], now: number): BetRow {
-  return tx(db, () => {
+export function playInstant<G extends keyof InstantParams>(db: DB, cfg: Config, userId: string, game: G, stakeIn: number, params: InstantParams[G], now: number): Promise<BetRow> {
+  return tx(db, async (db) => {
     let stake = stakeIn;
     let maxMult: number;
     switch (game) {
@@ -108,7 +108,7 @@ export function playInstant<G extends keyof InstantParams>(db: DB, cfg: Config, 
     }
     checkStake(cfg, stake);
     checkMaxWin(cfg, stake, maxMult);
-    const { bet, seed, nonce } = open(db, userId, game, stake, params, now);
+    const { bet, seed, nonce } = await open(db, userId, game, stake, params, now);
     const src = stream(seed, nonce);
     switch (game) {
       case 'dice': { const o = playDice(src, params as DiceBet); return settle(db, bet, userId, stake, o.multiplier, o, now); }
@@ -128,49 +128,49 @@ export function playInstant<G extends keyof InstantParams>(db: DB, cfg: Config, 
 interface MinesState { mines: number[]; revealed: number[] }
 
 export function minesStart(db: DB, cfg: Config, userId: string, stake: number, mineCount: number, now: number) {
-  return tx(db, () => {
+  return tx(db, async (db) => {
     if (!Number.isInteger(mineCount) || mineCount < 1 || mineCount > 24) fail('invalid_params', 'Mines: 1 to 24.');
-    assertNoOpen(db, userId, 'mines');
+    await assertNoOpen(db, userId, 'mines');
     checkStake(cfg, stake);
     checkMaxWin(cfg, stake, minesMultiplier(mineCount, 1));
-    const { bet, seed, nonce } = open(db, userId, 'mines', stake, { mines: mineCount }, now);
+    const { bet, seed, nonce } = await open(db, userId, 'mines', stake, { mines: mineCount }, now);
     const state: MinesState = { mines: layMines(stream(seed, nonce), mineCount), revealed: [] };
-    db.prepare('UPDATE bets SET state = ? WHERE id = ?').run(JSON.stringify(state), bet);
-    return publicMines(getBet(db, bet)!, db);
+    await db.prepare('UPDATE bets SET state = ? WHERE id = ?').run(JSON.stringify(state), bet);
+    return publicMines((await getBet(db, bet))!, db);
   });
 }
 
 export function minesReveal(db: DB, cfg: Config, userId: string, betId: string, tile: number, now: number) {
-  return tx(db, () => {
-    const b = openBet(db, userId, betId, 'mines');
-    assertGameEnabled(db, 'mines');
+  return tx(db, async (db) => {
+    const b = await openBet(db, userId, betId, 'mines');
+    await assertGameEnabled(db, 'mines');
     const s = JSON.parse(b.state!) as MinesState;
     const m = JSON.parse(b.params).mines as number;
     if (!Number.isInteger(tile) || tile < 0 || tile >= TILES || s.revealed.includes(tile)) fail('invalid_params', 'Invalid tile.');
     if (b.stake * minesMultiplier(m, s.revealed.length + 1) > cfg.maxWin) fail('max_win', 'The next tile could exceed the max win. Please cash out.', 400);
-    if (s.mines.includes(tile)) return publicMines(settle(db, b.id, userId, b.stake, 0, { mines: s.mines, revealed: s.revealed, hit: tile }, now), db);
+    if (s.mines.includes(tile)) return publicMines(await settle(db, b.id, userId, b.stake, 0, { mines: s.mines, revealed: s.revealed, hit: tile }, now), db);
     s.revealed.push(tile);
-    if (s.revealed.length === TILES - m) return publicMines(settle(db, b.id, userId, b.stake, minesMultiplier(m, s.revealed.length), { mines: s.mines, revealed: s.revealed }, now), db);
-    db.prepare('UPDATE bets SET state = ? WHERE id = ?').run(JSON.stringify(s), b.id);
-    return publicMines(getBet(db, b.id)!, db);
+    if (s.revealed.length === TILES - m) return publicMines(await settle(db, b.id, userId, b.stake, minesMultiplier(m, s.revealed.length), { mines: s.mines, revealed: s.revealed }, now), db);
+    await db.prepare('UPDATE bets SET state = ? WHERE id = ?').run(JSON.stringify(s), b.id);
+    return publicMines((await getBet(db, b.id))!, db);
   });
 }
 
 export function minesCashout(db: DB, userId: string, betId: string, now: number) {
-  return tx(db, () => {
-    const b = openBet(db, userId, betId, 'mines');
+  return tx(db, async (db) => {
+    const b = await openBet(db, userId, betId, 'mines');
     const s = JSON.parse(b.state!) as MinesState;
     if (s.revealed.length === 0) fail('invalid_action', 'Reveal at least one tile first.');
     const m = JSON.parse(b.params).mines as number;
-    return publicMines(settle(db, b.id, userId, b.stake, minesMultiplier(m, s.revealed.length), { mines: s.mines, revealed: s.revealed }, now), db);
+    return publicMines(await settle(db, b.id, userId, b.stake, minesMultiplier(m, s.revealed.length), { mines: s.mines, revealed: s.revealed }, now), db);
   });
 }
 
-function publicMines(b: BetRow, db: DB) {
+async function publicMines(b: BetRow, db: DB) {
   const m = JSON.parse(b.params).mines as number;
-  if (b.status === 'settled') return { ...publicBet(b, db), mines: m };
+  if (b.status === 'settled') return { ...(await publicBet(b, db)), mines: m };
   const s = JSON.parse(b.state!) as MinesState; // never expose s.mines while open
-  return { ...publicBet(b, db), mines: m, revealed: s.revealed, currentMultiplier: minesMultiplier(m, s.revealed.length), nextMultiplier: minesMultiplier(m, s.revealed.length + 1) };
+  return { ...(await publicBet(b, db)), mines: m, revealed: s.revealed, currentMultiplier: minesMultiplier(m, s.revealed.length), nextMultiplier: minesMultiplier(m, s.revealed.length + 1) };
 }
 
 /* ---------- raid ---------- */
@@ -178,77 +178,79 @@ function publicMines(b: BetRow, db: DB) {
 interface RaidState { tools: RaidTool[] }
 
 export function raidStart(db: DB, cfg: Config, userId: string, stake: number, now: number) {
-  return tx(db, () => {
-    assertNoOpen(db, userId, 'raid');
+  return tx(db, async (db) => {
+    await assertNoOpen(db, userId, 'raid');
     checkStake(cfg, stake);
     checkMaxWin(cfg, stake, raidMultiplier(['satchel'])); // smallest first step that could be taken
-    const { bet } = open(db, userId, 'raid', stake, {}, now);
-    db.prepare('UPDATE bets SET state = ? WHERE id = ?').run(JSON.stringify({ tools: [] } satisfies RaidState), bet);
-    return publicRaid(getBet(db, bet)!, db);
+    const { bet } = await open(db, userId, 'raid', stake, {}, now);
+    await db.prepare('UPDATE bets SET state = ? WHERE id = ?').run(JSON.stringify({ tools: [] } satisfies RaidState), bet);
+    return publicRaid((await getBet(db, bet))!, db);
   });
 }
 
 export function raidBlast(db: DB, cfg: Config, userId: string, betId: string, tool: RaidTool, now: number) {
-  return tx(db, () => {
-    const b = openBet(db, userId, betId, 'raid');
-    assertGameEnabled(db, 'raid');
+  return tx(db, async (db) => {
+    const b = await openBet(db, userId, betId, 'raid');
+    await assertGameEnabled(db, 'raid');
     if (!(tool in RAID_TOOLS)) fail('invalid_params', 'Explosive: c4, rocket or satchel.');
     const s = JSON.parse(b.state!) as RaidState;
     const next = [...s.tools, tool];
     if (b.stake * raidMultiplier(next) > cfg.maxWin) fail('max_win', 'This layer could exceed the max win. Secure your loot or pick a weaker explosive.', 400);
-    const src = stream(seedById(db, b.seed_id), b.nonce);
+    const src = stream(await seedById(db, b.seed_id), b.nonce);
     for (let i = 0; i < s.tools.length; i++) src.next(); // replay floats already used
     const roll = src.next();
     const breached = roll < RAID_TOOLS[tool];
     const steps = next.map((t, i) => ({ layer: RAID_LAYERS[i], tool: t }));
-    if (!breached) return publicRaid(settle(db, b.id, userId, b.stake, 0, { steps, heldAt: RAID_LAYERS[s.tools.length], roll }, now), db);
-    if (next.length === RAID_LAYERS.length) return publicRaid(settle(db, b.id, userId, b.stake, raidMultiplier(next), { steps, roll }, now), db);
-    db.prepare('UPDATE bets SET state = ? WHERE id = ?').run(JSON.stringify({ tools: next } satisfies RaidState), b.id);
-    return publicRaid(getBet(db, b.id)!, db);
+    if (!breached) return publicRaid(await settle(db, b.id, userId, b.stake, 0, { steps, heldAt: RAID_LAYERS[s.tools.length], roll }, now), db);
+    if (next.length === RAID_LAYERS.length) return publicRaid(await settle(db, b.id, userId, b.stake, raidMultiplier(next), { steps, roll }, now), db);
+    await db.prepare('UPDATE bets SET state = ? WHERE id = ?').run(JSON.stringify({ tools: next } satisfies RaidState), b.id);
+    return publicRaid((await getBet(db, b.id))!, db);
   });
 }
 
 export function raidCashout(db: DB, userId: string, betId: string, now: number) {
-  return tx(db, () => {
-    const b = openBet(db, userId, betId, 'raid');
+  return tx(db, async (db) => {
+    const b = await openBet(db, userId, betId, 'raid');
     const s = JSON.parse(b.state!) as RaidState;
     if (s.tools.length === 0) fail('invalid_action', 'Blast at least one layer first.');
-    return publicRaid(settle(db, b.id, userId, b.stake, raidMultiplier(s.tools), { steps: s.tools.map((t, i) => ({ layer: RAID_LAYERS[i], tool: t })) }, now), db);
+    return publicRaid(await settle(db, b.id, userId, b.stake, raidMultiplier(s.tools), { steps: s.tools.map((t, i) => ({ layer: RAID_LAYERS[i], tool: t })) }, now), db);
   });
 }
 
-function publicRaid(b: BetRow, db: DB) {
+async function publicRaid(b: BetRow, db: DB) {
   if (b.status === 'settled') return publicBet(b, db);
   const s = JSON.parse(b.state!) as RaidState;
-  return { ...publicBet(b, db), layersBreached: s.tools.length, nextLayer: RAID_LAYERS[s.tools.length], currentMultiplier: raidMultiplier(s.tools) };
+  return { ...(await publicBet(b, db)), layersBreached: s.tools.length, nextLayer: RAID_LAYERS[s.tools.length], currentMultiplier: raidMultiplier(s.tools) };
 }
 
 /* ---------- shared ---------- */
 
 /** Open stateful rounds of a player (for page reloads). Never includes hidden state. */
-export function openGames(db: DB, userId: string) {
-  const rows = db.prepare("SELECT id FROM bets WHERE user_id = ? AND status = 'open' ORDER BY created_at").all(userId) as { id: string }[];
-  return rows.map(({ id }) => {
-    const b = getBet(db, id)!;
-    return b.game === 'mines' ? publicMines(b, db) : b.game === 'raid' ? publicRaid(b, db) : publicBet(b, db);
-  });
+export async function openGames(db: DB, userId: string) {
+  const rows = (await db.prepare("SELECT id FROM bets WHERE user_id = ? AND status = 'open' ORDER BY created_at").all(userId)) as { id: string }[];
+  const out = [];
+  for (const { id } of rows) {
+    const b = (await getBet(db, id))!;
+    out.push(b.game === 'mines' ? await publicMines(b, db) : b.game === 'raid' ? await publicRaid(b, db) : await publicBet(b, db));
+  }
+  return out;
 }
 
-function assertNoOpen(db: DB, userId: string, game: Game): void {
-  const r = db.prepare("SELECT id FROM bets WHERE user_id = ? AND game = ? AND status = 'open'").get(userId, game) as { id: string } | undefined;
+async function assertNoOpen(db: DB, userId: string, game: Game): Promise<void> {
+  const r = (await db.prepare("SELECT id FROM bets WHERE user_id = ? AND game = ? AND status = 'open'").get(userId, game)) as { id: string } | undefined;
   if (r) fail('open_game', 'You already have a round in progress.', 409, { betId: r.id });
 }
 
-function openBet(db: DB, userId: string, betId: string, game: Game): BetRow {
-  const b = getBet(db, betId);
+async function openBet(db: DB, userId: string, betId: string, game: Game): Promise<BetRow> {
+  const b = await getBet(db, betId);
   if (!b || b.user_id !== userId || b.game !== game) fail('not_found', 'Round not found.', 404);
   if (b!.status !== 'open') fail('already_settled', 'This round is already settled.', 409);
   return b!;
 }
 
 /** What the player (and the verifier) sees. The server seed appears only after rotation. */
-export function publicBet(b: BetRow, db?: DB) {
-  const seed = db ? seedById(db, b.seed_id) : null;
+export async function publicBet(b: BetRow, db?: DB) {
+  const seed = db ? await seedById(db, b.seed_id) : null;
   return {
     id: b.id, game: b.game, status: b.status, stake: b.stake, payout: b.payout, multiplier: b.multiplier,
     params: JSON.parse(b.params), result: b.result ? JSON.parse(b.result) : null, createdAt: b.created_at, settledAt: b.settled_at,
@@ -256,17 +258,17 @@ export function publicBet(b: BetRow, db?: DB) {
   };
 }
 
-export function balance(db: DB, userId: string): number {
+export function balance(db: DB, userId: string): Promise<number> {
   return balanceOf(db, userAccount(userId));
 }
 
-export function activeSeedPublic(db: DB, userId: string) {
-  const s = activeSeed(db, userId);
+export async function activeSeedPublic(db: DB, userId: string) {
+  const s = await activeSeed(db, userId);
   return { serverSeedHash: s.server_hash, clientSeed: s.client_seed, nextNonce: s.nonce };
 }
 
 /** Live RTP per game over a window: the public "Fair-Ledger" statistic. */
-export function liveRtp(db: DB, since: number) {
-  const rows = db.prepare('SELECT game, COUNT(*) AS n, SUM(stake) AS staked, SUM(payout) AS paid FROM wagers WHERE settled = 1 AND settled_at >= ? GROUP BY game').all(since) as { game: string; n: number; staked: number; paid: number }[];
+export async function liveRtp(db: DB, since: number) {
+  const rows = (await db.prepare('SELECT game, COUNT(*) AS n, SUM(stake) AS staked, SUM(payout) AS paid FROM wagers WHERE settled = 1 AND settled_at >= ? GROUP BY game ORDER BY game').all(since)) as { game: string; n: number; staked: number; paid: number }[];
   return rows.map((r) => ({ game: r.game, bets: r.n, wagered: r.staked, paid: r.paid, rtp: r.staked ? r.paid / r.staked : null }));
 }

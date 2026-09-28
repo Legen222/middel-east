@@ -32,35 +32,35 @@ export function validateClientSeed(s: string): string {
   return v;
 }
 
-export function createSeed(db: DB, userId: string, clientSeed: string, now: number): SeedRow {
+export async function createSeed(db: DB, userId: string, clientSeed: string, now: number): Promise<SeedRow> {
   const { seed, hash } = newServerSeed(rnd);
   const id = newId();
-  db.prepare('INSERT INTO seeds (id, user_id, server_seed, server_hash, client_seed, nonce, active, created_at) VALUES (?, ?, ?, ?, ?, 0, 1, ?)')
+  await db.prepare('INSERT INTO seeds (id, user_id, server_seed, server_hash, client_seed, nonce, active, created_at) VALUES (?, ?, ?, ?, ?, 0, 1, ?)')
     .run(id, userId, seed, hash, validateClientSeed(clientSeed), now);
   return activeSeed(db, userId);
 }
 
-export function activeSeed(db: DB, userId: string): SeedRow {
-  const row = db.prepare('SELECT * FROM seeds WHERE user_id = ? AND active = 1').get(userId) as SeedRow | undefined;
+export async function activeSeed(db: DB, userId: string): Promise<SeedRow> {
+  const row = (await db.prepare('SELECT * FROM seeds WHERE user_id = ? AND active = 1').get(userId)) as SeedRow | undefined;
   if (!row) fail('no_seed', 'No active seed.', 500);
   return row!;
 }
 
 /** Reserves the next nonce. Must run inside the bet transaction. */
-export function takeNonce(db: DB, userId: string): { seed: SeedRow; nonce: number } {
-  const seed = activeSeed(db, userId);
-  db.prepare('UPDATE seeds SET nonce = nonce + 1 WHERE id = ?').run(seed.id);
+export async function takeNonce(db: DB, userId: string): Promise<{ seed: SeedRow; nonce: number }> {
+  const seed = await activeSeed(db, userId);
+  await db.prepare('UPDATE seeds SET nonce = nonce + 1 WHERE id = ?').run(seed.id);
   return { seed, nonce: seed.nonce };
 }
 
-export function rotateSeed(db: DB, userId: string, newClientSeed: string | null, now: number): { revealed: Pick<SeedRow, 'server_seed' | 'server_hash' | 'client_seed' | 'nonce'>; next: PublicSeed } {
-  return tx(db, () => {
-    const cur = activeSeed(db, userId);
-    const open = db.prepare("SELECT COUNT(*) AS n FROM bets WHERE seed_id = ? AND status = 'open'").get(cur.id) as { n: number };
+export function rotateSeed(db: DB, userId: string, newClientSeed: string | null, now: number): Promise<{ revealed: Pick<SeedRow, 'server_seed' | 'server_hash' | 'client_seed' | 'nonce'>; next: PublicSeed }> {
+  return tx(db, async (db) => {
+    const cur = await activeSeed(db, userId);
+    const open = (await db.prepare("SELECT COUNT(*) AS n FROM bets WHERE seed_id = ? AND status = 'open'").get(cur.id)) as { n: number };
     if (open.n > 0) fail('open_game', 'Finish your running game first, then rotate the seed.', 409);
-    db.prepare('UPDATE seeds SET active = 0, revealed_at = ? WHERE id = ?').run(now, cur.id);
-    const next = createSeed(db, userId, newClientSeed ?? randomBytes(8).toString('hex'), now);
-    audit(db, userId, 'seed_rotated', { revealedHash: cur.server_hash, bets: cur.nonce }, now);
+    await db.prepare('UPDATE seeds SET active = 0, revealed_at = ? WHERE id = ?').run(now, cur.id);
+    const next = await createSeed(db, userId, newClientSeed ?? randomBytes(8).toString('hex'), now);
+    await audit(db, userId, 'seed_rotated', { revealedHash: cur.server_hash, bets: cur.nonce }, now);
     return { revealed: { server_seed: cur.server_seed, server_hash: cur.server_hash, client_seed: cur.client_seed, nonce: cur.nonce }, next: publicSeed(next) };
   });
 }

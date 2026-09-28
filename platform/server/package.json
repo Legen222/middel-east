@@ -3,15 +3,22 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "SCRAPLINE demo backend: wallet/ledger, bets, provably-fair seeds, responsible gambling, geo-blocking, Steam login",
+  "description": "SCRAPLINE backend: wallet/ledger, bets, provably-fair seeds, responsible gambling, geo-blocking, Steam login, backoffice, chat",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "esbuild test/all.test.ts --bundle --platform=node --format=esm --outfile=.cache/all.test.mjs && node --no-warnings=ExperimentalWarning --test .cache/all.test.mjs",
-    "start": "esbuild src/main.ts --bundle --platform=node --format=esm --outfile=.cache/main.mjs && node --no-warnings=ExperimentalWarning .cache/main.mjs"
+    "test": "esbuild test/all.test.ts --bundle --platform=node --format=esm --packages=external --outfile=.cache/all.test.mjs && node --no-warnings=ExperimentalWarning --test --test-timeout=60000 .cache/all.test.mjs",
+    "start": "npm run build && node --no-warnings=ExperimentalWarning dist/main.mjs",
+    "test:pg": "TEST_PG_URL=${TEST_PG_URL:-postgres://scrapline@127.0.0.1:5432/scrapline_test} npm test",
+    "check": "tsc --noEmit && node tools/check-floating.mjs .",
+    "build": "esbuild src/main.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/main.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.4",
+    "@types/pg": "^8.23.1",
     "esbuild": "^0.28.2",
     "typescript": "^5.6.3"
+  },
+  "dependencies": {
+    "pg": "^8.23.0"
   }
 }
