@@ -2,7 +2,7 @@ import { type Bet, api } from '../api';
 import type { View } from '../main';
 import { $, esc, frags, mult } from '../ui';
 
-const NAMES: Record<string, string> = { dice: 'Würfel', plinko: 'Schrottrutsche', upgrader: 'Werkbank', cases: 'Kisten', mines: 'Minenfeld', raid: 'Raid' };
+const NAMES: Record<string, string> = { dice: 'Würfel', plinko: 'Schrottrutsche', upgrader: 'Werkbank', cases: 'Kisten', mines: 'Minenfeld', raid: 'Raid', crash: 'Schrottpresse', coinflip: 'Münzwurf', battle: 'Kisten-Battle' };
 
 export const historyView: View = {
   title: 'Verlauf',

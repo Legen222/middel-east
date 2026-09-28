@@ -6,7 +6,7 @@ Diese Phase liefert:
 1. die **Zielarchitektur** für Demo- und späteren Echtgeld-Betrieb,
 2. ein **lauffähiges Demo-Backend**: Wallet mit doppelter Buchführung, Wett-Service für 6 Spiele,
    Seed-Verwaltung, Responsible Gambling, Geo-Blocking, Steam-Login, KYC- und AML-Prüfungen, HTTP-API,
-3. **20 Tests**, darunter das Nachspielen jeder Wette aus dem offengelegten Seed und ein End-to-End-Test der API.
+3. **28 Tests**, darunter das Nachspielen jeder Wette aus dem offengelegten Seed, PvP- und Crash-Abläufe und ein End-to-End-Test der API.
 
 ---
 
@@ -76,9 +76,10 @@ flowchart LR
 |---|---|---|
 | Datenbank | `node:sqlite`, WAL, eine Datei | Postgres 16 mit Point-in-Time-Recovery. Gleiches Schema, Sperren über `SELECT … FOR UPDATE` auf `balances` |
 | Server-Seeds | Klartext in der DB | per KMS verschlüsselt (Envelope). Nur der API-Prozess darf entschlüsseln |
-| Crash | nicht enthalten | eigener Leader-Prozess, Hash-Kette mit 10 Mio. Seeds, Terminal-Hash vor dem Start veröffentlicht |
-| PvP (Münzwurf, Battles) | Engine fertig, Lobby fehlt | Lobby-Service. Client-Seed = Beacon-Runde, die erst nach dem Lock feststeht |
+| Crash | `CrashService`: Hash-Kette (100 000 Runden), Client-Seed aus Beacon-Runde, Live-Events per Server-Sent Events (`GET /crash/stream`) | eigener Leader-Prozess (genau 1 aktiv), Kette mit 10 Mio. Seeds |
+| PvP (Münzwurf, Battles) | Lobby mit Escrow-Konto. Client-Seed = Beacon-Runde (aktuell + 2), die erst nach dem Lock feststeht. Demo-Bots als Gegner | ohne Bots, mit Matchmaking und Spam-Schutz |
 | Zahlungswege | nur Demo-Faucet | `SkinRail`, `CryptoRail`, `CardRail` (Schnittstellen in `src/rails.ts`) |
+| Zufalls-Beacon | `LocalBeacon`: vorab festgelegte Hash-Kette, **nicht vertrauenslos** (die API kennzeichnet das). drand ist aus der Entwicklungsumgebung nicht erreichbar | `DrandBeacon` (drand quicknet, alle 3 s, BLS-signiert), per `BEACON=drand` aktivierbar |
 
 ---
 
@@ -199,6 +200,9 @@ Der gültige Fall und fünf Angriffsfälle sind getestet.
 | GET/POST | `/seed`, `/seed/rotate` | Provably Fair |
 | GET/PUT/POST | `/rg`, `/rg/limits`, `/rg/cooldown`, `/rg/exclusion`, `/rg/reality-check` | Responsible Gambling |
 | GET | `/wallet/withdrawal-check?amount=` | Voraussetzungen für Auszahlungen |
+| GET/POST | `/crash/state`, `/crash/bet`, `/crash/cashout`, `/crash/stream` (SSE) | Schrottpresse |
+| GET/POST | `/pvp/list/:type`, `/pvp/game/:id`, `/pvp/coinflip`, `/pvp/battle`, `/pvp/:id/join`, `/pvp/:id/bot`, `/pvp/:id/cancel` | Münzwurf und Kisten-Battle |
+| GET | `/games/open` | offene Minenfeld- und Raid-Runden (nach einem Neuladen) |
 
 Einsätze gibt die API in Frags an, gespeichert werden Milli-Frags. Fehler haben immer die Form
 `{ error, message, details }` mit deutscher Meldung. Jede Anfrage durchläuft Rate-Limit (20/s, Burst 40 je IP),
@@ -206,7 +210,7 @@ Größenlimit (16 KB) und Geo-Prüfung.
 
 ```bash
 cd platform/server && npm install
-npm test     # 20 Tests
+npm test     # 28 Tests
 npm start    # http://localhost:8787, Datei data/scrapline-demo.sqlite
 ```
 
@@ -240,7 +244,7 @@ npm start    # http://localhost:8787, Datei data/scrapline-demo.sqlite
 
 | Phase | Inhalt |
 |---|---|
-| 5 | **Frontend** im SCRAPLINE-Design an diese API anbinden: Lobby, Raid, Minenfeld, Würfel, Kisten, RG-Center, Prüfer |
-| 6 | PvP-Lobby (Münzwurf, Battles) mit Beacon-Zufall, Crash-Service mit Hash-Kette und WebSocket |
+| 5 | ✔ **Frontend** im SCRAPLINE-Design (`platform/web`): Lobby, alle Spiele, RG-Center, Provably Fair, Verlauf |
+| 6 | ✔ PvP-Lobby (Münzwurf, Battles) mit Beacon-Zufall, Crash-Service mit Hash-Kette und SSE, alles im Frontend |
 | 7 | Retention: Level/XP auf erwarteten Verlust, Rakeback, Daily-Kiste, Rain, Affiliate (Konzept aus Phase 2) |
 | 8 | Echtgeld-Vorbereitung: Lizenz, Rechtsgutachten (Steam!), KYC-Anbieter, Zahlungswege, externes RNG-Audit |

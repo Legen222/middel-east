@@ -6,6 +6,9 @@ import { $, esc, pct } from '../ui';
 const GAMES = [
   { path: 'raid', name: 'Raid', icon: 'raid', rtp: 0.97, sig: true, line: 'Sprengstoff pro Wand wählen' },
   { path: 'kisten', name: 'Kisten', icon: 'crate', rtp: 0.93, line: 'Chancen jeder Kiste offen' },
+  { path: 'schrottpresse', name: 'Schrottpresse', icon: 'crash', rtp: 0.98, line: 'Live-Crash, Hash-Kette' },
+  { path: 'battle', name: 'Kisten-Battle', icon: 'battle', rtp: 0.93, line: 'PvP, 2–4 Plätze' },
+  { path: 'muenzwurf', name: 'Münzwurf', icon: 'coin', rtp: 0.96, line: 'PvP, 4 % vom Pot' },
   { path: 'minenfeld', name: 'Minenfeld', icon: 'mine', rtp: 0.97, line: '5×5, 1–24 Minen' },
   { path: 'wuerfel', name: 'Würfel', icon: 'dice', rtp: 0.98, line: 'Chance 0,01–98 %' },
   { path: 'schrottrutsche', name: 'Schrottrutsche', icon: 'plinko', rtp: 0.97, line: '8/12/16 Reihen' },
@@ -25,7 +28,7 @@ export const lobbyView: View = {
 
     <section class="card" style="gap:14px">
       <div class="row" style="justify-content:space-between"><h2 class="h-sect">Originals</h2><span class="muted" style="font-size:13px">RTP je Spiel, bewiesen und per Monte-Carlo geprüft</span></div>
-      <div class="tiles">${GAMES.map((g) => `<a class="tile ${g.sig ? 'sig' : ''}" href="#/${g.path}">${icon(g.icon)}<b>${g.name}</b><span class="muted" style="font-size:13px">${g.line}</span><span class="meta"><span>RTP</span><em>${g.path === 'schrottrutsche' ? '96,5–97 %' : g.path === 'kisten' ? '≤ 93 %' : pct(g.rtp, 0)}</em></span></a>`).join('')}</div>
+      <div class="tiles">${GAMES.map((g) => `<a class="tile ${g.sig ? 'sig' : ''}" href="#/${g.path}">${icon(g.icon)}<b>${g.name}</b><span class="muted" style="font-size:13px">${g.line}</span><span class="meta"><span>RTP</span><em>${g.path === 'schrottrutsche' ? '96,5–97 %' : g.path === 'kisten' || g.path === 'battle' ? '≤ 93 %' : pct(g.rtp, 0)}</em></span></a>`).join('')}</div>
     </section>
 
     <section class="card">
@@ -37,7 +40,7 @@ export const lobbyView: View = {
     ${c.me.block ? `<section class="card" style="border-color:var(--lose)"><p>Dein Konto ist pausiert. Spielen ist bis zum Ende der Pause nicht möglich.</p></section>` : ''}
   `,
   mount: (root) => {
-    const names: Record<string, string> = { raid: 'Raid', cases: 'Kisten', mines: 'Minenfeld', dice: 'Würfel', plinko: 'Schrottrutsche', upgrader: 'Werkbank' };
+    const names: Record<string, string> = { raid: 'Raid', cases: 'Kisten', mines: 'Minenfeld', dice: 'Würfel', plinko: 'Schrottrutsche', upgrader: 'Werkbank', crash: 'Schrottpresse', coinflip: 'Münzwurf', battle: 'Kisten-Battle' };
     api<{ games: { game: string; bets: number; wagered: number; paid: number; rtp: number | null }[] }>('GET', '/stats/rtp?days=30').then((s) => {
       const body = $('#rtp', root);
       if (!body) return;

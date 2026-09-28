@@ -2,6 +2,8 @@ import { type Me, type PublicConfig, RequestError, api, token } from './api';
 import { SPRITE, icon } from './icons';
 import { $, errorText, esc, frags, guard, modal, toast } from './ui';
 import { casesView } from './views/cases';
+import { crashView } from './views/crash';
+import { battleView, coinflipView } from './views/pvp';
 import { diceView } from './views/dice';
 import { fairView } from './views/fair';
 import { historyView } from './views/history';
@@ -24,6 +26,9 @@ const NAV: { path: string; label: string; icon: string; tag?: string; view: View
   { path: '', label: 'Werkstatt', icon: 'home', view: lobbyView },
   { path: 'raid', label: 'Raid', icon: 'raid', tag: 'NEU', view: raidView },
   { path: 'kisten', label: 'Kisten', icon: 'crate', view: casesView },
+  { path: 'battle', label: 'Kisten-Battle', icon: 'battle', view: battleView },
+  { path: 'schrottpresse', label: 'Schrottpresse', icon: 'crash', tag: 'LIVE', view: crashView },
+  { path: 'muenzwurf', label: 'Münzwurf', icon: 'coin', view: coinflipView },
   { path: 'minenfeld', label: 'Minenfeld', icon: 'mine', view: minesView },
   { path: 'wuerfel', label: 'Würfel', icon: 'dice', view: diceView },
   { path: 'schrottrutsche', label: 'Schrottrutsche', icon: 'plinko', view: plinkoView },
@@ -108,7 +113,7 @@ function renderShell() {
     </nav>
     <main id="view" tabindex="-1"></main>
     <nav class="bottomnav" aria-label="Navigation">
-      ${([[ALL[0], 'Start'], [ALL[1], 'Raid'], [ALL[2], 'Kisten'], [ALL[7], 'Limits'], [ALL[8], 'Fair']] as const).map(([n, l]) => `<a href="#/${n.path}" data-path="${n.path}">${icon(n.icon)}${l}</a>`).join('')}
+      ${([[ALL[0], 'Start'], [ALL[1], 'Raid'], [ALL[4], 'Presse'], [ALL[NAV.length], 'Limits'], [ALL[NAV.length + 1], 'Fair']] as const).map(([n, l]) => `<a href="#/${n.path}" data-path="${n.path}">${icon(n.icon)}${l}</a>`).join('')}
     </nav>
   </div>`;
   $('#refill').addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => { await api('POST', '/demo/refill'); await refresh(); toast('Demo-Guthaben aufgefüllt.'); }));

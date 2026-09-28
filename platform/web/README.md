@@ -16,6 +16,9 @@ npm run build                                           # dist/
 | Werkstatt | `#/` | Lobby, Originals mit RTP, tatsächlicher RTP der letzten 30 Tage |
 | Raid | `#/raid` | Signature-Modus, Sprengstoff pro Wand, Multiplikator-Vorschau |
 | Kisten | `#/kisten` | Kistenauswahl, Walze (4,2 s Ease-out), vollständige Chancen-Tabelle |
+| Kisten-Battle | `#/battle` | PvP 2–4 Plätze, Normal/Crazy/Terminal, Demo-Bots |
+| Schrottpresse | `#/schrottpresse` | Live-Crash per SSE, Kurve auf Canvas, Auto- und manuelle Auszahlung, Prüfung der Kette im Browser |
+| Münzwurf | `#/muenzwurf` | PvP, Countdown bis zur Beacon-Runde, Seed nach der Entscheidung |
 | Minenfeld | `#/minenfeld` | 5×5, 1–24 Minen, Multiplikator-Leiter |
 | Würfel | `#/wuerfel` | Chance per Slider, unter/über, Zählanimation |
 | Schrottrutsche | `#/schrottrutsche` | 8/12/16 Reihen, 3 Risikostufen, RTP je Tabelle |
