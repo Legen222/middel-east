@@ -51,7 +51,7 @@ export function withdrawalCheck(db: DB, cfg: Config, user: UserRow, amount: numb
   const lastW = (db.prepare("SELECT COALESCE(MAX(created_at), 0) AS t FROM ledger WHERE account = ? AND kind = 'withdrawal'").get(account) as { t: number }).t;
   const deposits = (db.prepare("SELECT COALESCE(SUM(amount), 0) AS s FROM ledger WHERE account = ? AND kind = 'deposit' AND amount > 0 AND created_at > ?").get(account, lastW) as { s: number }).s;
   const allDeposits = (db.prepare("SELECT COALESCE(SUM(amount), 0) AS s FROM ledger WHERE account = ? AND kind = 'deposit' AND amount > 0").get(account) as { s: number }).s;
-  const wagered = (db.prepare('SELECT COALESCE(SUM(stake), 0) AS s FROM bets WHERE user_id = ? AND created_at > ?').get(user.id, lastW) as { s: number }).s;
+  const wagered = (db.prepare('SELECT COALESCE(SUM(stake), 0) AS s FROM wagers WHERE user_id = ? AND created_at > ?').get(user.id, lastW) as { s: number }).s;
   if (user.kyc_level < 1) reasons.push({ code: 'kyc_1', message: 'Bitte verifiziere deine Identität (Ausweis und Selfie).' });
   if (allDeposits > cfg.kycDepositThreshold && user.kyc_level < 2) reasons.push({ code: 'kyc_2', message: 'Ab dieser Einzahlungssumme brauchen wir einen Herkunftsnachweis der Mittel.' });
   if (wagered < deposits * cfg.amlWagerMultiple) {

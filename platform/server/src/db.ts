@@ -101,10 +101,83 @@ CREATE TABLE IF NOT EXISTS rg_settings (
   reality_check_minutes INTEGER NOT NULL DEFAULT 60
 );
 
+-- PvP: coinflip and case battles. One per-game server seed; client seed = beacon round value.
+CREATE TABLE IF NOT EXISTS pvp_games (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL,             -- coinflip | battle
+  status TEXT NOT NULL,           -- open | locked | settled | cancelled
+  creator_id TEXT NOT NULL REFERENCES users(id),
+  params TEXT NOT NULL,
+  seats INTEGER NOT NULL,
+  seat_stake INTEGER NOT NULL,
+  server_seed TEXT NOT NULL,
+  server_hash TEXT NOT NULL,
+  beacon_round INTEGER,
+  beacon_value TEXT,
+  result TEXT,
+  created_at INTEGER NOT NULL,
+  locked_at INTEGER,
+  settled_at INTEGER
+);
+CREATE TABLE IF NOT EXISTS pvp_seats (
+  game_id TEXT NOT NULL REFERENCES pvp_games(id),
+  seat INTEGER NOT NULL,
+  user_id TEXT,                   -- NULL = demo bot (house)
+  stake INTEGER NOT NULL,
+  payout INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (game_id, seat)
+);
+CREATE INDEX IF NOT EXISTS pvp_seats_user ON pvp_seats(user_id, created_at);
+
+-- Crash: one hash chain, rounds played from index 0 upwards.
+CREATE TABLE IF NOT EXISTS crash_chains (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  terminal_hash TEXT NOT NULL,
+  tip TEXT NOT NULL,              -- secret; seeds are derived from it
+  length INTEGER NOT NULL,
+  beacon_round INTEGER NOT NULL,
+  client_seed TEXT,               -- beacon value, known only after the chain was published
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS crash_rounds (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  chain_id INTEGER NOT NULL REFERENCES crash_chains(id),
+  idx INTEGER NOT NULL,
+  seed TEXT NOT NULL,
+  crash INTEGER NOT NULL,         -- crash point × 100
+  betting_ends_at INTEGER NOT NULL,
+  crash_at INTEGER NOT NULL,
+  status TEXT NOT NULL            -- betting | running | crashed
+);
+CREATE TABLE IF NOT EXISTS crash_bets (
+  id TEXT PRIMARY KEY,
+  round_id INTEGER NOT NULL REFERENCES crash_rounds(id),
+  user_id TEXT NOT NULL REFERENCES users(id),
+  stake INTEGER NOT NULL,
+  target INTEGER NOT NULL,        -- auto cash-out × 100
+  cashed_at INTEGER,              -- manual cash-out multiplier × 100
+  payout INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL,           -- open | settled
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS crash_bets_user ON crash_bets(user_id, created_at);
+
 CREATE TABLE IF NOT EXISTS openid_nonces (
   nonce TEXT PRIMARY KEY,
   created_at INTEGER NOT NULL
 );
+
+-- Every wager across instant/stateful bets, PvP seats (humans only, cancelled games excluded) and crash bets.
+-- Responsible-gambling limits, session summaries, AML turnover and live RTP all read from here.
+CREATE VIEW IF NOT EXISTS wagers AS
+  SELECT user_id, game, stake, payout, created_at, settled_at, (status = 'settled') AS settled FROM bets
+  UNION ALL
+  SELECT s.user_id, g.type, s.stake, s.payout, s.created_at, g.settled_at, (g.status = 'settled')
+    FROM pvp_seats s JOIN pvp_games g ON g.id = s.game_id WHERE s.user_id IS NOT NULL AND g.status != 'cancelled'
+  UNION ALL
+  SELECT b.user_id, 'crash', b.stake, b.payout, b.created_at, r.crash_at, (b.status = 'settled')
+    FROM crash_bets b JOIN crash_rounds r ON r.id = b.round_id;
 
 CREATE TABLE IF NOT EXISTS audit (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

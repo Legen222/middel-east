@@ -69,7 +69,7 @@ function usage(db: DB, userId: string, kind: LimitKind, period: LimitPeriod, now
   if (kind === 'deposit') {
     return (db.prepare("SELECT COALESCE(SUM(amount), 0) AS s FROM ledger WHERE account = ? AND kind = 'deposit' AND amount > 0 AND created_at >= ?").get(`user:${userId}`, since) as { s: number }).s;
   }
-  const r = db.prepare('SELECT COALESCE(SUM(stake), 0) AS staked, COALESCE(SUM(payout), 0) AS paid FROM bets WHERE user_id = ? AND created_at >= ?').get(userId, since) as { staked: number; paid: number };
+  const r = db.prepare('SELECT COALESCE(SUM(stake), 0) AS staked, COALESCE(SUM(payout), 0) AS paid FROM wagers WHERE user_id = ? AND created_at >= ?').get(userId, since) as { staked: number; paid: number };
   return kind === 'wager' ? r.staked : Math.max(0, r.staked - r.paid);
 }
 
@@ -142,7 +142,7 @@ export function setRealityCheck(db: DB, userId: string, minutes: number, now: nu
 }
 
 export function sessionSummary(db: DB, userId: string, sessionStart: number, now: number) {
-  const r = db.prepare('SELECT COUNT(*) AS n, COALESCE(SUM(stake), 0) AS staked, COALESCE(SUM(payout), 0) AS paid FROM bets WHERE user_id = ? AND created_at >= ?').get(userId, sessionStart) as { n: number; staked: number; paid: number };
+  const r = db.prepare('SELECT COUNT(*) AS n, COALESCE(SUM(stake), 0) AS staked, COALESCE(SUM(payout), 0) AS paid FROM wagers WHERE user_id = ? AND created_at >= ?').get(userId, sessionStart) as { n: number; staked: number; paid: number };
   const s = db.prepare('SELECT reality_check_minutes AS m FROM rg_settings WHERE user_id = ?').get(userId) as { m: number } | undefined;
   const interval = (s?.m ?? 60) * 60_000;
   const elapsed = now - sessionStart;

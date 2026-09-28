@@ -15,6 +15,10 @@ import { activeSeed, rotateSeed } from '../src/seeds';
 import { type Fetch, STEAM_OPENID, verifyAssertion } from '../src/steam';
 import { HOUSE, balanceOf, ledgerIntegrity, userAccount } from '../src/wallet';
 import { getUser } from '../src/accounts';
+import { LocalBeacon } from '../src/beacon';
+import { CrashService, multiplierAt, verifyCrashLink } from '../src/crash';
+import { ESCROW, cancelGame, createBattle, createCoinflip, joinGame, publicGame, settleDue } from '../src/pvp';
+import { crashPoint, playCoinflip, playBattle } from '../../engine/src/index';
 
 const T0 = Date.UTC(2026, 8, 28, 12, 0, 0);
 const HOUR = 3_600_000;
@@ -225,7 +229,7 @@ describe('Steam OpenID', () => {
     'openid.claimed_id': 'https://steamcommunity.com/openid/id/76561198000000001', 'openid.identity': 'https://steamcommunity.com/openid/id/76561198000000001',
     'openid.return_to': RT + '?age=1', 'openid.response_nonce': new Date(now).toISOString().slice(0, 19) + 'Zabc', 'openid.assoc_handle': '1', 'openid.signed': 'x', 'openid.sig': 'y', ...over,
   });
-  const steamSays = (valid: boolean): Fetch => async (_u, init) => { assert.ok(init.body.includes('openid.mode=check_authentication')); return { ok: true, text: async () => `ns:http://specs.openid.net/auth/2.0\nis_valid:${valid}\n` }; };
+  const steamSays = (valid: boolean): Fetch => async (_u, init) => { assert.ok(init.body?.includes('openid.mode=check_authentication')); return { ok: true, text: async () => `ns:http://specs.openid.net/auth/2.0\nis_valid:${valid}\n` }; };
   it('accepts a valid assertion and extracts the SteamID64', async () => {
     const db = openDb();
     assert.deepEqual(await verifyAssertion(db, q(), RT, steamSays(true), T0), { steamId: '76561198000000001' });
@@ -245,7 +249,8 @@ describe('HTTP API (end to end)', () => {
   it('sign-up → bet → mines → limits → verify → stats', async () => {
     let now = T0;
     const db = openDb();
-    const server = createApp({ db, cfg: DEFAULT_CONFIG, clock: () => now, fetch: async () => ({ ok: false, text: async () => '' }), publicUrl: 'http://x' });
+    const beacon = new LocalBeacon(T0 - 60_000, 1000);
+    const server = createApp({ db, cfg: DEFAULT_CONFIG, clock: () => now, fetch: async () => ({ ok: false, text: async () => '' }), publicUrl: 'http://x', beacon, crash: new CrashService(db, DEFAULT_CONFIG, beacon, 20) });
     await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
     const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     let token = '';
@@ -301,5 +306,144 @@ describe('HTTP API (end to end)', () => {
     } finally {
       server.close();
     }
+  });
+});
+
+describe('PvP (coinflip, battles)', () => {
+  const setup2 = () => {
+    const base = setup();
+    const { userId: other } = signUp(base.db, base.cfg, { displayName: 'Gegner', ageConfirmed: true, country: 'NZ' }, T0);
+    return { ...base, other, beacon: new LocalBeacon(T0 - 60_000, 1000) };
+  };
+  it('coinflip: locks on join, waits for the beacon, pays 2B·0.96, reveals the seed, replays', async () => {
+    const { db, cfg, userId, other, beacon } = setup2();
+    const id = createCoinflip(db, cfg, userId, frags(100), 'rust', T0);
+    assert.equal(publicGame(db, beacon, id).fairness.serverSeed, null);
+    joinGame(db, cfg, beacon, id, other, T0);
+    const locked = publicGame(db, beacon, id);
+    assert.equal(locked.status, 'locked');
+    assert.equal(await settleDue(db, beacon, T0 + 1000), 0, 'beacon round is still in the future');
+    assert.equal(await settleDue(db, beacon, locked.fairness.beacon.resolvesAt!), 1);
+    const g = publicGame(db, beacon, id);
+    assert.equal(g.status, 'settled');
+    const expect = playCoinflip(new FairStream(g.fairness.serverSeed!, g.fairness.beacon.value!, 0), 'rust');
+    assert.equal(g.result.winnerSeat, expect.creatorWins ? 0 : 1);
+    const winner = expect.creatorWins ? userId : other;
+    const loser = expect.creatorWins ? other : userId;
+    assert.equal(bal(db, winner), DEFAULT_CONFIG.demoStartBalance - frags(100) + frags(192));
+    assert.equal(bal(db, loser), DEFAULT_CONFIG.demoStartBalance - frags(100));
+    assert.equal(balanceOf(db, ESCROW), 0);
+    assert.deepEqual(ledgerIntegrity(db), { sum: 0, mismatched: [] });
+  });
+  it('cancel refunds; nobody can join twice; bots only in demo', () => {
+    const { db, cfg, userId, beacon } = setup2();
+    const id = createCoinflip(db, cfg, userId, frags(50), 'scrap', T0);
+    assert.equal(code(() => joinGame(db, cfg, beacon, id, userId, T0)), 'already_seated');
+    cancelGame(db, id, userId, T0);
+    assert.equal(bal(db, userId), DEFAULT_CONFIG.demoStartBalance);
+    const id2 = createCoinflip(db, { ...cfg, demo: false }, userId, frags(50), 'scrap', T0);
+    assert.equal(code(() => joinGame(db, { ...cfg, demo: false }, beacon, id2, null, T0)), 'no_bots');
+  });
+  it('battle: 3 seats with demo bots, payouts = pool, rest to house, escrow empty, replays', async () => {
+    const { db, cfg, userId, beacon } = setup2();
+    const id = createBattle(db, cfg, userId, ['werkzeugkiste', 'militaerkiste'], 3, 'normal', T0);
+    joinGame(db, cfg, beacon, id, null, T0);
+    joinGame(db, cfg, beacon, id, null, T0);
+    const at = publicGame(db, beacon, id).fairness.beacon.resolvesAt!;
+    await settleDue(db, beacon, at);
+    const g = publicGame(db, beacon, id);
+    const cases = ['werkzeugkiste', 'militaerkiste'].map((x) => SAMPLE_CASES.find((c) => c.id === x)!);
+    const o = playBattle(new FairStream(g.fairness.serverSeed!, g.fairness.beacon.value!, 0), cases, 3, 'normal');
+    assert.deepEqual(g.result.winners, o.winners);
+    const pool = o.totals.reduce((a, b) => a + b, 0);
+    assert.ok(Math.abs(g.players.reduce((a, p) => a + p.payout, 0) - pool) < 0.01);
+    assert.equal(balanceOf(db, ESCROW), 0);
+    assert.deepEqual(ledgerIntegrity(db), { sum: 0, mismatched: [] });
+  });
+  it('battle escrow closes at zero whether the pool is below or above the stakes (60 games)', async () => {
+    const { db, cfg, userId, beacon } = setup2();
+    let above = 0, below = 0;
+    for (let i = 0; i < 60; i++) { // P(no game above the stakes) ≈ 0.86⁶⁰ ≈ 0.01 %
+      const id = createBattle(db, cfg, userId, ['werkzeugkiste'], 2, 'normal', T0);
+      joinGame(db, cfg, beacon, id, null, T0);
+      await settleDue(db, beacon, publicGame(db, beacon, id).fairness.beacon.resolvesAt!);
+      const g = publicGame(db, beacon, id);
+      const pool = g.players.reduce((a, p) => a + p.payout, 0);
+      if (pool > 2 * g.seatStake) above++; else below++;
+      assert.equal(balanceOf(db, ESCROW), 0, `escrow after game ${i}`);
+    }
+    assert.ok(above > 0 && below > 0, `both branches covered (above ${above}, below ${below})`);
+    assert.deepEqual(ledgerIntegrity(db), { sum: 0, mismatched: [] });
+  });
+  it('responsible-gambling limits apply to PvP seats', () => {
+    const { db, cfg, userId, other, beacon } = setup2();
+    setLimit(db, cfg, other, 'wager', 'day', frags(50), T0);
+    const id = createCoinflip(db, cfg, userId, frags(100), 'rust', T0);
+    assert.equal(code(() => joinGame(db, cfg, beacon, id, other, T0)), 'rg_limit');
+  });
+});
+
+describe('crash (Schrottpresse)', () => {
+  async function run(svc: CrashService, from: number, to: number, step = 100) { for (let t = from; t <= to; t += step) await svc.tick(t); }
+  it('chain waits for the beacon, rounds follow the hash chain, crash stays hidden until it happens', async () => {
+    const { db, cfg, userId } = setup();
+    const beacon = new LocalBeacon(T0 - 60_000, 1000);
+    const svc = new CrashService(db, cfg, beacon, 50);
+    await svc.tick(T0);
+    assert.equal(svc.state(T0, null).round, null, 'no round before the chain client seed exists');
+    const s0 = svc.state(T0, null);
+    const readyAt = beacon.timeOf(s0.chain!.beaconRound);
+    await svc.tick(readyAt);
+    const st = svc.state(readyAt, userId);
+    assert.equal(st.round!.status, 'betting');
+    assert.equal(st.round!.crash, null);
+    svc.placeBet(userId, frags(10), 150, readyAt + 100);
+    assert.equal(code(() => svc.placeBet(userId, frags(10), 150, readyAt + 200)), 'already_bet');
+    await run(svc, readyAt + 100, readyAt + 6000 + 200_000, 250);
+    const after = svc.state(readyAt + 206_000, userId);
+    const first = after.history[after.history.length - 1];
+    assert.ok(verifyCrashLink(first.seed, after.chain!.terminalHash), 'round 0 seed hashes to the terminal hash');
+    assert.equal(first.crash, crashPoint(first.seed, after.chain!.clientSeed!).crash);
+    for (let i = 0; i + 1 < after.history.length; i++) assert.ok(verifyCrashLink(after.history[i].seed, after.history[i + 1].seed), 'each seed links to the previous one');
+    const bet = db.prepare('SELECT * FROM crash_bets WHERE user_id = ?').get(userId) as any;
+    assert.equal(bet.status, 'settled');
+    assert.equal(bet.payout, first.crash >= 1.5 ? frags(15) : 0);
+    assert.deepEqual(ledgerIntegrity(db), { sum: 0, mismatched: [] });
+  });
+  it('manual cash-out pays the current multiplier and only before the crash', async () => {
+    const { db, cfg, userId } = setup();
+    const beacon = new LocalBeacon(T0 - 60_000, 1000);
+    const svc = new CrashService(db, cfg, beacon, 200);
+    await svc.tick(T0);
+    let t = beacon.timeOf(svc.state(T0, null).chain!.beaconRound);
+    // find a round that runs past 1.20× so a manual cash-out is possible
+    for (let tries = 0; tries < 200; tries++) {
+      await svc.tick(t);
+      const r = db.prepare('SELECT * FROM crash_rounds ORDER BY id DESC LIMIT 1').get() as any;
+      if (r.status === 'betting' && r.crash >= 130) {
+        svc.placeBet(userId, frags(10), 100000, t);
+        const at = r.betting_ends_at + 3100; // e^(0.00006·3100) ≈ 1.204
+        await svc.tick(at);
+        const out = svc.cashout(userId, at);
+        assert.equal(out.multiplier, multiplierAt(3100) / 100);
+        assert.equal(out.payout, Math.floor(10_000 * multiplierAt(3100) / 100) / 1000);
+        assert.equal(code(() => svc.cashout(userId, at + 10)), 'no_bet');
+        return;
+      }
+      t = Math.max(t + 250, r.crash_at + 3000);
+    }
+    assert.fail('no suitable round found');
+  });
+  it('refuses bets outside the betting window and over the max win', async () => {
+    const { db, cfg, userId } = setup({ maxWin: frags(100) });
+    const beacon = new LocalBeacon(T0 - 60_000, 1000);
+    const svc = new CrashService(db, cfg, beacon, 20);
+    await svc.tick(T0);
+    const t = beacon.timeOf(svc.state(T0, null).chain!.beaconRound);
+    await svc.tick(t);
+    assert.equal(code(() => svc.placeBet(userId, frags(10), 2000, t)), 'max_win');
+    assert.equal(code(() => svc.placeBet(userId, frags(10), 100, t)), 'invalid_params');
+    await svc.tick(t + 6000);
+    assert.equal(code(() => svc.placeBet(userId, frags(10), 200, t + 6000)), 'not_betting');
   });
 });

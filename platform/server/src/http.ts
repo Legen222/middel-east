@@ -17,10 +17,13 @@ import { type Clock, type Config, MF_PER_FRAG } from './config';
 import type { DB } from './db';
 import { AppError, fail } from './errors';
 import { REALITY_CHECK_OPTIONS, activeBlock, getLimits, promoEligible, selfExclude, sessionSummary, setLimit, setRealityCheck, startCooldown, type LimitKind, type LimitPeriod } from './rg';
+import type { Beacon } from './beacon';
+import type { CrashService } from './crash';
+import { cancelGame, createBattle, createCoinflip, joinGame, listGames, publicGame, settleDue } from './pvp';
 import { rotateSeed } from './seeds';
 import { type Fetch, loginUrl, verifyAssertion } from './steam';
 
-export interface AppDeps { db: DB; cfg: Config; clock: Clock; fetch: Fetch; publicUrl: string }
+export interface AppDeps { db: DB; cfg: Config; clock: Clock; fetch: Fetch; publicUrl: string; beacon: Beacon; crash: CrashService }
 
 interface Ctx {
   req: IncomingMessage; url: URL; body: any; ip: string; country: string | null; token?: string;
@@ -107,6 +110,30 @@ export function createApp(deps: AppDeps) {
     return rows.map((r) => { const b = getBet(db, r.id)!; return fmtMoney(b.status === 'open' ? { ...publicBet(b, db), result: null } : publicBet(b, db)); });
   });
 
+  /* ---------- PvP ---------- */
+  const viewer = (c: Ctx) => resolveSession(db, c.token, clock())?.user.id ?? null;
+  route('GET', '/pvp/list/:type', async (c, p) => {
+    if (p.type !== 'coinflip' && p.type !== 'battle') fail('not_found', 'Unbekannter Spieltyp.', 404);
+    await settleDue(db, deps.beacon, clock());
+    return listGames(db, deps.beacon, p.type as 'coinflip' | 'battle', clock() - 10 * 60_000, viewer(c));
+  });
+  route('GET', '/pvp/game/:id', async (c, p) => { await settleDue(db, deps.beacon, clock()); return publicGame(db, deps.beacon, p.id, viewer(c)); });
+  route('POST', '/pvp/coinflip', (c) => { const u = c.auth().user.id; return publicGame(db, deps.beacon, createCoinflip(db, cfg, u, stakeMf(c.body?.stake), c.body?.side, clock()), u); });
+  route('POST', '/pvp/battle', (c) => { const u = c.auth().user.id; return publicGame(db, deps.beacon, createBattle(db, cfg, u, c.body?.caseIds, num(c.body?.seats, 'seats'), c.body?.mode, clock()), u); });
+  route('POST', '/pvp/:id/join', (c, p) => { const u = c.auth().user.id; return publicGame(db, deps.beacon, joinGame(db, cfg, deps.beacon, p.id, u, clock()), u); });
+  route('POST', '/pvp/:id/bot', (c, p) => {
+    const u = c.auth().user.id;
+    const g = publicGame(db, deps.beacon, p.id, u);
+    if (!g.mine) fail('forbidden', 'Nur der Ersteller kann einen Bot holen.', 403);
+    return publicGame(db, deps.beacon, joinGame(db, cfg, deps.beacon, p.id, null, clock()), u);
+  });
+  route('POST', '/pvp/:id/cancel', (c, p) => { const u = c.auth().user.id; return publicGame(db, deps.beacon, cancelGame(db, p.id, u, clock()), u); });
+
+  /* ---------- crash ---------- */
+  route('GET', '/crash/state', (c) => deps.crash.state(clock(), viewer(c)));
+  route('POST', '/crash/bet', (c) => deps.crash.placeBet(c.auth().user.id, stakeMf(c.body?.stake), Math.round(num(c.body?.target, 'target') * 100), clock()));
+  route('POST', '/crash/cashout', (c) => deps.crash.cashout(c.auth().user.id, clock()));
+
   /* ---------- responsible gambling ---------- */
   route('GET', '/rg', (c) => {
     const { user, startedAt } = c.auth();
@@ -142,6 +169,7 @@ export function createApp(deps: AppDeps) {
       const url = new URL(req.url ?? '/', 'http://local');
       const country = (req.headers[cfg.countryHeader] as string | undefined)?.toUpperCase() ?? null;
       if (url.pathname !== '/health') checkGeo(cfg, country, !cfg.demo);
+      if (url.pathname === '/crash/stream' && req.method === 'GET') return stream(res);
       const body = await readBody(req);
       const token = /^Bearer ([0-9a-f]{64})$/.exec(req.headers.authorization ?? '')?.[1];
       const ctx: Ctx = { req, url, body, ip, country, token, auth: () => resolveSession(db, token, clock()) ?? fail('unauthorized', 'Bitte einloggen.', 401) };
@@ -159,6 +187,15 @@ export function createApp(deps: AppDeps) {
       return send(500, { error: 'internal', message: 'Interner Fehler.' });
     }
   }
+  /** Server-sent events for the crash round (no WebSocket needed; the browser reconnects on its own). */
+  function stream(res: ServerResponse) {
+    res.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-store', connection: 'keep-alive', 'x-accel-buffering': 'no' });
+    res.write(`retry: 2000\n\n`);
+    const off = deps.crash.on((e) => res.write(`event: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`));
+    const ping = setInterval(() => res.write(`: ping ${clock()}\n\n`), 15_000);
+    res.on('close', () => { off(); clearInterval(ping); });
+  }
+
   return createServer((req, res) => { void handle(req, res); });
 }
 

@@ -255,6 +255,6 @@ export function activeSeedPublic(db: DB, userId: string) {
 
 /** Live RTP per game over a window: the public "Fair-Ledger" statistic. */
 export function liveRtp(db: DB, since: number) {
-  const rows = db.prepare("SELECT game, COUNT(*) AS n, SUM(stake) AS staked, SUM(payout) AS paid FROM bets WHERE status = 'settled' AND settled_at >= ? GROUP BY game").all(since) as { game: Game; n: number; staked: number; paid: number }[];
+  const rows = db.prepare('SELECT game, COUNT(*) AS n, SUM(stake) AS staked, SUM(payout) AS paid FROM wagers WHERE settled = 1 AND settled_at >= ? GROUP BY game').all(since) as { game: string; n: number; staked: number; paid: number }[];
   return rows.map((r) => ({ game: r.game, bets: r.n, wagered: r.staked, paid: r.paid, rtp: r.staked ? r.paid / r.staked : null }));
 }

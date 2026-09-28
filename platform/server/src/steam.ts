@@ -13,7 +13,7 @@ import type { DB } from './db';
 export const STEAM_OPENID = 'https://steamcommunity.com/openid/login';
 const CLAIMED_ID = /^https:\/\/steamcommunity\.com\/openid\/id\/(7656119\d{10})$/;
 
-export type Fetch = (url: string, init: { method: string; headers: Record<string, string>; body: string }) => Promise<{ ok: boolean; text(): Promise<string> }>;
+export type Fetch = (url: string, init: { method: string; headers: Record<string, string>; body?: string }) => Promise<{ ok: boolean; text(): Promise<string> }>;
 
 export function loginUrl(returnTo: string, realm: string): string {
   const p = new URLSearchParams({
