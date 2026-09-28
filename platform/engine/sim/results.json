@@ -14,7 +14,7 @@
    "hitRate": 0.4949679,
    "maxMult": 1.97979797979798,
    "pass": true,
-   "seconds": 0.372621388
+   "seconds": 0.376035146
   },
   {
    "game": "dice",
@@ -27,7 +27,7 @@
    "hitRate": 0.0199867,
    "maxMult": 49,
    "pass": true,
-   "seconds": 0.25973508
+   "seconds": 0.298549733
   },
   {
    "game": "dice",
@@ -40,7 +40,7 @@
    "hitRate": 0.4901025,
    "maxMult": 4900,
    "pass": true,
-   "seconds": 0.7682928860000001
+   "seconds": 0.7973257909999999
   },
   {
    "game": "dice",
@@ -53,7 +53,7 @@
    "hitRate": 0.4952941,
    "maxMult": 1.97979797979798,
    "pass": true,
-   "seconds": 30.666197126
+   "seconds": 33.41491345
   },
   {
    "game": "crash",
@@ -66,7 +66,7 @@
    "hitRate": 0.9703351,
    "maxMult": 1.01,
    "pass": true,
-   "seconds": 0.23461569800000143
+   "seconds": 0.27646777800000566
   },
   {
    "game": "crash",
@@ -79,7 +79,7 @@
    "hitRate": 0.4899919,
    "maxMult": 2,
    "pass": true,
-   "seconds": 0.43326539000000414
+   "seconds": 0.48676030799999714
   },
   {
    "game": "crash",
@@ -92,7 +92,7 @@
    "hitRate": 0.0979869,
    "maxMult": 10,
    "pass": true,
-   "seconds": 0.25756708999999683
+   "seconds": 0.31624307099999716
   },
   {
    "game": "crash",
@@ -105,7 +105,7 @@
    "hitRate": 0.0098014,
    "maxMult": 100,
    "pass": true,
-   "seconds": 0.22799425299999712
+   "seconds": 0.29141385399999853
   },
   {
    "game": "crash",
@@ -118,7 +118,7 @@
    "hitRate": 0.1416788,
    "maxMult": 999.96,
    "pass": true,
-   "seconds": 0.743402436999997,
+   "seconds": 0.7673883519999944,
    "extra": {
     "P(≥1.01) mc": 0.9702843,
     "P(≥1.01) theory": 0.9702970297029703,
@@ -143,7 +143,7 @@
    "hitRate": 0.4957029,
    "maxMult": 1.957017543859649,
    "pass": true,
-   "seconds": 17.510575026999998
+   "seconds": 19.504660234999996
   },
   {
    "game": "mines",
@@ -156,7 +156,7 @@
    "hitRate": 0.0400207,
    "maxMult": 24.25,
    "pass": true,
-   "seconds": 44.590051751999994
+   "seconds": 45.469154462
   },
   {
    "game": "mines",
@@ -169,7 +169,7 @@
    "hitRate": 0.2147061,
    "maxMult": 989.853021978022,
    "pass": true,
-   "seconds": 24.447218460000002
+   "seconds": 25.54174158
   },
   {
    "game": "plinko",
@@ -182,7 +182,7 @@
    "hitRate": 1,
    "maxMult": 6,
    "pass": true,
-   "seconds": 1.412078099999999
+   "seconds": 1.4609990419999959
   },
   {
    "game": "plinko",
@@ -195,7 +195,7 @@
    "hitRate": 1,
    "maxMult": 15,
    "pass": true,
-   "seconds": 1.4534242669999948
+   "seconds": 1.6334495509999833
   },
   {
    "game": "plinko",
@@ -208,7 +208,7 @@
    "hitRate": 1,
    "maxMult": 30,
    "pass": true,
-   "seconds": 1.5066787139999942
+   "seconds": 1.635028569999995
   },
   {
    "game": "plinko",
@@ -221,7 +221,7 @@
    "hitRate": 1,
    "maxMult": 10,
    "pass": true,
-   "seconds": 2.1648812310000065
+   "seconds": 2.284856285000016
   },
   {
    "game": "plinko",
@@ -234,7 +234,7 @@
    "hitRate": 1,
    "maxMult": 35,
    "pass": true,
-   "seconds": 2.0923046009999964
+   "seconds": 2.399636424000026
   },
   {
    "game": "plinko",
@@ -247,7 +247,7 @@
    "hitRate": 1,
    "maxMult": 150,
    "pass": true,
-   "seconds": 2.109801454000015
+   "seconds": 2.197879584999988
   },
   {
    "game": "plinko",
@@ -260,7 +260,7 @@
    "hitRate": 1,
    "maxMult": 16,
    "pass": true,
-   "seconds": 2.7127334169999813
+   "seconds": 2.8385618899999825
   },
   {
    "game": "plinko",
@@ -273,7 +273,7 @@
    "hitRate": 1,
    "maxMult": 100,
    "pass": true,
-   "seconds": 2.6320875839999935
+   "seconds": 2.9157253330000095
   },
   {
    "game": "plinko",
@@ -286,7 +286,7 @@
    "hitRate": 1,
    "maxMult": 800,
    "pass": true,
-   "seconds": 2.706525662
+   "seconds": 2.8717736489999806
   },
   {
    "game": "raid",
@@ -299,7 +299,7 @@
    "hitRate": 0.2620643,
    "maxMult": 3.7002563476562487,
    "pass": true,
-   "seconds": 0.8812638039999874
+   "seconds": 0.9610568790000107
   },
   {
    "game": "raid",
@@ -312,7 +312,7 @@
    "hitRate": 0.004098,
    "maxMult": 236.81640624999991,
    "pass": true,
-   "seconds": 0.6958711590000021
+   "seconds": 0.7102828410000075
   },
   {
    "game": "raid",
@@ -325,7 +325,7 @@
    "hitRate": 0.3141452,
    "maxMult": 236.81640624999991,
    "pass": true,
-   "seconds": 1.515016879999981
+   "seconds": 1.5404294879999942
   },
   {
    "game": "upgrader",
@@ -338,7 +338,7 @@
    "hitRate": 0.4748064,
    "maxMult": 2,
    "pass": true,
-   "seconds": 0.25635489300001063
+   "seconds": 0.2716946140000073
   },
   {
    "game": "upgrader",
@@ -351,7 +351,7 @@
    "hitRate": 0.405374,
    "maxMult": 94.96947759462547,
    "pass": true,
-   "seconds": 0.4142700649999897
+   "seconds": 0.43215797600001676
   },
   {
    "game": "coinflip",
@@ -364,11 +364,11 @@
    "hitRate": 0.4998513,
    "maxMult": 1.92,
    "pass": true,
-   "seconds": 0.4683467470000032
+   "seconds": 0.5157151759999978
   },
   {
    "game": "cases",
-   "config": "Werkzeugkiste (Preis 344 Frags)",
+   "config": "Toolbox (price 344 Frags)",
    "rounds": 10000000,
    "theory": 0.9273255813953488,
    "rtp": 0.9279030872093024,
@@ -377,11 +377,11 @@
    "hitRate": 1,
    "maxMult": 61.04651162790697,
    "pass": true,
-   "seconds": 0.4691557469999825
+   "seconds": 0.5585430159999815
   },
   {
    "game": "cases",
-   "config": "Militärkiste (Preis 969 Frags)",
+   "config": "Military Crate (price 969 Frags)",
    "rounds": 10000000,
    "theory": 0.9293498452012383,
    "rtp": 0.9287088854489164,
@@ -390,11 +390,11 @@
    "hitRate": 1,
    "maxMult": 21.671826625387,
    "pass": true,
-   "seconds": 0.5394962319999759
+   "seconds": 0.5809033100000234
   },
   {
    "game": "cases",
-   "config": "Elite-Crate (Preis 5226 Frags)",
+   "config": "Elite Crate (price 5226 Frags)",
    "rounds": 10000000,
    "theory": 0.9298985840030616,
    "rtp": 0.9297965954841179,
@@ -403,11 +403,11 @@
    "hitRate": 1,
    "maxMult": 4.018369690011481,
    "pass": true,
-   "seconds": 0.47035377399998834
+   "seconds": 0.5099252780000098
   },
   {
    "game": "cases",
-   "config": "Tresor (Preis 21784 Frags)",
+   "config": "Vault (price 21784 Frags)",
    "rounds": 10000000,
    "theory": 0.9299853103195005,
    "rtp": 0.9298815942893867,
@@ -416,11 +416,11 @@
    "hitRate": 1,
    "maxMult": 5.508630187293426,
    "pass": true,
-   "seconds": 0.5004512049999903
+   "seconds": 0.49466990700000313
   },
   {
    "game": "battles",
-   "config": "2 Plätze / normal / Platz 1",
+   "config": "2 seats / normal / seat 1",
    "rounds": 10000000,
    "theory": 0.9296819085487077,
    "rtp": 0.9300455743997553,
@@ -429,11 +429,11 @@
    "hitRate": 0.5110771,
    "maxMult": 11.980425141458939,
    "pass": true,
-   "seconds": 5.653286268000025
+   "seconds": 6.013020610000007
   },
   {
    "game": "battles",
-   "config": "2 Plätze / normal / Platz 2",
+   "config": "2 seats / normal / seat 2",
    "rounds": 10000000,
    "theory": 0.9296819085487077,
    "rtp": 0.929719391803028,
@@ -442,11 +442,11 @@
    "hitRate": 0.5109139,
    "maxMult": 11.570576540755468,
    "pass": true,
-   "seconds": 5.446359909999999
+   "seconds": 5.877687118000002
   },
   {
    "game": "battles",
-   "config": "3 Plätze / crazy / Platz 1",
+   "config": "3 seats / crazy / seat 1",
    "rounds": 10000000,
    "theory": 0.9296819085487077,
    "rtp": 0.9301890764642912,
@@ -455,11 +455,11 @@
    "hitRate": 0.3480052,
    "maxMult": 13.817097415506959,
    "pass": true,
-   "seconds": 7.084359286999999
+   "seconds": 7.817477307000023
   },
   {
    "game": "battles",
-   "config": "3 Plätze / crazy / Platz 2",
+   "config": "3 seats / crazy / seat 2",
    "rounds": 10000000,
    "theory": 0.9296819085487077,
    "rtp": 0.9292580259213947,
@@ -468,11 +468,11 @@
    "hitRate": 0.3477589,
    "maxMult": 14.48386603456186,
    "pass": true,
-   "seconds": 7.664330812
+   "seconds": 8.667070425000013
   },
   {
    "game": "battles",
-   "config": "3 Plätze / crazy / Platz 3",
+   "config": "3 seats / crazy / seat 3",
    "rounds": 10000000,
    "theory": 0.9296819085487077,
    "rtp": 0.9297892420094815,
@@ -481,11 +481,11 @@
    "hitRate": 0.3479025,
    "maxMult": 13.817097415506959,
    "pass": true,
-   "seconds": 7.503240201000008
+   "seconds": 8.370457360999978
   },
   {
    "game": "battles",
-   "config": "4 Plätze / terminal / Platz 1",
+   "config": "4 seats / terminal / seat 1",
    "rounds": 10000000,
    "theory": 0.9296819085487077,
    "rtp": 0.9287891158178976,
@@ -494,11 +494,11 @@
    "hitRate": 0.3649355,
    "maxMult": 14.096956721211194,
    "pass": true,
-   "seconds": 10.667383935999998
+   "seconds": 11.779960147999983
   },
   {
    "game": "battles",
-   "config": "4 Plätze / terminal / Platz 2",
+   "config": "4 seats / terminal / seat 2",
    "rounds": 10000000,
    "theory": 0.9296819085487077,
    "rtp": 0.9289430596676185,
@@ -507,11 +507,11 @@
    "hitRate": 0.3650658,
    "maxMult": 14.575623183973084,
    "pass": true,
-   "seconds": 11.043365156000014
+   "seconds": 12.189142469999991
   },
   {
    "game": "battles",
-   "config": "4 Plätze / terminal / Platz 3",
+   "config": "4 seats / terminal / seat 3",
    "rounds": 10000000,
    "theory": 0.9296819085487077,
    "rtp": 0.9296135103609083,
@@ -520,11 +520,11 @@
    "hitRate": 0.3652444,
    "maxMult": 13.96849671203548,
    "pass": true,
-   "seconds": 10.738266728000017
+   "seconds": 11.52866124299998
   },
   {
    "game": "battles",
-   "config": "4 Plätze / terminal / Platz 4",
+   "config": "4 seats / terminal / seat 4",
    "rounds": 10000000,
    "theory": 0.9296819085487077,
    "rtp": 0.9293357491843638,
@@ -533,7 +533,7 @@
    "hitRate": 0.3651632,
    "maxMult": 14.052607432329102,
    "pass": true,
-   "seconds": 11.568425766
+   "seconds": 11.519365220000006
   }
  ]
 }
