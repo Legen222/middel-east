@@ -1,0 +1,17 @@
+{
+  "name": "@scrapline/server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "SCRAPLINE demo backend: wallet/ledger, bets, provably-fair seeds, responsible gambling, geo-blocking, Steam login",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "esbuild test/all.test.ts --bundle --platform=node --format=esm --outfile=.cache/all.test.mjs && node --no-warnings=ExperimentalWarning --test .cache/all.test.mjs",
+    "start": "esbuild src/main.ts --bundle --platform=node --format=esm --outfile=.cache/main.mjs && node --no-warnings=ExperimentalWarning .cache/main.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.4",
+    "esbuild": "^0.28.2",
+    "typescript": "^5.6.3"
+  }
+}
