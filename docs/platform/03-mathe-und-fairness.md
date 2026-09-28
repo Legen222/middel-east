@@ -238,10 +238,10 @@ Seed `20260926` · v22.22.2 · alle 40 Läufe bestanden, größter Ausschlag |z|
    einen Fehler bei der Preisrundung gefunden. Jetzt gilt nachweislich: Rundung ≤ 1 Frag, RTP ≤ 93 %.
 2. **Crash-Mindestziel 1,01×.** Andernfalls wäre 1,00× eine risikofreie Wette mit 100 % RTP.
 3. **Upgrader-Chance zwischen 1 und 80 %.** Innerhalb dieses Bereichs muss nie gekappt werden, deshalb bleibt der RTP exakt.
-4. **Haftungsgrenzen gehören in die Wallet, nicht ins RNG.** Minenfeld und Raid können extreme Multiplikatoren
+4. **Haftungsgrenzen gehören in die Wallet, nicht ins RNG.** *(Umgesetzt in Phase 4, siehe [04-architektur.md](04-architektur.md) Abschnitt 2.)* Minenfeld und Raid können extreme Multiplikatoren
    erreichen. Eine Obergrenze für den Maximalgewinn pro Wette in Frags gehört in die Wallet-Schicht (Phase 4).
    Wird sie erreicht, sinkt der RTP für genau diese Kombination. Das muss dem Spieler vor der Wette angezeigt werden.
-5. **Auszahlungen in Milli-Frags.** Die Engine liefert exakte Multiplikatoren. Die Wallet rundet pro Wette
+5. **Auszahlungen in Milli-Frags.** *(Umgesetzt in Phase 4.)* Die Engine liefert exakte Multiplikatoren. Die Wallet rundet pro Wette
    auf 0,001 Frag ab. Dadurch sinkt der RTP bei Einsätzen ab 1 Frag um höchstens 0,1 %.
 6. **Keine Skalierung der Plinko-Tabellen zur Laufzeit.** Die Tabellen sind fest, und ihr RTP ist dokumentiert.
    Jede Änderung braucht einen neuen Test und einen neuen Monte-Carlo-Lauf.
