@@ -1,11 +1,11 @@
 import { type Bet, type CaseInfo, api } from '../api';
-import { icon } from '../icons';
+import { caseArt } from '../art';
 import type { View } from '../main';
 import { $, $$, esc, fairBox, frags, guard, pct, pctShort, reducedMotion } from '../ui';
 
 /** Rarity colour from value relative to the case price. */
 const rarity = (value: number, price: number) =>
-  value >= price * 20 ? '#E8B21A' : value >= price * 5 ? '#e0529c' : value >= price * 2 ? '#9b6bff' : value >= price ? '#4C8DF6' : '#8b8680';
+  value >= price * 20 ? '#C9A45C' : value >= price * 5 ? '#E5534B' : value >= price * 2 ? '#4C8DF6' : value >= price ? '#3FB950' : '#6B747D';
 
 const REEL_LEN = 60;
 const STOP = 50;
@@ -19,9 +19,9 @@ export const casesView: View = {
       <p>Every case lists all items with their drop chance. Price = expected value ÷ 0.93, rounded up to whole Frags.</p></div></div>
     <div class="cases" id="cases">${c.cfg.cases.map((k, i) => `
       <button type="button" class="case" data-id="${k.id}" aria-pressed="${i === 0}">
-        <span class="art">${icon('crate')}</span>
+        <span class="art">${caseArt(k.price)}</span>
         <b>${esc(k.name)}</b>
-        <span class="price"><span class="num" style="color:var(--hazard)">${frags(k.price, 0)} Frags</span><span class="muted num" style="font-size:12px">RTP ${pct(k.rtp)}</span></span>
+        <span class="price"><span class="num" style="color:var(--text)">${frags(k.price, 0)} Frags</span><span class="muted num" style="font-size:12px">RTP ${pct(k.rtp)}</span></span>
       </button>`).join('')}</div>
   </section>
   <section class="card" style="gap:14px">

@@ -2,12 +2,15 @@
 <meta name="description" content="Playable browser demo of SCRAPLINE: all originals, PvP, live crash, rewards and responsible gambling with play money.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Stencil:wght@700;900&family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
 /*CSS*/
-.demo-banner{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 14px;padding:7px 16px;background:#E8B21A;color:#15120F;font:600 13px/1.3 'Barlow',system-ui,sans-serif;text-align:center}
-.demo-banner button{border:1px solid #15120F;background:transparent;color:#15120F;border-radius:3px;padding:3px 8px;font:700 12px/1 'Barlow Condensed','Barlow',sans-serif;letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
+.demo-banner{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 14px;padding:7px 16px;background:#0B0D0F;color:#8B949E;border-bottom:1px solid #2E353C;font:500 12px/1.3 'IBM Plex Mono',ui-monospace,monospace;letter-spacing:.02em;text-align:center}
+.demo-banner b{color:#C9A45C;font-weight:600;letter-spacing:.12em}
+.demo-banner button{border:1px solid #2E353C;background:transparent;color:#E9ECEF;border-radius:6px;padding:4px 10px;font:500 12px/1 'IBM Plex Sans',system-ui,sans-serif;cursor:pointer}
+.demo-banner button:hover{border-color:#5AA9E6;color:#5AA9E6}
+@media (max-width:640px){.demo-banner .long{display:none}.demo-banner{padding:6px 12px}}
 </style>
-<div class="demo-banner" role="note">Browser demo: server, database and provably fair run entirely in this page. Play money, 18+. <button type="button" id="demo-reset">Reset demo</button></div>
-<div id="app"><p style="padding:24px;color:#A89B87;font-family:system-ui,sans-serif">SCRAPLINE startet …</p></div>
+<div class="demo-banner" role="note"><b>DEMO</b> <span class="long">Server, database and provably fair checks run entirely in this page.</span> Play money, 18+. <button type="button" id="demo-reset">Reset demo</button></div>
+<div id="app"><p style="padding:24px;color:#8B949E;font-family:system-ui,sans-serif">Loading SCRAPLINE …</p></div>
 <script>/*BUNDLE*/</script>

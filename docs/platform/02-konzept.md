@@ -1,5 +1,7 @@
 # Phase 2 – Konzept: drei Richtungen
 
+> **Stand 20.10.2026 (Phase 12):** Die Web-App nutzt jetzt das visuelle System von **Richtung C · BLUEPRINT** (Tokens, Schriften, Raster, Bemaßungen, Proof-Panel). Marke und Name bleiben **SCRAPLINE**; Signature in der Lobby ist Monument Run.
+
 Stand: 26.09.2026 · baut auf [01-wettbewerbsanalyse.md](01-wettbewerbsanalyse.md) auf.
 Klickbare Mockups: [`mockups/konzepte.html`](mockups/konzepte.html) (auch als Artifact veröffentlicht).
 

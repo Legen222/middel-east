@@ -19,8 +19,8 @@ export const upgraderView: View = {
         <circle cx="140" cy="140" r="${R}" fill="none" stroke="var(--surface-2)" stroke-width="22"/>
         <circle id="arc" cx="140" cy="140" r="${R}" fill="none" stroke="var(--patina)" stroke-width="22" stroke-dasharray="0 ${C}" transform="rotate(-90 140 140)"/>
         <g id="needle" transform="rotate(0 140 140)"><line x1="140" y1="16" x2="140" y2="46" stroke="var(--hazard)" stroke-width="5"/></g>
-        <text x="140" y="136" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="30" fill="var(--text)" id="g-chance">47.50 %</text>
-        <text x="140" y="164" text-anchor="middle" font-family="Barlow Condensed, sans-serif" font-size="15" fill="var(--muted)" letter-spacing="2">WIN CHANCE</text>
+        <text x="140" y="136" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="30" fill="var(--text)" id="g-chance">47.50 %</text>
+        <text x="140" y="164" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="15" fill="var(--muted)" letter-spacing="2">WIN CHANCE</text>
       </svg></div>
       <p class="status" id="status" role="status">&nbsp;</p>
     </div>

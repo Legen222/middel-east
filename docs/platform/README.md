@@ -11,6 +11,7 @@
 | 9 | [06-backoffice-und-chat.md](06-backoffice-und-chat.md) | Operator-Backoffice (KPIs, RTP-Monitor, Spieler, Kill-Switch, RG-Fälle, Audit) und Live-Chat mit Moderation und Oil Rain |
 | 10 | [07-produktion.md](07-produktion.md) · [`deploy/`](../../deploy) | Postgres, mehrere API-Instanzen mit Leader, Live-Events per SSE, Operator-2FA, Docker, CI |
 | 11 | [08-modi-und-admin.md](08-modi-und-admin.md) | Live-Analyse der Wettbewerber im Browser; sechs neue Modi (Bandit Wheel, Jackpot, Monument Run, Hi-Lo, Blackjack, Airdrop); komplettes Backoffice (Reports, Wett-Explorer mit Nachprüfung, Limits pro Spiel, Case-Manager mit Versionen, Promo-Codes, Wartungsmodus, Seed-Ketten, Spieler-Werkzeuge) |
+| 12 | [02-konzept.md](02-konzept.md) (Richtung C) · [`platform/web`](../../platform/web) | Redesign der Oberfläche im Stil **C · BLUEPRINT (Clean Premium)**: Graphit, Blueprint-Blau, Messing, Archivo/IBM Plex, 8-px-Raster, Bemaßungslinien, Proof-Panel pro Runde; neue Navigation (Top-Bar, Spielleiste, Konto-Menü, Chat ein-/ausblendbar), Lobby mit technischen Zeichnungen aller 15 Spiele. Name SCRAPLINE und alle Spiellogik bleiben. |
 
 ```bash
 cd platform/engine && npm install && npm test && npm run sim      # 75 Tests, Monte-Carlo (60 × 10 Mio. Runden)

@@ -169,7 +169,7 @@ export const adminView: View = {
       const box = $('#detail', panel);
       const stat = (label: string, s: any) => kpi(label, signed(s.net), `${frags(s.bets, 0)} bets · ${frags(s.wagered)} wagered`);
       box.innerHTML = `
-      <section class="card" style="border-color:var(--hazard)">
+      <section class="card" style="border-color:var(--bp)">
         <div class="row" style="justify-content:space-between"><div><p class="eyebrow">Player</p><h2 class="h-sect">${esc(p.name)} <span class="muted num" style="font-size:12px">${p.id}</span></h2>
           <p class="muted" style="font-size:13px">Joined ${when(p.createdAt)} · ${esc(p.country ?? 'country unknown')} · KYC level ${p.kycLevel} · ${p.steam ? 'Steam linked' : 'no Steam'} · balance <b class="num">${frags(p.balance)}</b> Frags</p></div>
           <button class="btn ghost small" type="button" data-close>Close</button></div>

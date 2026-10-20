@@ -6,10 +6,10 @@ import { $, $$, bindStake, fairBox, frags, guard, mult, pctShort, readNum, stake
 const E = 0.03;
 const ROOMS = 8;
 const LEVELS = {
-  green: { doors: 4, traps: 1, label: 'Green', color: '#5E8C7A' },
-  blue: { doors: 3, traps: 1, label: 'Blue', color: '#4f7fa8' },
-  red: { doors: 2, traps: 1, label: 'Red', color: '#B7471D' },
-  black: { doors: 3, traps: 2, label: 'Black', color: '#2b2622' },
+  green: { doors: 4, traps: 1, label: 'Green', color: '#3FB950' },
+  blue: { doors: 3, traps: 1, label: 'Blue', color: '#4C8DF6' },
+  red: { doors: 2, traps: 1, label: 'Red', color: '#E5534B' },
+  black: { doors: 3, traps: 2, label: 'Black', color: '#E9ECEF' },
 } as const;
 type Level = keyof typeof LEVELS;
 const safe = (l: Level) => (LEVELS[l].doors - LEVELS[l].traps) / LEVELS[l].doors;
@@ -35,7 +35,7 @@ export const towersView: View = {
     </div>
     <aside class="game-side">
       ${stakeField('stake', 10)}
-      <div class="seg" role="group" aria-label="Keycard" id="levels">${(Object.keys(LEVELS) as Level[]).map((l) => `<button type="button" data-level="${l}" aria-pressed="${l === 'green'}">${LEVELS[l].label}</button>`).join('')}</div>
+      <div class="seg" role="group" aria-label="Keycard" id="levels">${(Object.keys(LEVELS) as Level[]).map((l) => `<button type="button" data-level="${l}" aria-pressed="${l === 'green'}"><span class="dot" style="background:${LEVELS[l].color}"></span>${LEVELS[l].label}</button>`).join('')}</div>
       <p class="muted" style="font-size:13px" id="lvl-info"></p>
       <button class="btn block" id="start" type="button">Enter the monument</button>
       <button class="btn win block" id="cash" type="button" hidden>Cash out</button>

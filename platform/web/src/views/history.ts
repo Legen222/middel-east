@@ -1,8 +1,8 @@
 import { type Bet, api } from '../api';
+import { gameName } from '../games';
 import type { View } from '../main';
 import { $, esc, frags, mult } from '../ui';
 
-const NAMES: Record<string, string> = { dice: 'Dice', plinko: 'Scrap Chute', upgrader: 'Workbench', cases: 'Cases', mines: 'Minefield', raid: 'Raid', crash: 'Scrap Press', coinflip: 'Coinflip', battle: 'Case Battle' };
 
 export const historyView: View = {
   title: 'History',
@@ -17,7 +17,7 @@ export const historyView: View = {
     api<Bet[]>('GET', '/bets?limit=100').then((bets) => {
       $('#rows', root).innerHTML = bets.length ? bets.map((b) => `<tr>
         <td class="num" style="font-size:12px;white-space:nowrap">${new Date(b.createdAt).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'medium' })}</td>
-        <td>${esc(NAMES[b.game] ?? b.game)}${b.status === 'open' ? ' <span class="chip">open</span>' : ''}</td>
+        <td>${esc(gameName(b.game))}${b.status === 'open' ? ' <span class="chip">open</span>' : ''}</td>
         <td class="r num">${frags(b.stake)}</td>
         <td class="r num">${b.status === 'open' ? '–' : mult(b.multiplier)}</td>
         <td class="r num ${b.payout > b.stake ? 'pos' : b.status === 'settled' ? 'neg' : ''}">${frags(b.payout)}</td>

@@ -1,27 +1,29 @@
 import { type Me, type PublicConfig, RequestError, api, token } from './api';
+import { LOGO_MARK, heroSheet } from './art';
 import { chatPanelHtml, chatView, mountChatPanel } from './chatpanel';
+import { CATEGORIES, GAMES, gameByPath } from './games';
 import { SPRITE, icon } from './icons';
-import { $, errorText, esc, frags, guard, modal, toast } from './ui';
+import { $, $$, errorText, esc, frags, guard, modal, toast } from './ui';
 import { adminView } from './views/admin';
 import { airdropView } from './views/airdrop';
 import { blackjackView } from './views/blackjack';
 import { casesView } from './views/cases';
 import { crashView } from './views/crash';
-import { battleView, coinflipView } from './views/pvp';
 import { diceView } from './views/dice';
 import { fairView } from './views/fair';
-import { historyView } from './views/history';
 import { hiloView } from './views/hilo';
+import { historyView } from './views/history';
 import { jackpotView } from './views/jackpot';
 import { limitsView } from './views/limits';
 import { lobbyView } from './views/lobby';
 import { minesView } from './views/mines';
 import { plinkoView } from './views/plinko';
+import { battleView, coinflipView } from './views/pvp';
 import { raidView } from './views/raid';
-import { towersView } from './views/towers';
-import { wheelView } from './views/wheel';
 import { rewardsView } from './views/rewards';
+import { towersView } from './views/towers';
 import { upgraderView } from './views/upgrader';
+import { wheelView } from './views/wheel';
 
 export interface Ctx {
   cfg: PublicConfig;
@@ -33,36 +35,18 @@ export interface Ctx {
 }
 export interface View { title: string; html: (c: Ctx) => string; mount?: (root: HTMLElement, c: Ctx) => void | (() => void) }
 
-const NAV: { path: string; label: string; icon: string; tag?: string; view: View }[] = [
-  { path: '', label: 'Workshop', icon: 'home', view: lobbyView },
-  { path: 'raid', label: 'Raid', icon: 'raid', view: raidView },
-  { path: 'cases', label: 'Cases', icon: 'crate', view: casesView },
-  { path: 'battle', label: 'Case Battle', icon: 'battle', view: battleView },
-  { path: 'scrap-press', label: 'Scrap Press', icon: 'crash', tag: 'LIVE', view: crashView },
-  { path: 'bandit-wheel', label: 'Bandit Wheel', icon: 'wheel', tag: 'LIVE', view: wheelView },
-  { path: 'jackpot', label: 'Jackpot', icon: 'pot', tag: 'LIVE', view: jackpotView },
-  { path: 'monument-run', label: 'Monument Run', icon: 'tower', tag: 'NEW', view: towersView },
-  { path: 'blackjack', label: 'Blackjack', icon: 'cards', tag: 'NEW', view: blackjackView },
-  { path: 'hi-lo', label: 'Hi-Lo', icon: 'cards', tag: 'NEW', view: hiloView },
-  { path: 'airdrop', label: 'Airdrop', icon: 'airdrop', tag: 'NEW', view: airdropView },
-  { path: 'coinflip', label: 'Coinflip', icon: 'coin', view: coinflipView },
-  { path: 'minefield', label: 'Minefield', icon: 'mine', view: minesView },
-  { path: 'dice', label: 'Dice', icon: 'dice', view: diceView },
-  { path: 'scrap-chute', label: 'Scrap Chute', icon: 'plinko', view: plinkoView },
-  { path: 'workbench', label: 'Workbench', icon: 'upgrade', view: upgraderView },
-];
-const ACCOUNT: { path: string; label: string; icon: string; view: View }[] = [
-  { path: 'rewards', label: 'Rewards', icon: 'trophy', view: rewardsView },
-  { path: 'limits', label: 'Limits & Breaks', icon: 'gauge', view: limitsView },
-  { path: 'fair', label: 'Provably Fair', icon: 'shield', view: fairView },
-  { path: 'history', label: 'History', icon: 'clock', view: historyView },
-];
-const COMMUNITY: { path: string; label: string; icon: string; view: View }[] = [
-  { path: 'chat', label: 'Chat', icon: 'chat', view: chatView },
-  { path: 'admin', label: 'Backoffice', icon: 'wrench', view: adminView },
-];
-const ALL = [...NAV, ...ACCOUNT, ...COMMUNITY];
+const VIEWS: Record<string, View> = {
+  '': lobbyView,
+  'monument-run': towersView, raid: raidView, minefield: minesView, dice: diceView, airdrop: airdropView, 'scrap-chute': plinkoView, workbench: upgraderView,
+  blackjack: blackjackView, 'hi-lo': hiloView,
+  'scrap-press': crashView, 'bandit-wheel': wheelView, jackpot: jackpotView,
+  cases: casesView, battle: battleView, coinflip: coinflipView,
+  rewards: rewardsView, limits: limitsView, fair: fairView, history: historyView, chat: chatView, admin: adminView,
+};
+const MAIN_NAV: [string, string][] = [['', 'Lobby'], ['rewards', 'Rewards'], ['fair', 'Provably fair'], ['limits', 'Responsible play']];
+const BOTTOM_NAV: [string, string, string][] = [['', 'Lobby', 'home'], ['rewards', 'Rewards', 'trophy'], ['chat', 'Chat', 'chat'], ['limits', 'Limits', 'gauge'], ['fair', 'Fair', 'shield']];
 const WIDE = matchMedia('(min-width: 1280px)');
+const CHAT_KEY = 'scrapline.chat';
 
 const app = $('#app');
 document.body.insertAdjacentHTML('afterbegin', SPRITE);
@@ -108,29 +92,38 @@ async function boot() {
 
 function renderFatal(e: unknown) {
   const geo = e instanceof RequestError && e.status === 451;
-  app.innerHTML = `<div class="gate"><div class="card"><p class="eyebrow">${geo ? 'Not available' : 'No connection'}</p><h1 class="h-display">SCRAP<span style="color:var(--text)">LINE</span></h1><p>${esc(geo ? errorText(e) : 'The server cannot be reached. Is platform/server running (npm start)?')}</p><button class="btn" id="retry" type="button">Try again</button></div></div>`;
+  app.innerHTML = `<div style="max-width:520px;margin:12vh auto;padding:0 16px"><div class="card">
+    <p class="eyebrow">${geo ? 'Not available' : 'No connection'}</p><h1 class="h-display">SCRAPLINE</h1>
+    <p class="muted">${esc(geo ? errorText(e) : 'The server cannot be reached. Is platform/server running (npm start)?')}</p>
+    <div><button class="btn" id="retry" type="button">Try again</button></div></div></div>`;
   $('#retry').addEventListener('click', () => boot());
 }
 
-/* ---------- gate (sign-up with 18+) ---------- */
+/* ---------- sign-up gate (18+) ---------- */
 function renderGate(cfg: PublicConfig) {
   app.innerHTML = `
   <div class="gate">
-    <div class="hazard-strip" aria-hidden="true"></div>
-    <div>
-      <p class="eyebrow">Play-money demo · 18+</p>
-      <h1 class="h-display" style="color:var(--hazard)">SCRAP<span style="color:var(--text)">LINE</span></h1>
-      <p class="muted">Honest scrap. Fair math. Every round can be verified.</p>
-    </div>
-    ${site.registrationOpen ? '' : '<p class="card" style="border-color:var(--lose)">New sign-ups are paused right now. Please try again later.</p>'}
-    ${bannerHtml()}
+    <section class="brand">
+      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+      <a class="logo" href="#/">${LOGO_MARK}<span>SCRAPLINE</span></a>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <p class="eyebrow">Play-money demo · 18+</p>
+        <h1>Every round with an open blueprint.</h1>
+        <p class="muted" style="max-width:48ch">Rust originals with published maths. Every outcome can be recomputed from its seeds, and the limits are yours to set.</p>
+      </div>
+      <div class="drawing">${heroSheet()}</div>
+      <ul class="facts"><li><b>${GAMES.length}</b>games with a proof</li><li><b>100 %</b>of rounds verifiable</li><li><b>${cfg.responsibleGambling.limitIncreaseDelayHours} h</b>before a higher limit applies</li></ul>
+    </section>
     <form class="card" id="gate" novalidate>
+      <div><p class="eyebrow">Demo account</p><h2 class="h-sect" style="font-size:22px">Start playing</h2></div>
+      ${site.registrationOpen ? '' : '<p class="status lose">New sign-ups are paused right now. Please try again later.</p>'}
+      ${bannerHtml()}
       <label class="field">Display name<input id="name" autocomplete="nickname" maxlength="24" required placeholder="e.g. Rust Rat"></label>
       <label class="check"><input type="checkbox" id="age"> <span>I am at least 18 years old. I understand that gambling can be addictive.</span></label>
-      <button class="btn block" type="submit">Start demo · ${frags(100000, 0)} Frags play money</button>
-      <p class="muted" style="font-size:13px">Demo balance has no cash value and cannot be withdrawn. ${cfg.demo ? 'Real money only comes with a licence.' : ''}</p>
+      <button class="btn block" type="submit">Create account · ${frags(100000, 0)} Frags play money</button>
+      <p class="muted" style="font-size:13px">Play money has no cash value and cannot be withdrawn.${cfg.demo ? ' Real money only comes with a licence.' : ''}</p>
     </form>
-    <p class="muted" style="font-size:13px">Help with gambling problems: <a href="https://www.begambleaware.org" target="_blank" rel="noopener">BeGambleAware</a> · <a href="https://www.gamblersanonymous.org" target="_blank" rel="noopener">Gamblers Anonymous</a></p>
+    <p class="help">Help with gambling problems: <a href="https://www.begambleaware.org" target="_blank" rel="noopener">BeGambleAware</a> · <a href="https://www.gamblersanonymous.org" target="_blank" rel="noopener">Gamblers Anonymous</a></p>
   </div>`;
   $('#gate').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -141,58 +134,109 @@ function renderGate(cfg: PublicConfig) {
 }
 
 /* ---------- shell ---------- */
+const chatPref = () => { try { const v = localStorage.getItem(CHAT_KEY); return v === null ? innerWidth >= 1440 : v === '1'; } catch { return innerWidth >= 1440; } };
+const setChatPref = (on: boolean) => { try { localStorage.setItem(CHAT_KEY, on ? '1' : '0'); } catch { /* storage blocked */ } };
+
 function renderShell() {
   const c = ctx!;
   if (unmountAside) { unmountAside(); unmountAside = null; }
-  const link = (n: (typeof ALL)[number] & { tag?: string }) => `<a class="nav" href="#/${n.path}" data-path="${n.path}">${icon(n.icon)}<span>${n.label}</span>${n.tag ? `<em>${n.tag}</em>` : ''}</a>`;
+  const showAdmin = c.cfg.demo || c.me.role !== 'player';
   app.innerHTML = `
   <div id="banner-slot">${bannerHtml()}</div>
   <div class="shell">
     <header class="topbar">
-      <a class="logo" href="#/">${icon('wrench')}SCRAP<span>LINE</span></a>
+      <a class="logo" href="#/">${LOGO_MARK}<span>SCRAPLINE</span></a>
+      <nav class="mainnav" aria-label="Main">${MAIN_NAV.map(([p, l]) => `<a href="#/${p}" data-path="${p}">${l}</a>`).join('')}</nav>
       <div class="spacer"></div>
-      <div class="sessionbar" title="Play time and result of this session">${icon('clock')}<span class="hide-s">Session</span> <b id="s-time">00:00</b> <span class="hide-s">Net</span> <b id="s-net">±0.00</b></div>
-      <a class="pill hide-s" href="#/rewards" title="Level and rewards" style="text-decoration:none;color:inherit">${icon('trophy')}<span class="num" id="level">Lvl ${c.me.level}</span></a>
-      <div class="pill"><span class="tag-demo">DEMO</span><span class="num" id="balance">${frags(c.me.balance)}</span><span class="hide-s muted">Frags</span></div>
-      <button class="btn ghost small hide-s" id="refill" type="button">Refill</button>
-      <button class="btn ghost small" id="logout" type="button" aria-label="Sign out">${icon('user')}</button>
+      <div class="sessionbar" title="Play time and result of this session">${icon('clock')}<span class="lbl">Session</span><b id="s-time">00:00</b><span class="lbl">Net</span><b id="s-net">±0.00</b></div>
+      <div class="wallet"><span class="bal"><span class="tag-demo">DEMO</span><span id="balance">${frags(c.me.balance)}</span><small>Frags</small></span>${c.cfg.demo ? '<button type="button" class="hide-s" data-refill>Refill</button>' : ''}</div>
+      <button class="iconbtn hide-s" id="chat-toggle" type="button" aria-pressed="false" aria-label="Show chat">${icon('chat')}</button>
+      <div class="menuwrap">
+        <button class="iconbtn" id="acct" type="button" aria-expanded="false" aria-haspopup="menu" aria-label="Account">${icon('user')}</button>
+        <div class="menu" id="acct-menu" role="menu" hidden>
+          <div class="who"><b>${esc(c.me.displayName)}</b><span id="level">Level ${c.me.level}</span><span> · ${esc(c.me.role)}</span></div>
+          <a role="menuitem" href="#/rewards">${icon('trophy')}Rewards</a>
+          <a role="menuitem" href="#/history">${icon('clock')}History</a>
+          <a role="menuitem" href="#/limits">${icon('gauge')}Limits &amp; breaks</a>
+          <a role="menuitem" href="#/fair">${icon('shield')}Provably fair</a>
+          <a role="menuitem" href="#/chat">${icon('chat')}Chat</a>
+          ${showAdmin ? `<a role="menuitem" href="#/admin">${icon('wrench')}Backoffice</a>` : ''}
+          <hr>
+          ${c.cfg.demo ? `<button role="menuitem" type="button" data-refill>${icon('upgrade')}Refill demo balance</button>` : ''}
+          <button role="menuitem" type="button" id="logout">${icon('user')}Sign out</button>
+        </div>
+      </div>
     </header>
-    <nav class="side" aria-label="Games">
-      <h4>Games</h4>${NAV.map(link).join('')}
-      <h4>Account</h4>${ACCOUNT.map(link).join('')}
-      <h4>Community</h4>${COMMUNITY.filter((n) => n.path !== 'admin' || c.cfg.demo || c.me.role !== 'player').map(link).join('')}
-    </nav>
-    <main id="view" tabindex="-1"></main>
-    <aside class="chatside" id="chatside"></aside>
-    <nav class="bottomnav" aria-label="Navigation">
-      ${([[ALL[0], 'Start'], [ALL[1], 'Raid'], [ALL.find((n) => n.path === 'chat')!, 'Chat'], [ALL[NAV.length + 1], 'Limits'], [ALL[NAV.length + 2], 'Fair']] as const).map(([n, l]) => `<a href="#/${n.path}" data-path="${n.path}">${icon(n.icon)}${l}</a>`).join('')}
-    </nav>
+    <nav class="gamebar" aria-label="Games">${CATEGORIES.map(([cat, label], i) => `${i ? '<span class="sep" aria-hidden="true"></span>' : ''}<span class="cat">${label}</span>${GAMES.filter((g) => g.cat === cat)
+      .map((g) => `<a class="gchip" href="#/${g.path}" data-path="${g.path}" data-game="${g.id}">${icon(g.icon)}${g.name}${g.tag === 'LIVE' ? '<em>LIVE</em>' : ''}</a>`).join('')}`).join('')}</nav>
+    <div class="layout" id="layout">
+      <main id="view" tabindex="-1"></main>
+      <aside class="chatside" id="chatside" hidden></aside>
+    </div>
+    <nav class="bottomnav" aria-label="Navigation">${BOTTOM_NAV.map(([p, l, ic]) => `<a href="#/${p}" data-path="${p}">${icon(ic)}${l}</a>`).join('')}</nav>
   </div>`;
-  $('#refill').addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => { await api('POST', '/demo/refill'); await refresh(); toast('Demo balance refilled.'); }));
-  $('#logout').addEventListener('click', async () => { if (unmountAside) { unmountAside(); unmountAside = null; } ctx = null; await api('POST', '/auth/logout').catch(() => null); token.set(null); location.hash = ''; boot(); });
+
+  $$<HTMLButtonElement>('[data-refill]').forEach((b) => b.addEventListener('click', () => guard(b, async () => { closeMenu(); await api('POST', '/demo/refill'); await refresh(); toast('Demo balance refilled.'); })));
+  $('#logout').addEventListener('click', async () => {
+    if (unmountAside) { unmountAside(); unmountAside = null; }
+    ctx = null;
+    await api('POST', '/auth/logout').catch(() => null);
+    token.set(null); location.hash = ''; boot();
+  });
+  const acct = $<HTMLButtonElement>('#acct');
+  acct.addEventListener('click', (e) => { e.stopPropagation(); $('#acct-menu').hidden ? openMenu() : closeMenu(); });
+  $('#chat-toggle').addEventListener('click', () => {
+    if (!WIDE.matches) { location.hash = '#/chat'; return; } // no room for a side panel: open the chat page
+    setChatPref(!chatPref()); syncAside();
+  });
+  api<{ game: string; enabled: boolean }[]>('GET', '/games/status').then((list) => {
+    for (const g of list) document.querySelector(`.gchip[data-game="${g.game}"]`)?.classList.toggle('paused', !g.enabled);
+  }).catch(() => null);
   paintSession();
   scheduleRealityCheck();
   syncAside();
 }
 
-/* Chat aside: mounted only while the screen is wide and the chat is not already the main view. */
+function openMenu() {
+  $('#acct-menu').hidden = false;
+  $('#acct').setAttribute('aria-expanded', 'true');
+  ($('#acct-menu a, #acct-menu button') as HTMLElement | null)?.focus();
+}
+function closeMenu() {
+  const m = document.getElementById('acct-menu');
+  if (!m || m.hidden) return;
+  m.hidden = true;
+  $('#acct').setAttribute('aria-expanded', 'false');
+}
+document.addEventListener('click', (e) => { if (!(e.target as HTMLElement).closest?.('#acct-menu')) closeMenu(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
+
+/* Chat aside: shown on wide screens when the player has it switched on and the chat is not already the main view. */
 function syncAside() {
   const aside = document.getElementById('chatside');
-  if (!ctx || !aside) return;
-  const want = WIDE.matches && !location.hash.startsWith('#/chat');
+  const layout = document.getElementById('layout');
+  if (!ctx || !aside || !layout) return;
+  const on = chatPref();
+  const want = WIDE.matches && on && !location.hash.startsWith('#/chat');
   aside.hidden = !want;
+  layout.classList.toggle('with-chat', want);
+  const toggle = document.getElementById('chat-toggle');
+  toggle?.setAttribute('aria-pressed', String(on && WIDE.matches));
+  toggle?.setAttribute('aria-label', on ? 'Hide chat' : 'Show chat');
   if (want && !unmountAside) { aside.innerHTML = chatPanelHtml('chat-aside'); unmountAside = mountChatPanel($('#chat-aside'), ctx); }
   if (!want && unmountAside) { unmountAside(); unmountAside = null; aside.innerHTML = ''; }
   fitAside();
 }
 WIDE.addEventListener('change', syncAside);
-/* Keeps the sticky chat exactly as tall as the visible space below the top bar (banners above it scroll away). */
+/* Keeps the sticky chat exactly as tall as the visible space below the top bar and the game bar. */
 function fitAside() {
   const aside = document.getElementById('chatside');
   const bar = document.querySelector<HTMLElement>('.topbar');
+  const games = document.querySelector<HTMLElement>('.gamebar');
   if (!aside || !bar || aside.hidden) return;
-  aside.style.setProperty('--topbar-h', `${bar.offsetHeight}px`);
-  aside.style.height = `${Math.max(320, innerHeight - Math.max(bar.offsetHeight, aside.getBoundingClientRect().top))}px`;
+  const stick = bar.offsetHeight + (games?.offsetHeight ?? 0);
+  aside.style.setProperty('--stick', `${stick}px`);
+  aside.style.height = `${Math.max(320, innerHeight - Math.max(stick, aside.getBoundingClientRect().top))}px`;
 }
 addEventListener('scroll', fitAside, { passive: true });
 addEventListener('resize', fitAside);
@@ -201,7 +245,7 @@ async function refresh() {
   if (!ctx) return;
   ctx.me = await api<Me>('GET', '/me');
   $('#balance').textContent = frags(ctx.me.balance);
-  $('#level').textContent = `Lvl ${ctx.me.level}`;
+  $('#level').textContent = `Level ${ctx.me.level}`;
   paintSession();
   scheduleRealityCheck();
 }
@@ -230,27 +274,43 @@ function scheduleRealityCheck() {
   realityTimer = window.setTimeout(async () => {
     await refresh().catch(() => null);
     const s = ctx!.me.session;
-    const m = modal(`<p class="eyebrow">Reality check</p><h2 class="h-sect">You have been playing for ${Math.round(s.elapsedMs / 60000)} minutes</h2>
+    const m = modal(`<p class="eyebrow">Reality check</p><h2 class="h-sect" style="font-size:20px">You have been playing for ${Math.round(s.elapsedMs / 60000)} minutes</h2>
       <p>Wagered this session: <b class="num">${frags(s.wagered)}</b> Frags · Result: <b class="num ${s.net < 0 ? 'neg' : 'pos'}">${s.net > 0 ? '+' : ''}${frags(s.net)}</b> Frags · ${s.bets} bets.</p>
       <div class="row"><button class="btn" data-a="go" type="button">Keep playing</button><a class="btn ghost" href="#/limits" data-a="limits">Limits &amp; breaks</a></div>`);
     m.root.querySelectorAll('[data-a]').forEach((b) => b.addEventListener('click', () => { m.close(); scheduleRealityCheck(); }));
   }, Math.min(wait, 2 ** 31 - 1));
 }
 
+/* Breadcrumb and published figures on every game page, from the shared game list. */
+function decorateGame(root: HTMLElement, path: string) {
+  const g = gameByPath(path);
+  const h1 = root.querySelector('h1.h-display');
+  if (!g || !h1) return;
+  const box = h1.parentElement!;
+  const cat = CATEGORIES.find(([k]) => k === g.cat)![1];
+  box.insertAdjacentHTML('afterbegin', `<nav class="crumbs" aria-label="Breadcrumb"><a href="#/">Lobby</a><span aria-hidden="true">/</span><span>${cat}</span></nav>`);
+  const desc = [...box.children].find((el) => el.tagName === 'P' && !el.classList.contains('eyebrow') && (h1.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING));
+  (desc ?? h1).insertAdjacentHTML('afterend', `<div class="specs"><span class="spec rtp">RTP <b>${g.rtp}</b></span><span class="spec">House edge <b>${g.edge}</b></span><a class="spec" href="#/fair">${icon('shield')}Proof on every round</a></div>`);
+}
+
 /* ---------- router ---------- */
 function route() {
   if (!ctx) return;
-  const path = location.hash.replace(/^#\/?/, '').split('?')[0];
-  const entry = ALL.find((n) => n.path === path) ?? ALL[0];
-  document.querySelectorAll<HTMLAnchorElement>('[data-path]').forEach((a) => {
-    if (a.dataset.path === entry.path) a.setAttribute('aria-current', 'page');
+  closeMenu();
+  const raw = location.hash.replace(/^#\/?/, '').split('?')[0];
+  const path = raw in VIEWS ? raw : '';
+  const view = VIEWS[path];
+  $$<HTMLAnchorElement>('[data-path]').forEach((a) => {
+    if (a.dataset.path === path) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
   });
+  document.querySelector('.gchip[aria-current="page"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   if (typeof unmount === 'function') unmount();
   const root = $('#view');
-  root.innerHTML = entry.view.html(ctx);
-  document.title = `${entry.view.title} · SCRAPLINE Demo`;
-  unmount = entry.view.mount?.(root, ctx);
+  root.innerHTML = view.html(ctx);
+  decorateGame(root, path);
+  document.title = `${view.title} · SCRAPLINE`;
+  unmount = view.mount?.(root, ctx);
   syncAside();
   root.focus({ preventScroll: true });
   window.scrollTo({ top: 0 });

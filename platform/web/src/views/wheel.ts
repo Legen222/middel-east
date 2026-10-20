@@ -13,7 +13,7 @@ interface WheelState {
 }
 
 const FIELDS: Field[] = ['1', '3', '5', '10', '20'];
-const COLOR: Record<Field, string> = { '1': '#8f8a80', '3': '#5E8C7A', '5': '#4f7fa8', '10': '#B7471D', '20': '#E8B21A' };
+const COLOR: Record<Field, string> = { '1': '#8B949E', '3': '#3FB950', '5': '#4C8DF6', '10': '#E5534B', '20': '#C9A45C' };
 const SEG = 68; // segment width + gap (px)
 const LAPS = 6;
 const sha256 = async (s: string) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))].map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -105,7 +105,7 @@ export const wheelView: View = {
         $('.tot', b).textContent = mine ? `you ${frags(mine)}` : `${frags(st!.totals[f] ?? 0)} in`;
       });
       $('#hist', root).innerHTML = st.history.slice(0, 24).map((h) => `<span class="chip" style="border-color:${COLOR[h.field]};color:${COLOR[h.field]}">${h.field}</span>`).join('');
-      $('#bets', root).innerHTML = st.bets.length ? st.bets.map((b) => `<tr${b.you ? ' style="color:var(--hazard)"' : ''}><td>${esc(b.name)}${b.you ? ' (you)' : ''}</td><td><span class="chip" style="color:${COLOR[b.field]};border-color:${COLOR[b.field]}">${b.field}</span></td><td class="r num">${frags(b.stake)}</td><td class="r num ${b.payout ? 'pos' : b.payout === 0 ? 'neg' : ''}">${b.payout === null ? '–' : frags(b.payout)}</td></tr>`).join('')
+      $('#bets', root).innerHTML = st.bets.length ? st.bets.map((b) => `<tr${b.you ? ' style="color:var(--bp)"' : ''}><td>${esc(b.name)}${b.you ? ' (you)' : ''}</td><td><span class="chip" style="color:${COLOR[b.field]};border-color:${COLOR[b.field]}">${b.field}</span></td><td class="r num">${frags(b.stake)}</td><td class="r num ${b.payout ? 'pos' : b.payout === 0 ? 'neg' : ''}">${b.payout === null ? '–' : frags(b.payout)}</td></tr>`).join('')
         : '<tr><td colspan="4" class="muted">No bets this spin yet.</td></tr>';
       let link = '';
       if (r?.seed && r.previousSeed) link = (await sha256(r.seed)) === r.previousSeed ? '✓ matches previous round' : '✗ does NOT match';

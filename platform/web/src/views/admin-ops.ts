@@ -135,7 +135,7 @@ function editor(panel: HTMLElement, k: any | null) {
   const box = $('#editor', panel);
   let items: Item[] = k ? k.items.map((i: any, n: number) => ({ name: i.name, value: i.value, weight: k.weights[n] })) : [{ name: 'Scrap', value: 5, weight: 900 }, { name: 'Rare skin', value: 200, weight: 100 }];
   box.innerHTML = `
-  <section class="card" style="border-color:var(--hazard)">
+  <section class="card" style="border-color:var(--bp)">
     <div class="row" style="justify-content:space-between"><h2 class="h-sect">${k ? `Edit ${esc(k.name)} · next version v${k.version + 1}` : 'New case'}</h2><button class="btn ghost small" type="button" data-close>Close</button></div>
     <div class="row">
       <label class="field" style="flex:1;min-width:160px">Id<input data-id value="${esc(k?.id ?? '')}" ${k ? 'readonly' : ''} placeholder="e.g. rad-town" maxlength="32"></label>
@@ -280,7 +280,7 @@ async function betDetail(panel: HTMLElement, path: string) {
   const box = $('#betdetail', panel);
   const fair = Object.entries(d.fairness ?? {}).filter(([, x]) => x !== null && x !== undefined);
   box.innerHTML = `
-  <section class="card" style="border-color:${v.status === 'verified' ? 'var(--patina)' : v.status === 'mismatch' ? 'var(--lose)' : 'var(--line)'}">
+  <section class="card" style="border-color:${v.status === 'verified' ? 'var(--ok)' : v.status === 'mismatch' ? 'var(--lose)' : 'var(--line)'}">
     <div class="row" style="justify-content:space-between"><div><p class="eyebrow">${esc(d.gameName)} · ${esc(d.ref)}</p>
       <h2 class="h-sect">${esc(d.name ?? '')} · stake ${frags(d.stake)} · paid ${frags(d.payout)}</h2></div>
       <span class="chip ${v.status === 'verified' ? 'win' : v.status === 'mismatch' ? 'lose' : ''}">${v.status === 'verified' ? '✓ verified' : v.status === 'mismatch' ? '✗ mismatch' : 'pending'}</span></div>

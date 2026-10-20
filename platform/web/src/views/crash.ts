@@ -46,6 +46,7 @@ export const crashView: View = {
     const cv = $<HTMLCanvasElement>('#cv', root);
     const ctx = cv.getContext('2d')!;
     const serverNow = () => Date.now() + offset;
+    const css = getComputedStyle(root); // live: theme colours for the canvas
     const status = (t: string, cls = '') => { const s = $('#status', root); s.textContent = t; s.className = `status ${cls}`; };
 
     const load = async () => {
@@ -62,7 +63,7 @@ export const crashView: View = {
       if (!st) return;
       const r = st.round;
       $('#hist', root).innerHTML = st.history.map((h) => `<span class="chip ${h.crash >= 2 ? 'win' : h.crash < 1.2 ? 'lose' : ''}">${mult(h.crash)}</span>`).join('');
-      $('#bets', root).innerHTML = st.bets.length ? st.bets.map((b) => `<tr${b.you ? ' style="color:var(--hazard)"' : ''}><td>${esc(b.name)}${b.you ? ' (you)' : ''}</td><td class="r num">${frags(b.stake)}</td><td class="r num">${mult(b.target)}</td><td class="r num">${b.cashedAt ? mult(b.cashedAt) : r?.status === 'crashed' && b.payout ? mult(b.target) : '–'}</td><td class="r num ${b.payout ? 'pos' : b.payout === 0 ? 'neg' : ''}">${b.payout === null ? '–' : frags(b.payout)}</td></tr>`).join('')
+      $('#bets', root).innerHTML = st.bets.length ? st.bets.map((b) => `<tr${b.you ? ' style="color:var(--bp)"' : ''}><td>${esc(b.name)}${b.you ? ' (you)' : ''}</td><td class="r num">${frags(b.stake)}</td><td class="r num">${mult(b.target)}</td><td class="r num">${b.cashedAt ? mult(b.cashedAt) : r?.status === 'crashed' && b.payout ? mult(b.target) : '–'}</td><td class="r num ${b.payout ? 'pos' : b.payout === 0 ? 'neg' : ''}">${b.payout === null ? '–' : frags(b.payout)}</td></tr>`).join('')
         : '<tr><td colspan="5" class="muted">No bets in this round yet.</td></tr>';
       const mine = st.bets.find((b) => b.you);
       ($('#bet', root) as HTMLButtonElement).disabled = !(r?.status === 'betting') || Boolean(mine);
@@ -101,10 +102,10 @@ export const crashView: View = {
       const mMax = Math.max(2, m * 1.15);
       const X = (t: number) => 40 * dpr + (t / tMax) * (W - 60 * dpr);
       const Y = (v: number) => H - 26 * dpr - ((v - 1) / (mMax - 1)) * (H - 50 * dpr);
-      ctx.strokeStyle = '#4A3F33'; ctx.lineWidth = dpr; ctx.font = `${11 * dpr}px JetBrains Mono, monospace`; ctx.fillStyle = '#A89B87';
+      ctx.strokeStyle = css.getPropertyValue('--line').trim(); ctx.lineWidth = dpr; ctx.font = `${11 * dpr}px IBM Plex Mono, monospace`; ctx.fillStyle = css.getPropertyValue('--muted').trim();
       for (const g of [1, 1.5, 2, 5, 10, 50, 100, 500, 1000]) if (g <= mMax) { ctx.beginPath(); ctx.moveTo(X(0), Y(g)); ctx.lineTo(W, Y(g)); ctx.stroke(); ctx.fillText(`${g}×`, 4 * dpr, Y(g) + 4 * dpr); }
       const tEnd = crashed ? Math.log(r.crash!) / st.rate : elapsed;
-      ctx.strokeStyle = crashed ? '#D0563B' : '#E8B21A'; ctx.lineWidth = 3 * dpr; ctx.beginPath();
+      ctx.strokeStyle = css.getPropertyValue(crashed ? '--lose' : '--bp').trim(); ctx.lineWidth = 2.5 * dpr; ctx.beginPath();
       for (let i = 0; i <= 120; i++) { const t = (tEnd * i) / 120; const v = Math.exp(st.rate * t); i ? ctx.lineTo(X(t), Y(v)) : ctx.moveTo(X(t), Y(v)); }
       ctx.stroke();
       big.textContent = mult(Math.floor(m * 100) / 100); big.className = `big-mult ${crashed ? 'lose' : ''}`;

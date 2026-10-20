@@ -17,7 +17,7 @@ export const diceView: View = {
           <rect x="0" y="24" width="1000" height="12" fill="var(--surface-2)"/>
           <rect id="winzone" x="0" y="24" width="495" height="12" fill="var(--patina)"/>
           <line id="marker" x1="-10" x2="-10" y1="8" y2="52" stroke="var(--hazard)" stroke-width="4"/>
-          ${[0, 25, 50, 75, 100].map((v) => `<text x="${v * 10}" y="58" font-size="12" fill="var(--muted)" text-anchor="${v === 0 ? 'start' : v === 100 ? 'end' : 'middle'}" font-family="JetBrains Mono, monospace">${v}</text>`).join('')}
+          ${[0, 25, 50, 75, 100].map((v) => `<text x="${v * 10}" y="58" font-size="12" fill="var(--muted)" text-anchor="${v === 0 ? 'start' : v === 100 ? 'end' : 'middle'}" font-family="IBM Plex Mono, monospace">${v}</text>`).join('')}
         </svg>
       </div>
       <p class="status" id="status" role="status">&nbsp;</p>

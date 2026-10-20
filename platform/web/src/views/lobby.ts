@@ -1,75 +1,77 @@
 import { api } from '../api';
+import { gameArt, heroSheet } from '../art';
+import { CATEGORIES, GAMES, type GameMeta, gameName } from '../games';
 import { icon } from '../icons';
 import type { View } from '../main';
 import { $, esc, pct } from '../ui';
 
-const GAMES = [
-  { path: 'raid', name: 'Raid', icon: 'raid', rtp: 0.97, sig: true, line: 'Pick an explosive per wall' },
-  { path: 'cases', name: 'Cases', icon: 'crate', rtp: 0.93, line: 'Every drop rate is public' },
-  { path: 'scrap-press', name: 'Scrap Press', icon: 'crash', rtp: 0.98, line: 'Live crash, hash chain' },
-  { path: 'bandit-wheel', name: 'Bandit Wheel', icon: 'wheel', rtp: 0.96, line: 'Live, 1 / 3 / 5 / 10 / 20' },
-  { path: 'jackpot', name: 'Jackpot', icon: 'pot', rtp: 0.96, line: 'PvP pot, 4 % fee' },
-  { path: 'monument-run', name: 'Monument Run', icon: 'tower', rtp: 0.97, line: '8 rooms, 4 keycards' },
-  { path: 'blackjack', name: 'Blackjack', icon: 'cards', rtp: 0.9931, line: '3:2, S17, peek' },
-  { path: 'hi-lo', name: 'Hi-Lo', icon: 'cards', rtp: 0.97, line: 'Higher or lower, skip free' },
-  { path: 'airdrop', name: 'Airdrop', icon: 'airdrop', rtp: 0.98, line: 'Limbo, 1.01–10,000×' },
-  { path: 'battle', name: 'Case Battle', icon: 'battle', rtp: 0.93, line: 'PvP, 2–4 seats' },
-  { path: 'coinflip', name: 'Coinflip', icon: 'coin', rtp: 0.96, line: 'PvP, 4 % of the pot' },
-  { path: 'minefield', name: 'Minefield', icon: 'mine', rtp: 0.97, line: '5×5, 1–24 mines' },
-  { path: 'dice', name: 'Dice', icon: 'dice', rtp: 0.98, line: 'Chance 0.01–98 %' },
-  { path: 'scrap-chute', name: 'Scrap Chute', icon: 'plinko', rtp: 0.97, line: '8/12/16 rows' },
-  { path: 'workbench', name: 'Workbench', icon: 'upgrade', rtp: 0.95, line: 'Upgrade your stake' },
-];
+const tile = (g: GameMeta) => `
+  <a class="tile ${g.tag === 'SIGNATURE' ? 'sig' : ''}" href="#/${g.path}" data-game="${g.id}">
+    <div class="art-box">${gameArt(g.id)}</div>
+    ${g.tag ? `<span class="flag ${g.tag}">${g.tag}</span>` : ''}
+    <span class="paused-tag" hidden>PAUSED</span>
+    <div class="body"><b>${g.name}</b><span class="line">${g.line}</span><span class="meta"><span>RTP</span><em>${g.rtp}</em></span></div>
+  </a>`;
 
-const GAME_ID: Record<string, string> = {
-  raid: 'raid', cases: 'cases', 'scrap-press': 'crash', battle: 'battle', coinflip: 'coinflip', minefield: 'mines', dice: 'dice', 'scrap-chute': 'plinko', workbench: 'upgrader',
-  'bandit-wheel': 'wheel', jackpot: 'jackpot', 'monument-run': 'towers', blackjack: 'blackjack', 'hi-lo': 'hilo', airdrop: 'airdrop',
-};
+const corners = '<span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>';
 
 export const lobbyView: View = {
-  title: 'Workshop',
+  title: 'Lobby',
   html: (c) => `
     <section class="hero">
-      <div class="hero-walls" aria-hidden="true">${['#8a6a3c', '#a0763f', '#8b8680', '#7d8a93', '#5b6a78', '#B7471D'].map((w, i) => `<i style="background:${w};width:${100 - i * 9}%"></i>`).join('')}</div>
-      <p class="eyebrow">Signature · Raid</p>
-      <h1 class="h-display" style="max-width:15ch">Pick your explosive. Every wall counts.</h1>
-      <p>Six layers from Twig to Tool Cupboard. C4, rocket or satchel: you decide at every wall. 97 % RTP on every path, mathematically proven.</p>
-      <div class="row"><a class="btn" href="#/raid">${icon('raid')} Start raid</a><span class="tape">Seed verified</span></div>
+      ${corners}
+      <div class="copy">
+        <p class="eyebrow">Open blueprint · play money · 18+</p>
+        <h1>Every round with an open blueprint.</h1>
+        <p>Fifteen games with published maths, a proof on every round and limits you set yourself. Start with Monument Run: eight rooms, one door each, 97 % RTP however far you climb.</p>
+        <div class="row"><a class="btn" href="#/monument-run">${icon('tower')} Play Monument Run</a><a class="btn ghost" href="#/fair">${icon('shield')} How verification works</a></div>
+      </div>
+      <div class="drawing">${heroSheet()}</div>
     </section>
 
-    <section class="card" style="gap:14px">
-      <div class="row" style="justify-content:space-between"><h2 class="h-sect">Originals</h2><span class="muted" style="font-size:13px">RTP per game, proven and checked by Monte Carlo</span></div>
-      <div class="tiles">${GAMES.map((g) => `<a class="tile ${g.sig ? 'sig' : ''}" href="#/${g.path}" data-game="${GAME_ID[g.path]}">${icon(g.icon)}<b>${g.name}</b><span class="paused-tag" hidden>PAUSED</span><span class="muted" style="font-size:13px">${g.line}</span><span class="meta"><span>RTP</span><em>${g.path === 'scrap-chute' ? '96.5–97 %' : g.path === 'cases' || g.path === 'battle' ? '≤ 93 %' : g.path === 'blackjack' ? '99.31 % max' : pct(g.rtp, 0)}</em></span></a>`).join('')}</div>
-    </section>
-
-    <section class="card">
-      <div class="row" style="justify-content:space-between"><h2 class="h-sect">Actual RTP · last 30 days</h2><a href="#/fair" style="font-size:13px">How to verify any round</a></div>
-      <div class="tablewrap"><table><thead><tr><th>Game</th><th class="r">Bets</th><th class="r">Wagered</th><th class="r">Paid out</th><th class="r">RTP</th></tr></thead><tbody id="rtp"><tr><td colspan="5" class="muted">Loading …</td></tr></tbody></table></div>
-      <p class="muted" style="font-size:13px">Few bets swing a lot. The number becomes meaningful after a few thousand rounds.</p>
+    <section class="stats" aria-label="Key figures">
+      <div><b>${GAMES.length}</b><span>games, each with a published proof</span></div>
+      <div><b>93–99.31 %</b><span>RTP range across all games</span></div>
+      <div><b id="st-bets">–</b><span>bets settled in the last 30 days</span></div>
+      <div><b id="st-rtp">–</b><span>actual RTP paid out, last 30 days</span></div>
     </section>
 
     ${c.me.block ? `<section class="card" style="border-color:var(--lose)"><p>${c.me.block.kind === 'operator' ? 'Your account is on hold. Please contact support.' : 'Your account is on a break. You cannot play until the break ends.'}</p></section>` : ''}
+
+    ${CATEGORIES.map(([cat, label, desc]) => `
+    <section style="display:flex;flex-direction:column;gap:14px">
+      <div class="sect-head"><div><p class="eyebrow">${GAMES.filter((g) => g.cat === cat).length} games</p><h2 class="h-sect" style="font-size:22px">${label}</h2></div><p>${desc}</p></div>
+      <div class="tiles">${GAMES.filter((g) => g.cat === cat).map(tile).join('')}</div>
+    </section>`).join('')}
+
+    <section class="card">
+      <div class="sect-head"><div><p class="eyebrow">Fair-Ledger</p><h2 class="h-sect">Published vs. actual RTP · last 30 days</h2></div><a href="#/fair" style="font-size:13px">Verify any round →</a></div>
+      <div class="tablewrap"><table><thead><tr><th>Game</th><th class="r">Bets</th><th class="r">Wagered</th><th class="r">Paid out</th><th class="r">Actual</th><th class="r">Published</th></tr></thead><tbody id="rtp"><tr><td colspan="6" class="muted">Loading …</td></tr></tbody></table></div>
+      <p class="muted" style="font-size:13px">A few bets swing a lot; the actual figure settles towards the published one after a few thousand rounds.</p>
+    </section>
   `,
   mount: (root) => {
     api<{ game: string; enabled: boolean; reason: string | null }[]>('GET', '/games/status').then((list) => {
       for (const g of list) {
-        const tile = root.querySelector<HTMLElement>(`[data-game="${g.game}"]`);
-        if (!tile) continue;
-        tile.classList.toggle('paused', !g.enabled);
-        (tile.querySelector('.paused-tag') as HTMLElement).hidden = g.enabled;
-        if (!g.enabled) tile.title = `Paused for maintenance${g.reason ? `: ${g.reason}` : ''}`;
+        const t = root.querySelector<HTMLElement>(`.tile[data-game="${g.game}"]`);
+        if (!t) continue;
+        t.classList.toggle('paused', !g.enabled);
+        (t.querySelector('.paused-tag') as HTMLElement).hidden = g.enabled;
+        if (!g.enabled) t.title = `Paused${g.reason ? `: ${g.reason}` : ''}`;
       }
     }).catch(() => null);
-    const names: Record<string, string> = {
-      raid: 'Raid', cases: 'Cases', mines: 'Minefield', dice: 'Dice', plinko: 'Scrap Chute', upgrader: 'Workbench', crash: 'Scrap Press', coinflip: 'Coinflip', battle: 'Case Battle',
-      wheel: 'Bandit Wheel', jackpot: 'Jackpot', towers: 'Monument Run', blackjack: 'Blackjack', hilo: 'Hi-Lo', airdrop: 'Airdrop',
-    };
     api<{ games: { game: string; bets: number; wagered: number; paid: number; rtp: number | null }[] }>('GET', '/stats/rtp?days=30').then((s) => {
       const body = $('#rtp', root);
       if (!body) return;
+      const bets = s.games.reduce((a, g) => a + g.bets, 0);
+      const wagered = s.games.reduce((a, g) => a + g.wagered, 0);
+      const paid = s.games.reduce((a, g) => a + g.paid, 0);
+      $('#st-bets', root).textContent = bets.toLocaleString('en-US');
+      $('#st-rtp', root).textContent = wagered ? pct(paid / wagered) : '–';
       body.innerHTML = s.games.length
-        ? s.games.map((g) => `<tr><td>${esc(names[g.game] ?? g.game)}</td><td class="r num">${g.bets.toLocaleString('en-US')}</td><td class="r num">${(g.wagered / 1000).toLocaleString('en-US')}</td><td class="r num">${(g.paid / 1000).toLocaleString('en-US')}</td><td class="r num">${g.rtp === null ? '–' : pct(g.rtp)}</td></tr>`).join('')
-        : '<tr><td colspan="5" class="muted">No rounds yet.</td></tr>';
+        ? s.games.map((g) => `<tr><td>${esc(gameName(g.game))}</td><td class="r num">${g.bets.toLocaleString('en-US')}</td><td class="r num">${(g.wagered / 1000).toLocaleString('en-US')}</td><td class="r num">${(g.paid / 1000).toLocaleString('en-US')}</td>
+            <td class="r num">${g.rtp === null ? '–' : pct(g.rtp)}</td><td class="r num muted">${esc(GAMES.find((x) => x.id === g.game)?.rtp ?? '–')}</td></tr>`).join('')
+        : '<tr><td colspan="6" class="muted">No rounds yet.</td></tr>';
     }).catch(() => null);
   },
 };

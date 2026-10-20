@@ -2,7 +2,7 @@ import { type RaidBet, api } from '../api';
 import type { View } from '../main';
 import { $, $$, bindStake, esc, fairBox, frags, guard, mult, readNum, sleep, stakeField } from '../ui';
 
-const LAYERS: [string, string][] = [['Twig', '#8a6a3c'], ['Wood', '#a0763f'], ['Stone', '#8b8680'], ['Metal', '#7d8a93'], ['HQM', '#5b6a78'], ['Tool Cupboard', '#B7471D']];
+const LAYERS: [string, string][] = [['Twig', '#8A7A62'], ['Wood', '#9C7F5A'], ['Stone', '#7D8389'], ['Metal', '#6F8496'], ['HQM', '#5A86AE'], ['Tool Cupboard', '#C9A45C']];
 const TOOLS = [
   { id: 'c4', name: 'C4', p: 0.8 },
   { id: 'rocket', name: 'Rocket', p: 0.6 },
@@ -16,7 +16,7 @@ export const raidView: View = {
   <section class="game">
     <div class="game-stage">
       <div class="game-head">
-        <div><p class="eyebrow">Signature</p><h1 class="h-display">Raid</h1>
+        <div><p class="eyebrow">Original</p><h1 class="h-display">Raid</h1>
           <p>Pick an explosive for every wall. Cashing out pays stake × 0.97 ÷ (product of the chances). However you play: 97 % RTP.</p></div>
         <div class="big-mult" id="mult">1.00×</div>
       </div>

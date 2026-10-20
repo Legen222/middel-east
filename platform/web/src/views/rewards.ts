@@ -55,7 +55,7 @@ export const rewardsView: View = {
       const k = span ? (r.xp - r.levelXp) / span : 1;
       $('#level', root).innerHTML = `
         <div class="row" style="justify-content:space-between"><b class="h-sect">Level ${r.level}</b><span class="num muted">${r.xp.toLocaleString('en-US')} / ${r.nextLevelXp.toLocaleString('en-US')} XP</span></div>
-        <div style="height:14px;border:1px solid var(--line);border-radius:2px;background:var(--bg);overflow:hidden"><div style="height:100%;width:${Math.round(k * 100)}%;background:repeating-linear-gradient(-45deg,var(--hazard) 0 10px,#c79612 10px 20px)"></div></div>
+        <div style="height:10px;border:1px solid var(--line);border-radius:999px;background:var(--bg-2);overflow:hidden"><div style="height:100%;width:${Math.round(k * 100)}%;background:linear-gradient(90deg,var(--bp),var(--bp-hi))"></div></div>
         <p class="muted" style="font-size:13px">1 XP = 1 Frag of expected loss. Level L needs 100 · (L − 1)^1.6 XP.</p>`;
 
       $('#rakeback', root).innerHTML = `
@@ -83,7 +83,7 @@ export const rewardsView: View = {
       const crew = r.crew;
       $('#crew', root).innerHTML = `
         <h2 class="h-sect">${icon('user')} Crew code</h2>
-        ${crew.code ? `<p>Your code: <b class="num" style="color:var(--hazard)">${esc(crew.code)}</b> · ${crew.members} members · share ${pct(crew.rate, 1)} of NGR</p>
+        ${crew.code ? `<p>Your code: <b class="num" style="color:var(--brass)">${esc(crew.code)}</b> · ${crew.members} members · share ${pct(crew.rate, 1)} of NGR</p>
           <p class="muted" style="font-size:13px">NGR since last payout: <span class="num">${frags(crew.ngr)}</span> Frags (your crew's wagers − wins − bonuses)</p>
           <button class="btn" id="cc" type="button" ${crew.available < 1 ? 'disabled' : ''}>Claim · ${frags(crew.available)}</button>`
         : `<div class="row"><input id="code" class="num" maxlength="16" placeholder="YOUR OWN CODE" style="flex:1;min-width:140px;background:var(--bg);border:1px solid var(--line);border-radius:3px;padding:9px;color:var(--text)"><button class="btn ghost" id="mk" type="button">Create</button></div>`}

@@ -26,7 +26,7 @@ export const blackjackView: View = {
       <div class="game-head">
         <div><p class="eyebrow">Original · Cards</p><h1 class="h-display">Blackjack</h1>
           <p>Blackjack pays 3:2, dealer stands on soft 17 and peeks for blackjack. Double on any two cards, split once. With perfect play the RTP is 99.31 %; it is a skill game, so mistakes lower it.</p></div>
-        <div class="big-mult" id="res">&nbsp;</div>
+        <div class="big-mult" id="res"></div>
       </div>
       <div class="felt">
         <div><p class="eyebrow" style="color:var(--muted)">Dealer <span class="num" id="dtotal"></span></p><div class="cardrow" id="dealer"></div></div>
@@ -73,7 +73,7 @@ export const blackjackView: View = {
         const net = bet!.payout - bet!.stake;
         r.textContent = `${net > 0 ? '+' : net < 0 ? '−' : '±'}${frags(Math.abs(net))}`;
         r.className = `big-mult ${net > 0 ? 'win' : net < 0 ? 'lose' : ''}`;
-      } else { r.innerHTML = '&nbsp;'; r.className = 'big-mult'; }
+      } else { r.textContent = ''; r.className = 'big-mult'; }
       $('#fair', root).innerHTML = bet ? fairBox(bet.fairness) : fairBox({ ...c.me.seed, nonce: c.me.seed.nextNonce });
     };
 
