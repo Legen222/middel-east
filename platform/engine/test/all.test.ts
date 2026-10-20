@@ -9,6 +9,11 @@ import {
   playPlinko, playRaid, playUpgrader, plinkoTheoreticalRtp, priceCase, raidMultiplier, settleCrash,
   sha256, sha256Hex, toHex, upgraderChance, verifyChainLink, verifyCommit,
   type FloatSource, type PlinkoRisk, type PlinkoRows, type RaidTool,
+  WHEEL_COUNTS, WHEEL_FIELDS, WHEEL_LAYOUT, spinWheel, wheelPayout,
+  drawJackpot, jackpotTicketRanges, airdropH, airdropChance, playAirdrop,
+  TOWER_LEVELS, TOWER_ROOMS, layTraps, playTowers, towerSafeChance, towersMultiplier, type TowerLevel,
+  drawCard, hiloChance, hiloMultiplier, hiloWins,
+  bjActions, bjAct, bjDeal, bjSettle, cardValue, handTotal, optimalAction, optimalRtp,
 } from '../src/index';
 
 /** Feeds a fixed list of floats. */
@@ -259,5 +264,179 @@ describe('cases', () => {
     assert.deepEqual(tie.payouts, [100, 100]);
     const term = playBattle(fixed([0.9, 0.1, 0.1, 0.9]), [c, c], 2, 'terminal');
     assert.deepEqual(term.winners, [1]);
+  });
+});
+
+describe('bandit wheel — exact RTP over all 25 fields', () => {
+  it('layout has 12/6/4/2/1 fields and pays 2/4/6/12/24×', () => {
+    for (const f of WHEEL_FIELDS) assert.equal(WHEEL_LAYOUT.filter((x) => x === f).length, WHEEL_COUNTS[f]);
+    assert.equal(WHEEL_LAYOUT.length, 25);
+    assert.deepEqual(WHEEL_FIELDS.map((f) => wheelPayout(f)), [2, 4, 6, 12, 24].map((x) => x));
+  });
+  it('every field type returns exactly 1 − e', () => {
+    for (const f of WHEEL_FIELDS) {
+      let ret = 0;
+      for (let i = 0; i < 25; i++) if (spinWheel(fixed([at(i, 25)])).field === f) ret += wheelPayout(f) / 25;
+      close(ret, 1 - EDGE.wheel, 1e-12);
+    }
+  });
+});
+
+describe('jackpot — exact EV by walking every ticket', () => {
+  it('ticket ranges follow entry order and cover the pot without gaps', () => {
+    assert.deepEqual(jackpotTicketRanges([{ amount: 5 }, { amount: 3 }, { amount: 12 }]), [{ from: 0, to: 5 }, { from: 5, to: 8 }, { from: 8, to: 20 }]);
+    assert.throws(() => jackpotTicketRanges([{ amount: 0 }]));
+    assert.throws(() => drawJackpot(fixed([0.5]), [{ amount: 5 }]));
+  });
+  it('each entry wins with probability amount/total and gets RTP 1 − fee', () => {
+    const entries = [{ amount: 5 }, { amount: 3 }, { amount: 12 }, { amount: 7 }];
+    const total = 27;
+    const wins = [0, 0, 0, 0];
+    for (let t = 0; t < total; t++) {
+      const o = drawJackpot(fixed([at(t, total)]), entries);
+      assert.equal(o.ticket, t);
+      wins[o.winner]++;
+    }
+    assert.deepEqual(wins, entries.map((e) => e.amount));
+    const payout = drawJackpot(fixed([0.1]), entries).payout;
+    assert.equal(payout, Math.floor(total * (1 - EDGE.jackpot)));
+    entries.forEach((e, i) => close((wins[i] / total) * total * (1 - EDGE.jackpot) / e.amount, 1 - EDGE.jackpot, 1e-12));
+  });
+});
+
+describe('airdrop (limbo)', () => {
+  it('builds a 52-bit integer from two floats', () => {
+    assert.equal(airdropH(fixed([0, 0])), 0);
+    assert.equal(airdropH(fixed([1 - 2 ** -32, 1 - 2 ** -20])), 2 ** 52 - 1);
+    assert.equal(airdropH(fixed([0.5, 0.5])), 2 ** 51 + 2 ** 19);
+  });
+  it('P(landing ≥ x) = (1 − e)/x at the exact boundary h for several targets', () => {
+    const E = 2 ** 52;
+    for (const x of [1.01, 2, 3.33, 10, 100, 9999.99]) {
+      // smallest h that lands ≥ x: ⌈E(1 − (1−e)/x)⌉ up to float rounding, located exactly as in the crash proof
+      let hMin = Math.ceil(E * (1 - (1 - EDGE.airdrop) / x));
+      while (hMin > 0 && crashFromH(hMin - 1, EDGE.airdrop) >= x) hMin--;
+      while (crashFromH(hMin, EDGE.airdrop) < x) hMin++;
+      const toFloats = (h: number) => [Math.floor(h / 2 ** 20) / 2 ** 32, (h % 2 ** 20) / 2 ** 20];
+      assert.equal(playAirdrop(fixed(toFloats(hMin)), x).win, true, `x=${x} at boundary`);
+      assert.equal(playAirdrop(fixed(toFloats(hMin - 1)), x).win, false, `x=${x} below boundary`);
+      close((E - hMin) / E, airdropChance(x), 1e-9);
+    }
+    assert.throws(() => playAirdrop(fixed([0.5, 0.5]), 1));
+  });
+});
+
+describe('monument run (towers) — exact RTP for every level and room count', () => {
+  for (const level of Object.keys(TOWER_LEVELS) as TowerLevel[]) {
+    it(`${level}: every door equally likely a trap, mult_k · p^k = 1 − e`, () => {
+      const { doors, traps } = TOWER_LEVELS[level];
+      const counts = new Array(doors).fill(0);
+      // enumerate all float combinations for the traps of one room (midpoints of each choice)
+      const choices: number[][] = [[]];
+      for (let i = 0; i < traps; i++) {
+        const next: number[][] = [];
+        for (const c of choices) for (let j = 0; j < doors - i; j++) next.push([...c, at(j, doors - i)]);
+        choices.splice(0, choices.length, ...next);
+      }
+      for (const c of choices) {
+        const room = layTraps(fixed([...c, ...new Array(traps * (TOWER_ROOMS - 1)).fill(0)]), level)[0];
+        for (const t of room) counts[t]++;
+      }
+      for (const n of counts) close(n / choices.length, traps / doors, 1e-12);
+      for (let k = 1; k <= TOWER_ROOMS; k++) close(towersMultiplier(level, k) * towerSafeChance(level) ** k, 1 - EDGE.towers, 1e-12);
+    });
+  }
+  it('busts on a trap and pays the ladder otherwise', () => {
+    const floats = new Array(8).fill(at(1, 2)); // red: trap at door 1 in every room
+    assert.deepEqual(layTraps(fixed(floats), 'red'), new Array(8).fill([1]));
+    const win = playTowers(fixed(floats), 'red', [0, 0, 0]);
+    assert.equal(win.cleared, 3);
+    close(win.multiplier, 0.97 * 8);
+    const lose = playTowers(fixed(floats), 'red', [0, 1]);
+    assert.equal(lose.hitTrap, true);
+    assert.equal(lose.cleared, 1);
+    assert.throws(() => playTowers(fixed(floats), 'red', [2]));
+  });
+});
+
+describe('hi-lo — exact RTP by enumerating cards', () => {
+  it('draws every card of 52 exactly once over the midpoints', () => {
+    const seen = new Set<string>();
+    for (let c = 0; c < 52; c++) { const d = drawCard(fixed([at(c, 52)])); seen.add(`${d.rank}/${d.suit}`); assert.ok(d.rank >= 1 && d.rank <= 13); }
+    assert.equal(seen.size, 52);
+  });
+  it('chance equals the share of next ranks that win, and one guess returns 1 − e', () => {
+    for (let r = 1; r <= 13; r++) {
+      for (const g of ['hi', 'lo'] as const) {
+        let wins = 0;
+        for (let n = 1; n <= 13; n++) if (hiloWins(r, n, g)) wins++;
+        close(wins / 13, hiloChance(r, g), 1e-12);
+        close(hiloChance(r, g) * hiloMultiplier([hiloChance(r, g)]), 1 - EDGE.hilo, 1e-12);
+      }
+    }
+  });
+  it('a two-guess strategy (always the likelier side) returns exactly 1 − e', () => {
+    let ev = 0;
+    for (let a = 1; a <= 13; a++) {
+      const g1 = hiloChance(a, 'hi') >= hiloChance(a, 'lo') ? 'hi' : 'lo';
+      for (let b = 1; b <= 13; b++) {
+        if (!hiloWins(a, b, g1)) continue;
+        const g2 = hiloChance(b, 'hi') >= hiloChance(b, 'lo') ? 'hi' : 'lo';
+        for (let c = 1; c <= 13; c++) if (hiloWins(b, c, g2)) ev += hiloMultiplier([hiloChance(a, g1), hiloChance(b, g2)]) / 13 ** 3;
+      }
+    }
+    close(ev, 1 - EDGE.hilo, 1e-12);
+  });
+});
+
+describe('blackjack', () => {
+  const C = (v: number) => (v === 10 ? 9 : v - 1); // a card index with that value (spades)
+  const f = (...cards: number[]) => fixed(cards.map((c) => at(c, 52)));
+  it('deals player, dealer, player, hole and resolves naturals with the peek', () => {
+    const s = bjDeal(f(C(10), C(9), C(7), C(8)));
+    assert.deepEqual([s.hands[0].cards.map(cardValue), s.dealer.map(cardValue)], [[10, 7], [9, 8]]);
+    assert.equal(s.finished, false);
+    assert.deepEqual(bjActions(s), ['hit', 'stand', 'double']);
+    const bj = bjDeal(f(C(1), C(9), C(10), C(8)));
+    assert.equal(bj.finished, true);
+    assert.equal(bjSettle(bj).payout, 2.5);
+    const dealerBj = bjDeal(f(C(10), C(1), C(9), C(10)));
+    assert.equal(dealerBj.finished, true);
+    assert.equal(bjSettle(dealerBj).payout, 0, 'player loses only the original stake');
+    const both = bjDeal(f(C(1), C(1), C(10), C(10)));
+    assert.equal(bjSettle(both).payout, 1, 'blackjack against blackjack pushes');
+  });
+  it('hit, stand, double and the dealer drawing to 17 (stands on soft 17)', () => {
+    let s = bjDeal(f(C(5), C(6), C(6), C(10), C(10)));
+    s = bjAct(f(C(10), C(1)), s, 'double'); // player 5+6+10 = 21; dealer 6+10 = 16 draws an ace → 17
+    assert.equal(s.finished, true);
+    assert.equal(handTotal(s.hands[0].cards).total, 21);
+    const r = bjSettle(s);
+    assert.equal(r.stake, 2);
+    s = bjDeal(f(C(10), C(6), C(10), C(1)));
+    s = bjAct(f(), s, 'stand');
+    assert.equal(handTotal(s.dealer).total, 17, 'soft 17 stands');
+    assert.equal(bjSettle(s).payout, 2, '20 beats 17');
+    assert.throws(() => bjAct(f(), s, 'hit'), 'no actions after the round');
+  });
+  it('splits once, split aces get one card, 21 after a split is no blackjack', () => {
+    let s = bjDeal(f(C(1), C(9), C(1), C(8)));
+    assert.ok(bjActions(s).includes('split'));
+    s = bjAct(f(C(10), C(5), C(10)), s, 'split'); // hands A+10, A+5; dealer 9+8 = 17
+    assert.equal(s.finished, true);
+    const r = bjSettle(s);
+    assert.deepEqual(r.hands.map((h) => h.outcome), ['win', 'lose']);
+    assert.equal(r.payout, 2, 'A+10 after a split pays 1:1, A+5 (soft 16) loses to 17');
+  });
+  it('optimal play: textbook S17 basic strategy and an exact RTP of about 99.31 %', () => {
+    const all = ['hit', 'stand', 'double'] as const;
+    const row = (cards: number[], acts: readonly string[]) => [2, 3, 4, 5, 6, 7, 8, 9, 10, 1].map((u) => optimalAction(cards, u, [...acts] as never)[0]).join('');
+    assert.equal(row([C(10), C(2)], all), 'hhssshhhhh');
+    assert.equal(row([C(10), C(6)], all), 'ssssshhhhh');
+    assert.equal(row([C(1), C(7)], all), 'sddddsshhh');
+    assert.equal(row([C(5), C(6)], all), 'dddddddddh');
+    assert.equal(row([C(8), C(8)], [...all, 'split']), 'ssssssssss');
+    const rtp = optimalRtp();
+    assert.ok(rtp > 0.992 && rtp < 0.995, String(rtp));
   });
 });

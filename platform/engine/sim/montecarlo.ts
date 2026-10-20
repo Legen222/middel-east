@@ -16,6 +16,9 @@ import {
   caseRtp, crashFromH, crashSurvival, layMines, minesMultiplier, openCase, playBattle, playCoinflip,
   playDice, playPlinko, playRaid, playUpgrader, plinkoTheoreticalRtp, priceCase,
   type BattleMode, type FloatSource, type PlinkoRisk, type PlinkoRows, type RaidTool,
+  WHEEL_FIELDS, spinWheel, wheelPayout, drawJackpot, playAirdrop, TOWER_LEVELS, TOWER_ROOMS, playTowers,
+  drawCard, hiloChance, hiloMultiplier, hiloWins, bjActions, bjAct, bjDeal, bjSettle, cardValue, optimalAction, optimalRtp,
+  type TowerLevel,
 } from '../src/index';
 
 const N = Number(process.argv[2] ?? 10_000_000);
@@ -173,6 +176,78 @@ for (const [seats, mode] of [[2, 'normal'], [3, 'crazy'], [4, 'terminal']] as [n
     run('battles', `${seats} seats / ${mode} / seat ${seat + 1}`, battleEv, N, (r) => ({ stake: battleCost, payout: playBattle(r, battleCases, seats, mode).payouts[seat] }));
   }
 }
+
+/* ---------- Bandit Wheel: every field type ---------- */
+for (const field of WHEEL_FIELDS) {
+  run('wheel', `field ${field} (pays ${wheelPayout(field)}×)`, 1 - EDGE.wheel, N, (r) => ({ stake: 1, payout: spinWheel(r).field === field ? wheelPayout(field) : 0 }));
+}
+
+/* ---------- Jackpot: a player's return for different pot shapes ---------- */
+run('jackpot', '2 players, equal stakes, seat 1', 1 - EDGE.jackpot, N, (r) => {
+  const o = drawJackpot(r, [{ amount: 1000 }, { amount: 1000 }]);
+  return { stake: 1000, payout: o.winner === 0 ? o.payout : 0 };
+});
+run('jackpot', '4 players, small stake (5 % of pot)', 1 - EDGE.jackpot, N, (r) => {
+  const o = drawJackpot(r, [{ amount: 1000 }, { amount: 9000 }, { amount: 6000 }, { amount: 4000 }]);
+  return { stake: 1000, payout: o.winner === 0 ? o.payout : 0 };
+});
+run('jackpot', 'mixed: 2–20 entries, random stakes', 1 - EDGE.jackpot, N, (r) => {
+  const k = 2 + Math.floor(r.next() * 19);
+  const entries = Array.from({ length: k }, () => ({ amount: 1000 + Math.floor(r.next() * 99_000) }));
+  const o = drawJackpot(r, entries);
+  // the expected value is exact only before flooring the payout to whole mF; the floor costs < 1 mF per pot
+  return { stake: entries[0].amount, payout: o.winner === 0 ? o.payout : 0 };
+});
+
+/* ---------- Airdrop ---------- */
+for (const target of [2, 10, 100]) {
+  run('airdrop', `target ${target.toFixed(2)}×`, 1 - EDGE.airdrop, N, (r) => ({ stake: 1, payout: playAirdrop(r, target).multiplier }));
+}
+run('airdrop', 'mixed: target log-uniform 1.01…1000×', 1 - EDGE.airdrop, N, (r) => {
+  const target = Math.max(1.01, Math.round(Math.exp(r.next() * Math.log(1000)) * 100) / 100);
+  return { stake: 1, payout: playAirdrop(r, target).multiplier };
+});
+
+/* ---------- Monument Run ---------- */
+const levels = Object.keys(TOWER_LEVELS) as TowerLevel[];
+for (const level of levels) {
+  run('towers', `${level}, all 8 rooms`, 1 - EDGE.towers, N, (r) => ({ stake: 1, payout: playTowers(r, level, new Array(TOWER_ROOMS).fill(0)).multiplier }));
+}
+run('towers', 'mixed: random level, door and stop', 1 - EDGE.towers, N, (r) => {
+  const level = pick(r, levels);
+  const k = 1 + Math.floor(r.next() * TOWER_ROOMS);
+  const picks = Array.from({ length: k }, () => Math.floor(r.next() * TOWER_LEVELS[level].doors));
+  return { stake: 1, payout: playTowers(r, level, picks).multiplier };
+});
+
+/* ---------- Hi-Lo: adaptive strategies ---------- */
+function hiloRound(r: Xoshiro, stopChance: number, maxGuesses: number, skipChance: number): number {
+  let card = drawCard(r).rank;
+  const chances: number[] = [];
+  let skips = 0;
+  for (;;) {
+    // stopping at 1 000× is a legal strategy; it keeps the variance finite enough for sampling (as with mines)
+    if (chances.length >= maxGuesses || hiloMultiplier(chances) >= 1000 || (chances.length > 0 && r.next() < stopChance)) return hiloMultiplier(chances);
+    if (skips < 52 && r.next() < skipChance) { card = drawCard(r).rank; skips++; continue; }
+    const options = (['hi', 'lo'] as const).filter((g) => hiloChance(card, g) < 1);
+    const guess = r.next() < 0.8 ? options.reduce((a, b) => (hiloChance(card, b) > hiloChance(card, a) ? b : a)) : pick(r, options);
+    const next = drawCard(r).rank;
+    if (!hiloWins(card, next, guess)) return 0;
+    chances.push(hiloChance(card, guess));
+    card = next;
+  }
+}
+run('hilo', 'likelier side, stop after 1 guess', 1 - EDGE.hilo, N, (r) => ({ stake: 1, payout: hiloRound(r, 1, 1, 0) }));
+run('hilo', 'mixed: 25 % stop, 10 % skip, stop ≥ 1 000×', 1 - EDGE.hilo, N, (r) => ({ stake: 1, payout: hiloRound(r, 0.25, 12, 0.1) }));
+
+/* ---------- Blackjack: perfect play vs the exact DP value ---------- */
+const bjRtp = optimalRtp();
+run('blackjack', 'optimal strategy, per original stake', bjRtp, N, (r) => {
+  let s = bjDeal(r);
+  while (!s.finished) s = bjAct(r, s, optimalAction(s.hands[s.active].cards, cardValue(s.dealer[0]), bjActions(s)));
+  const o = bjSettle(s);
+  return { stake: 1, payout: 1 + o.payout - o.stake }; // net result per original stake (doubles and splits included)
+});
 
 /* ---------- output ---------- */
 const failed = results.filter((r) => !r.pass);

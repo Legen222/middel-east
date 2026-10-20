@@ -8,6 +8,9 @@ import {
   crashPoint, diceMultiplier, layMines, minesMultiplier, openCase, playBattle, playCoinflip, playDice,
   playPlinko, playRaid, playUpgrader, priceCase, sha256Hex, toHex, hmacHex, verifyChainLink,
   type BattleMode, type FloatSource, type PlinkoRisk, type PlinkoRows, type RaidTool,
+  type CaseDef, WHEEL_LAYOUT, spinWheel, wheelPayout, drawJackpot, jackpotTicketRanges, playAirdrop, airdropChance,
+  TOWER_LEVELS, layTraps, towersMultiplier, type TowerLevel, drawCard, hiloChance, hiloMultiplier, hiloWins, RANK_NAMES,
+  bjActions, bjAct, bjDeal, bjSettle, cardRank, handTotal, type BjAction,
 } from '../src/index';
 
 class Recorder implements FloatSource {
@@ -92,9 +95,12 @@ const GAMES: Record<string, { label: string; fields: string; run: (s: FloatSourc
   },
   cases: {
     label: 'Cases',
-    fields: `<label>Case<select id="p-case">${SAMPLE_CASES.map((c) => `<option value="${c.id}">${c.name} · ${priceCase(c)} Frags</option>`).join('')}</select></label>`,
+    fields: `<label>Case<select id="p-case">${SAMPLE_CASES.map((c) => `<option value="${c.id}">${c.name} · ${priceCase(c)} Frags</option>`).join('')}</select></label>
+      <label>Contents of this case version (JSON, optional)<textarea id="p-items" rows="3" placeholder='[{"name":"Rusty Screw","value":1,"weight":50000}, …]'></textarea></label>
+      <small>The bet page shows the exact contents of the case version you opened; paste them here for edited or new cases.</small>`,
     run: (s) => {
-      const c = SAMPLE_CASES.find((x) => x.id === val('p-case'))!;
+      const custom = val('p-items');
+      const c: CaseDef = custom ? { id: 'custom', name: 'Custom case', items: JSON.parse(custom) } : SAMPLE_CASES.find((x) => x.id === val('p-case'))!;
       const o = openCase(s, c);
       const W = c.items.reduce((a, i) => a + i.weight, 0);
       return { headline: `${o.item.name} · ${o.item.value} Frags`, tone: o.item.value >= priceCase(c) ? 'win' : 'lose', rows: [
@@ -116,6 +122,93 @@ const GAMES: Record<string, { label: string; fields: string; run: (s: FloatSourc
         ['Totals', o.totals.map((t, i) => `P${i + 1}: ${t}`).join(' · ')], ['Payout', o.payouts.map((p, i) => `P${i + 1}: ${fmt(p)}`).join(' · ')]] };
     },
   },
+  wheel: {
+    label: 'Bandit Wheel (round seed + beacon value, nonce 0)',
+    fields: `<small>Server seed = the round's seed (revealed after the spin), client seed = the chain's beacon value, nonce = 0.</small>`,
+    run: (s) => {
+      const o = spinWheel(s);
+      return { headline: `Field ${o.field} · pays ${wheelPayout(o.field)}×`, tone: 'neutral', rows: [
+        ['Formula', `index = ⌊f · 25⌋ = ⌊${o.roll.toFixed(8)} · 25⌋ = ${o.index}`], ['Layout', WHEEL_LAYOUT.map((f, i) => (i === o.index ? `<b>[${f}]</b>` : f)).join(' ')]] };
+    },
+  },
+  jackpot: {
+    label: 'Jackpot (server seed + beacon value, nonce 0)',
+    fields: `<label>Entries in order (Frags, comma-separated)<input id="p-entries" value="10, 25.5, 4"></label>`,
+    run: (s) => {
+      const entries = val('p-entries').split(',').map((x) => ({ amount: Math.round(Number(x.trim()) * 1000) }));
+      const ranges = jackpotTicketRanges(entries);
+      const o = drawJackpot(s, entries);
+      return { headline: `Winning ticket ${o.ticket.toLocaleString('en-US')} → entry ${o.winner + 1}`, tone: 'neutral', rows: [
+        ['Formula', `ticket = ⌊f · ${o.total.toLocaleString('en-US')}⌋ (1 ticket = 0.001 Frag)`],
+        ...ranges.map((r, i) => [`Entry ${i + 1}`, `tickets ${r.from.toLocaleString('en-US')} – ${(r.to - 1).toLocaleString('en-US')} · ${fmt(((r.to - r.from) / o.total) * 100)} %`] as Row),
+        ['Winner receives', `${fmt(o.payout / 1000)} Frags (pot − 4 %)`]] };
+    },
+  },
+  airdrop: {
+    label: 'Airdrop',
+    fields: `<label>Target (×)<input id="p-target-x" value="2.00" inputmode="decimal"></label>`,
+    run: (s) => {
+      const x = num('p-target-x');
+      const o = playAirdrop(s, x);
+      return { headline: `Landed at ${fmt(o.landing)}×`, tone: o.win ? 'win' : 'lose', rows: [
+        ['Formula', 'h = ⌊f₁·2³²⌋·2²⁰ + ⌊f₂·2²⁰⌋ · landing = max(1, ⌊100·0.98·2⁵²/(2⁵²−h)⌋/100)'],
+        ['Chance to reach the target', `${fmt(airdropChance(x) * 100, 4)} %`], ['Result', o.win ? `won · ${fmt(x)}×` : 'lost']] };
+    },
+  },
+  towers: {
+    label: 'Monument Run',
+    fields: `<label>Keycard<select id="p-level">${Object.keys(TOWER_LEVELS).map((l) => `<option>${l}</option>`).join('')}</select></label>`,
+    run: (s) => {
+      const level = val('p-level') as TowerLevel;
+      const traps = layTraps(s, level);
+      const { doors } = TOWER_LEVELS[level];
+      return { headline: `Trap doors for a ${level} run`, tone: 'neutral', rows: [
+        ...traps.map((t, i) => [`Room ${i + 1}`, Array.from({ length: doors }, (_, d) => (t.includes(d) ? '✹' : '·')).join(' ') + ` · cash-out ${fmt(towersMultiplier(level, i + 1), 4)}×`] as Row).reverse(),
+        ['Method', 'per room: Fisher–Yates over the doors, j = i + ⌊f · (doors − i)⌋']] };
+    },
+  },
+  hilo: {
+    label: 'Hi-Lo',
+    fields: `<label>Your moves (hi, lo, skip, comma-separated)<input id="p-moves" value="hi,lo,skip,hi"></label>`,
+    run: (s) => {
+      const moves = val('p-moves').split(',').map((x) => x.trim()).filter(Boolean);
+      const name = (c: { rank: number; suit: number }) => `${RANK_NAMES[c.rank - 1]}${'♠♥♦♣'[c.suit]}`;
+      let card = drawCard(s);
+      const rows: Row[] = [['Start card', name(card)]];
+      const chances: number[] = [];
+      for (const m of moves) {
+        const next = drawCard(s);
+        if (m === 'skip') { rows.push(['skip', name(next)]); card = next; continue; }
+        const g = m as 'hi' | 'lo';
+        const ok = hiloWins(card.rank, next.rank, g);
+        rows.push([`${g} (p = ${hiloChance(card.rank, g).toFixed(4)})`, `${name(next)} → ${ok ? 'correct' : 'wrong'}`]);
+        if (!ok) return { headline: 'Round lost', tone: 'lose', rows };
+        chances.push(hiloChance(card.rank, g));
+        card = next;
+      }
+      return { headline: `Cash-out value ${fmt(hiloMultiplier(chances), 4)}×`, tone: 'win', rows: [...rows, ['Card formula', 'card = ⌊f · 52⌋ · rank = card mod 13 + 1']] };
+    },
+  },
+  blackjack: {
+    label: 'Blackjack',
+    fields: `<label>Your actions (hit, stand, double, split, comma-separated)<input id="p-actions" value="hit,stand"></label>`,
+    run: (s) => {
+      const name = (c: number) => `${RANK_NAMES[cardRank(c) - 1]}${'♠♥♦♣'[Math.floor(c / 13)]}`;
+      let st = bjDeal(s);
+      for (const a of val('p-actions').split(',').map((x) => x.trim()).filter(Boolean) as BjAction[]) {
+        if (st.finished) break;
+        if (!bjActions(st).includes(a)) throw new Error(`"${a}" is not allowed at this point`);
+        st = bjAct(s, st, a);
+      }
+      const rows: Row[] = [
+        ...st.hands.map((h, i) => [`Hand ${i + 1}${h.doubled ? ' (doubled)' : ''}`, `${h.cards.map(name).join(' ')} = ${handTotal(h.cards).total}`] as Row),
+        ['Dealer', `${st.dealer.map(name).join(' ')} = ${handTotal(st.dealer).total}`],
+      ];
+      if (!st.finished) return { headline: 'Round still open after these actions', tone: 'neutral', rows };
+      const r = bjSettle(st);
+      return { headline: r.hands.map((h) => h.outcome).join(' · '), tone: r.payout >= r.stake ? 'win' : 'lose', rows: [...rows, ['Return', `${r.payout} of ${r.stake} stake units`], ['Order', 'player, dealer, player, hole card, then every card when needed; card = ⌊f · 52⌋']] };
+    },
+  },
 };
 
 function render(): void {
@@ -123,7 +216,7 @@ function render(): void {
   $('fields').innerHTML = game === 'crash' ? '' : GAMES[game].fields;
   $('seed-mode').hidden = game === 'crash';
   $('crash-mode').hidden = game !== 'crash';
-  if (game !== 'crash') $('fields').querySelectorAll('input,select').forEach((el) => el.addEventListener('change', verify));
+  if (game !== 'crash') $('fields').querySelectorAll('input,select,textarea').forEach((el) => el.addEventListener('change', verify));
 }
 
 function show(r: Report, checks: Row[]): void {

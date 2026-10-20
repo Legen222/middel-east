@@ -14,7 +14,7 @@
    "hitRate": 0.4949679,
    "maxMult": 1.97979797979798,
    "pass": true,
-   "seconds": 0.376035146
+   "seconds": 0.547079852
   },
   {
    "game": "dice",
@@ -27,7 +27,7 @@
    "hitRate": 0.0199867,
    "maxMult": 49,
    "pass": true,
-   "seconds": 0.298549733
+   "seconds": 0.5654335400000001
   },
   {
    "game": "dice",
@@ -40,7 +40,7 @@
    "hitRate": 0.4901025,
    "maxMult": 4900,
    "pass": true,
-   "seconds": 0.7973257909999999
+   "seconds": 1.1606597100000002
   },
   {
    "game": "dice",
@@ -53,7 +53,7 @@
    "hitRate": 0.4952941,
    "maxMult": 1.97979797979798,
    "pass": true,
-   "seconds": 33.41491345
+   "seconds": 52.938669305999994
   },
   {
    "game": "crash",
@@ -66,7 +66,7 @@
    "hitRate": 0.9703351,
    "maxMult": 1.01,
    "pass": true,
-   "seconds": 0.27646777800000566
+   "seconds": 0.3707007369999992
   },
   {
    "game": "crash",
@@ -79,7 +79,7 @@
    "hitRate": 0.4899919,
    "maxMult": 2,
    "pass": true,
-   "seconds": 0.48676030799999714
+   "seconds": 0.5240347780000011
   },
   {
    "game": "crash",
@@ -92,7 +92,7 @@
    "hitRate": 0.0979869,
    "maxMult": 10,
    "pass": true,
-   "seconds": 0.31624307099999716
+   "seconds": 0.4904688370000003
   },
   {
    "game": "crash",
@@ -105,7 +105,7 @@
    "hitRate": 0.0098014,
    "maxMult": 100,
    "pass": true,
-   "seconds": 0.29141385399999853
+   "seconds": 0.39979225099999893
   },
   {
    "game": "crash",
@@ -118,7 +118,7 @@
    "hitRate": 0.1416788,
    "maxMult": 999.96,
    "pass": true,
-   "seconds": 0.7673883519999944,
+   "seconds": 0.959633977000005,
    "extra": {
     "P(≥1.01) mc": 0.9702843,
     "P(≥1.01) theory": 0.9702970297029703,
@@ -143,7 +143,7 @@
    "hitRate": 0.4957029,
    "maxMult": 1.957017543859649,
    "pass": true,
-   "seconds": 19.504660234999996
+   "seconds": 28.100456354000002
   },
   {
    "game": "mines",
@@ -156,7 +156,7 @@
    "hitRate": 0.0400207,
    "maxMult": 24.25,
    "pass": true,
-   "seconds": 45.469154462
+   "seconds": 64.714878402
   },
   {
    "game": "mines",
@@ -169,7 +169,7 @@
    "hitRate": 0.2147061,
    "maxMult": 989.853021978022,
    "pass": true,
-   "seconds": 25.54174158
+   "seconds": 35.31985089199999
   },
   {
    "game": "plinko",
@@ -182,7 +182,7 @@
    "hitRate": 1,
    "maxMult": 6,
    "pass": true,
-   "seconds": 1.4609990419999959
+   "seconds": 1.8038214819999994
   },
   {
    "game": "plinko",
@@ -195,7 +195,7 @@
    "hitRate": 1,
    "maxMult": 15,
    "pass": true,
-   "seconds": 1.6334495509999833
+   "seconds": 1.9153834269999934
   },
   {
    "game": "plinko",
@@ -208,7 +208,7 @@
    "hitRate": 1,
    "maxMult": 30,
    "pass": true,
-   "seconds": 1.635028569999995
+   "seconds": 2.1559574389999905
   },
   {
    "game": "plinko",
@@ -221,7 +221,7 @@
    "hitRate": 1,
    "maxMult": 10,
    "pass": true,
-   "seconds": 2.284856285000016
+   "seconds": 2.5491167450000067
   },
   {
    "game": "plinko",
@@ -234,7 +234,7 @@
    "hitRate": 1,
    "maxMult": 35,
    "pass": true,
-   "seconds": 2.399636424000026
+   "seconds": 2.502127309000003
   },
   {
    "game": "plinko",
@@ -247,7 +247,7 @@
    "hitRate": 1,
    "maxMult": 150,
    "pass": true,
-   "seconds": 2.197879584999988
+   "seconds": 2.6221681669999963
   },
   {
    "game": "plinko",
@@ -260,7 +260,7 @@
    "hitRate": 1,
    "maxMult": 16,
    "pass": true,
-   "seconds": 2.8385618899999825
+   "seconds": 3.1182373300000035
   },
   {
    "game": "plinko",
@@ -273,7 +273,7 @@
    "hitRate": 1,
    "maxMult": 100,
    "pass": true,
-   "seconds": 2.9157253330000095
+   "seconds": 3.1636134610000006
   },
   {
    "game": "plinko",
@@ -286,7 +286,7 @@
    "hitRate": 1,
    "maxMult": 800,
    "pass": true,
-   "seconds": 2.8717736489999806
+   "seconds": 3.0950010849999963
   },
   {
    "game": "raid",
@@ -299,7 +299,7 @@
    "hitRate": 0.2620643,
    "maxMult": 3.7002563476562487,
    "pass": true,
-   "seconds": 0.9610568790000107
+   "seconds": 1.8789552869999897
   },
   {
    "game": "raid",
@@ -312,7 +312,7 @@
    "hitRate": 0.004098,
    "maxMult": 236.81640624999991,
    "pass": true,
-   "seconds": 0.7102828410000075
+   "seconds": 1.4324876550000045
   },
   {
    "game": "raid",
@@ -325,7 +325,7 @@
    "hitRate": 0.3141452,
    "maxMult": 236.81640624999991,
    "pass": true,
-   "seconds": 1.5404294879999942
+   "seconds": 2.2898635829999985
   },
   {
    "game": "upgrader",
@@ -338,7 +338,7 @@
    "hitRate": 0.4748064,
    "maxMult": 2,
    "pass": true,
-   "seconds": 0.2716946140000073
+   "seconds": 0.49682772999999
   },
   {
    "game": "upgrader",
@@ -351,7 +351,7 @@
    "hitRate": 0.405374,
    "maxMult": 94.96947759462547,
    "pass": true,
-   "seconds": 0.43215797600001676
+   "seconds": 0.6169253080000053
   },
   {
    "game": "coinflip",
@@ -364,7 +364,7 @@
    "hitRate": 0.4998513,
    "maxMult": 1.92,
    "pass": true,
-   "seconds": 0.5157151759999978
+   "seconds": 0.6298950929999991
   },
   {
    "game": "cases",
@@ -377,7 +377,7 @@
    "hitRate": 1,
    "maxMult": 61.04651162790697,
    "pass": true,
-   "seconds": 0.5585430159999815
+   "seconds": 0.7204937170000049
   },
   {
    "game": "cases",
@@ -390,7 +390,7 @@
    "hitRate": 1,
    "maxMult": 21.671826625387,
    "pass": true,
-   "seconds": 0.5809033100000234
+   "seconds": 0.8343575859999983
   },
   {
    "game": "cases",
@@ -403,7 +403,7 @@
    "hitRate": 1,
    "maxMult": 4.018369690011481,
    "pass": true,
-   "seconds": 0.5099252780000098
+   "seconds": 0.6957953940000152
   },
   {
    "game": "cases",
@@ -416,7 +416,7 @@
    "hitRate": 1,
    "maxMult": 5.508630187293426,
    "pass": true,
-   "seconds": 0.49466990700000313
+   "seconds": 0.6473628790000221
   },
   {
    "game": "battles",
@@ -429,7 +429,7 @@
    "hitRate": 0.5110771,
    "maxMult": 11.980425141458939,
    "pass": true,
-   "seconds": 6.013020610000007
+   "seconds": 9.24309461
   },
   {
    "game": "battles",
@@ -442,7 +442,7 @@
    "hitRate": 0.5109139,
    "maxMult": 11.570576540755468,
    "pass": true,
-   "seconds": 5.877687118000002
+   "seconds": 9.21451964699998
   },
   {
    "game": "battles",
@@ -455,7 +455,7 @@
    "hitRate": 0.3480052,
    "maxMult": 13.817097415506959,
    "pass": true,
-   "seconds": 7.817477307000023
+   "seconds": 11.514636841
   },
   {
    "game": "battles",
@@ -468,7 +468,7 @@
    "hitRate": 0.3477589,
    "maxMult": 14.48386603456186,
    "pass": true,
-   "seconds": 8.667070425000013
+   "seconds": 11.353085096999974
   },
   {
    "game": "battles",
@@ -481,7 +481,7 @@
    "hitRate": 0.3479025,
    "maxMult": 13.817097415506959,
    "pass": true,
-   "seconds": 8.370457360999978
+   "seconds": 12.272197118999989
   },
   {
    "game": "battles",
@@ -494,7 +494,7 @@
    "hitRate": 0.3649355,
    "maxMult": 14.096956721211194,
    "pass": true,
-   "seconds": 11.779960147999983
+   "seconds": 16.120791276000034
   },
   {
    "game": "battles",
@@ -507,7 +507,7 @@
    "hitRate": 0.3650658,
    "maxMult": 14.575623183973084,
    "pass": true,
-   "seconds": 12.189142469999991
+   "seconds": 16.599156890000042
   },
   {
    "game": "battles",
@@ -520,7 +520,7 @@
    "hitRate": 0.3652444,
    "maxMult": 13.96849671203548,
    "pass": true,
-   "seconds": 11.52866124299998
+   "seconds": 15.186816704999947
   },
   {
    "game": "battles",
@@ -533,7 +533,267 @@
    "hitRate": 0.3651632,
    "maxMult": 14.052607432329102,
    "pass": true,
-   "seconds": 11.519365220000006
+   "seconds": 14.980052778000012
+  },
+  {
+   "game": "wheel",
+   "config": "field 1 (pays 2×)",
+   "rounds": 10000000,
+   "theory": 0.96,
+   "rtp": 0.9603396,
+   "se": 0.0003159789633301306,
+   "z": 1.0747550926204728,
+   "hitRate": 0.4801698,
+   "maxMult": 2,
+   "pass": true,
+   "seconds": 0.4826676270000171
+  },
+  {
+   "game": "wheel",
+   "config": "field 3 (pays 4×)",
+   "rounds": 10000000,
+   "theory": 0.96,
+   "rtp": 0.959728,
+   "se": 0.0005401698034892361,
+   "z": -0.5035453634078586,
+   "hitRate": 0.239932,
+   "maxMult": 4,
+   "pass": true,
+   "seconds": 0.4178943020000006
+  },
+  {
+   "game": "wheel",
+   "config": "field 5 (pays 6×)",
+   "rounds": 10000000,
+   "theory": 0.96,
+   "rtp": 0.960768,
+   "se": 0.0006958112423765513,
+   "z": 1.1037476160587434,
+   "hitRate": 0.160128,
+   "maxMult": 6,
+   "pass": true,
+   "seconds": 0.43753647200000706
+  },
+  {
+   "game": "wheel",
+   "config": "field 10 (pays 12×)",
+   "rounds": 10000000,
+   "theory": 0.96,
+   "rtp": 0.9605148,
+   "se": 0.0010297372926616265,
+   "z": 0.4999333360739045,
+   "hitRate": 0.0800429,
+   "maxMult": 12,
+   "pass": true,
+   "seconds": 0.4391929949999903
+  },
+  {
+   "game": "wheel",
+   "config": "field 20 (pays 24×)",
+   "rounds": 10000000,
+   "theory": 0.96,
+   "rtp": 0.958932,
+   "se": 0.0014864325554621036,
+   "z": -0.7184987950347582,
+   "hitRate": 0.0399555,
+   "maxMult": 24,
+   "pass": true,
+   "seconds": 0.39313103400002003
+  },
+  {
+   "game": "jackpot",
+   "config": "2 players, equal stakes, seat 1",
+   "rounds": 10000000,
+   "theory": 0.96,
+   "rtp": 0.960039168,
+   "se": 0.0003035786551341573,
+   "z": 0.12902092863783438,
+   "hitRate": 0.5000204,
+   "maxMult": 1.92,
+   "pass": true,
+   "seconds": 1.168361819999991
+  },
+  {
+   "game": "jackpot",
+   "config": "4 players, small stake (5 % of pot)",
+   "rounds": 10000000,
+   "theory": 0.96,
+   "rtp": 0.96183936,
+   "se": 0.001324468978775159,
+   "z": 1.3887527978957037,
+   "hitRate": 0.0500958,
+   "maxMult": 19.2,
+   "pass": true,
+   "seconds": 1.5704719179999664
+  },
+  {
+   "game": "jackpot",
+   "config": "mixed: 2–20 entries, random stakes",
+   "rounds": 10000000,
+   "theory": 0.96,
+   "rtp": 0.9603149339288483,
+   "se": 0.0014922066704854385,
+   "z": 0.21105248694930462,
+   "hitRate": 0.136816,
+   "maxMult": 911.7490039840637,
+   "pass": true,
+   "seconds": 16.925562283000037
+  },
+  {
+   "game": "airdrop",
+   "config": "target 2.00×",
+   "rounds": 10000000,
+   "theory": 0.98,
+   "rtp": 0.9802234,
+   "se": 0.0003161659194303586,
+   "z": 0.7065910215828709,
+   "hitRate": 0.4901117,
+   "maxMult": 2,
+   "pass": true,
+   "seconds": 0.6775033779999939
+  },
+  {
+   "game": "airdrop",
+   "config": "target 10.00×",
+   "rounds": 10000000,
+   "theory": 0.98,
+   "rtp": 0.980279,
+   "se": 0.000940310750877549,
+   "z": 0.29671042231480527,
+   "hitRate": 0.0980279,
+   "maxMult": 10,
+   "pass": true,
+   "seconds": 0.7250972039999906
+  },
+  {
+   "game": "airdrop",
+   "config": "target 100.00×",
+   "rounds": 10000000,
+   "theory": 0.98,
+   "rtp": 0.9774,
+   "se": 0.0031110237742582422,
+   "z": -0.8357377470121875,
+   "hitRate": 0.009774,
+   "maxMult": 100,
+   "pass": true,
+   "seconds": 0.695801324
+  },
+  {
+   "game": "airdrop",
+   "config": "mixed: target log-uniform 1.01…1000×",
+   "rounds": 10000000,
+   "theory": 0.98,
+   "rtp": 0.9819305209992154,
+   "se": 0.003762264858792737,
+   "z": 0.5131273505913944,
+   "hitRate": 0.1416276,
+   "maxMult": 998.68,
+   "pass": true,
+   "seconds": 1.291194954000006
+  },
+  {
+   "game": "towers",
+   "config": "green, all 8 rooms",
+   "rounds": 10000000,
+   "theory": 0.97,
+   "rtp": 0.9690280416145375,
+   "se": 0.0009192363732094604,
+   "z": -1.057354140664554,
+   "hitRate": 0.1000126,
+   "maxMult": 9.689059594573997,
+   "pass": true,
+   "seconds": 54.620343163000015
+  },
+  {
+   "game": "towers",
+   "config": "blue, all 8 rooms",
+   "rounds": 10000000,
+   "theory": 0.97,
+   "rtp": 0.9703793067592766,
+   "se": 0.0015225646611043409,
+   "z": 0.24912358007938257,
+   "hitRate": 0.0390337,
+   "maxMult": 24.86003906250001,
+   "pass": true,
+   "seconds": 52.540412980999974
+  },
+  {
+   "game": "towers",
+   "config": "red, all 8 rooms",
+   "rounds": 10000000,
+   "theory": 0.97,
+   "rtp": 0.9677030400005344,
+   "se": 0.004892479634289157,
+   "z": -0.46948790207877594,
+   "hitRate": 0.003897,
+   "maxMult": 248.32,
+   "pass": true,
+   "seconds": 46.87506560799998
+  },
+  {
+   "game": "towers",
+   "config": "black, all 8 rooms",
+   "rounds": 10000000,
+   "theory": 0.97,
+   "rtp": 0.9762636779999903,
+   "se": 0.024924194913473894,
+   "z": 0.25130914044506075,
+   "hitRate": 0.0001534,
+   "maxMult": 6364.170000000003,
+   "pass": true,
+   "seconds": 71.09276418200001
+  },
+  {
+   "game": "towers",
+   "config": "mixed: random level, door and stop",
+   "rounds": 10000000,
+   "theory": 0.97,
+   "rtp": 0.967402113853472,
+   "se": 0.005279132566771469,
+   "z": -0.4921047376002496,
+   "hitRate": 0.1911651,
+   "maxMult": 6364.170000000003,
+   "pass": true,
+   "seconds": 63.56117119200004
+  },
+  {
+   "game": "hilo",
+   "config": "likelier side, stop after 1 guess",
+   "rounds": 10000000,
+   "theory": 0.97,
+   "rtp": 0.970063494106121,
+   "se": 0.00047036447684138525,
+   "z": 0.1349891610595945,
+   "hitRate": 0.6095172,
+   "maxMult": 12.61,
+   "pass": true,
+   "seconds": 2.9958365279999564
+  },
+  {
+   "game": "hilo",
+   "config": "mixed: 25 % stop, 10 % skip, stop ≥ 1 000×",
+   "rounds": 10000000,
+   "theory": 0.97,
+   "rtp": 0.9833901007848248,
+   "se": 0.00845292222073597,
+   "z": 1.5840794976176888,
+   "hitRate": 0.2984941,
+   "maxMult": 12808.514623316496,
+   "pass": true,
+   "seconds": 5.119528166000033
+  },
+  {
+   "game": "blackjack",
+   "config": "optimal strategy, per original stake",
+   "rounds": 10000000,
+   "theory": 0.9930976336088596,
+   "rtp": 0.99330435,
+   "se": 0.00035698431243838676,
+   "z": 0.579062955815505,
+   "hitRate": 0.5214367,
+   "maxMult": 3,
+   "pass": true,
+   "seconds": 112.91278038999997
   }
  ]
 }
