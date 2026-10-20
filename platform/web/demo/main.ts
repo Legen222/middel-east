@@ -18,7 +18,9 @@ import { openDb } from '../../server/src/db';
 import { bus } from '../../server/src/events';
 import { settleDue } from '../../server/src/pvp';
 import { rgScan } from '../../server/src/admin';
+import { JackpotService } from '../../server/src/jackpot';
 import { rainTick } from '../../server/src/rewards';
+import { WheelService } from '../../server/src/wheel';
 import { createRouter } from '../../server/src/router';
 import { toHex } from '../../engine/src/pf/sha256';
 import { configureSqlJs, exportDatabase } from './shims/node-sqlite';
@@ -49,7 +51,9 @@ async function start() {
   const cfg = { ...DEFAULT_CONFIG, demo: true };
   const beacon = new LocalBeacon(beaconCfg.genesis, 50_000, 3000, beaconCfg.tip);
   const crash = new CrashService(db, cfg, beacon, 20_000);
-  const router = createRouter({ db, cfg, clock: () => Date.now(), fetch: async () => ({ ok: false, text: async () => '' }), publicUrl: location.origin, beacon, crash });
+  const wheel = new WheelService(db, cfg, beacon, 20_000);
+  const jackpot = new JackpotService(db, cfg, beacon);
+  const router = createRouter({ db, cfg, clock: () => Date.now(), fetch: async () => ({ ok: false, text: async () => '' }), publicUrl: location.origin, beacon, crash, wheel, jackpot });
 
   /* fetch('/api/…') → router */
   const realFetch = window.fetch.bind(window);
@@ -74,7 +78,7 @@ async function start() {
       const crashOnly = url.includes('/crash/stream');
       this.off = bus.subscribe((e) => {
         if (crashOnly && e.topic !== 'crash') return;
-        const name = e.topic === 'crash' ? e.event.type : 'chat';
+        const name = e.topic === 'crash' ? e.event.type : e.topic;
         (this.listeners.get(name) ?? []).forEach((fn) => fn(new MessageEvent(name, { data: JSON.stringify(e.event) })));
       });
     }
@@ -92,7 +96,7 @@ async function start() {
   setInterval(async () => {
     if (busy) return;
     busy = true;
-    try { await crash.tick(Date.now()); await settleDue(db, beacon, Date.now()); await rainTick(db, cfg, Date.now()); if (Date.now() - lastScan > 60_000) { lastScan = Date.now(); await rgScan(db, cfg, lastScan); } } catch (e) { console.error(e); } finally { busy = false; }
+    try { await crash.tick(Date.now()); await wheel.tick(Date.now()); await jackpot.tick(Date.now()); await settleDue(db, beacon, Date.now()); await rainTick(db, cfg, Date.now()); if (Date.now() - lastScan > 60_000) { lastScan = Date.now(); await rgScan(db, cfg, lastScan); } } catch (e) { console.error(e); } finally { busy = false; }
   }, 200);
   const save = () => { const bytes = exportDatabase(); if (bytes && !store.set(DB_KEY, toB64(bytes))) console.warn('Could not save demo state (storage full or blocked).'); };
   setInterval(save, 5000);

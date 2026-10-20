@@ -45,6 +45,24 @@ import { createRouter } from '../src/router';
 import { createSession } from '../src/accounts';
 import { base32Encode, hotp, totp } from '../src/mfa';
 import { ipAllowed } from '../src/config';
+import { WheelService } from '../src/wheel';
+import { setSettings, publicSite } from '../src/site';
+import { gameFlags, setGameLimits } from '../src/flags';
+import { caseVersion, listCases, saveCase, setCaseState } from '../src/cases';
+import { createPromo, listPromos, redeemPromo, setPromoActive, PROMO_FAIL_LIMIT } from '../src/rewards';
+import { addNote, adjustBalance, auditLog, forceLogout, playerDetail } from '../src/admin';
+import { ADJUSTMENTS } from '../src/wallet';
+import { resolveSession } from '../src/accounts';
+import { dailyReport } from '../src/reports';
+import { betDetail, exploreBets } from '../src/explorer';
+import { listChains } from '../src/chains';
+import { EDGE, buildChain } from '../../engine/src/index';
+import { JACKPOT_COUNTDOWN_MS, JACKPOT_ESCROW, JACKPOT_REFUND_MS, JackpotService } from '../src/jackpot';
+import { bjAction, bjStart, hiloCashout, hiloMove, hiloStart, openRounds, towersCashout, towersPick, towersStart } from '../src/originals';
+import {
+  WHEEL_LAYOUT, bjActions as bjEngineActions, bjAct as bjEngineAct, bjDeal, bjSettle, cardValue, drawCard, drawJackpot, hiloChance,
+  layTraps, optimalAction, playAirdrop, spinWheel, towersMultiplier, wheelPayout,
+} from '../../engine/src/index';
 
 const T0 = Date.UTC(2026, 8, 28, 12, 0, 0);
 const HOUR = 3_600_000;
@@ -791,5 +809,534 @@ describe('operator security', () => {
     assert.equal((await call(t, 'GET', '/admin/overview')).status, 200);
     const events = (await call(t, 'GET', '/admin/audit?event=mfa_')).json.map((e: any) => e.event);
     assert.deepEqual(events, ['mfa_verified', 'mfa_failed', 'mfa_enrolled', 'mfa_enroll_started']);
+  });
+});
+
+describe('new originals (phase 11)', () => {
+  const seedOf = async (db: DB, betId: string) => (await db.prepare('SELECT s.* FROM bets b JOIN seeds s ON s.id = b.seed_id WHERE b.id = ?').get(betId)) as { server_seed: string; client_seed: string };
+  const stateOf = async (db: DB, betId: string) => JSON.parse(((await db.prepare('SELECT state FROM bets WHERE id = ?').get(betId)) as { state: string }).state);
+
+  it('airdrop: instant result replays from the seed; targets over the max win are refused', async () => {
+    const { db, cfg, userId } = await setup();
+    const bet = await playInstant(db, cfg, userId, 'airdrop', frags(10), { target: 2 }, T0);
+    const seed = await seedOf(db, bet.id);
+    const replay = playAirdrop(new FairStream(seed.server_seed, seed.client_seed, bet.nonce), 2);
+    assert.equal(bet.payout, replay.win ? frags(20) : 0);
+    assert.equal(await code(() => playInstant(db, cfg, userId, 'airdrop', frags(1000), { target: 5000 }, T0 + 1)), 'max_win');
+    assert.equal(await code(() => playInstant(db, cfg, userId, 'airdrop', frags(10), { target: 1 }, T0 + 2)), 'RangeError', 'the router maps this to invalid_params');
+  });
+
+  it('monument run: traps stay hidden, safe doors pay the ladder, a trap ends the run, layout replays', async () => {
+    const { db, cfg, userId } = await setup();
+    const run = (await towersStart(db, cfg, userId, frags(10), 'red', T0)) as any;
+    assert.equal('traps' in run, false);
+    assert.equal(JSON.stringify(run).includes('traps'), false, 'no trap positions in the public view');
+    const { traps } = await stateOf(db, run.id);
+    const safe = (room: number) => (traps[room][0] === 0 ? 1 : 0);
+    let r = (await towersPick(db, cfg, userId, run.id, safe(0), T0 + 1)) as any;
+    r = (await towersPick(db, cfg, userId, run.id, safe(1), T0 + 2)) as any;
+    assert.equal(r.currentMultiplier, towersMultiplier('red', 2));
+    const before = await bal(db, userId);
+    const done = (await towersCashout(db, userId, run.id, T0 + 3)) as any;
+    assert.equal(done.status, 'settled');
+    assert.equal(await bal(db, userId) - before, Math.floor(frags(10) * towersMultiplier('red', 2)));
+    const run2 = (await towersStart(db, cfg, userId, frags(10), 'red', T0 + 4)) as any;
+    const t2 = (await stateOf(db, run2.id)).traps;
+    const lost = (await towersPick(db, cfg, userId, run2.id, t2[0][0], T0 + 5)) as any;
+    assert.equal(lost.status, 'settled');
+    assert.equal(lost.payout, 0);
+    const seed = await seedOf(db, run2.id);
+    assert.deepEqual(layTraps(new FairStream(seed.server_seed, seed.client_seed, run2.fairness.nonce), 'red'), t2);
+    assert.equal(await code(() => towersStart(db, cfg, userId, frags(1), 'purple' as never, T0 + 6)), 'invalid_params');
+  });
+
+  it('hi-lo: guesses follow the replayed cards, p = 1 guesses are refused, skips keep the value', async () => {
+    const { db, cfg, userId } = await setup();
+    const round = (await hiloStart(db, cfg, userId, frags(10), T0)) as any;
+    const seed = await seedOf(db, round.id);
+    const src = new FairStream(seed.server_seed, seed.client_seed, round.fairness.nonce);
+    const cards = Array.from({ length: 6 }, () => drawCard(src));
+    assert.deepEqual(round.cards, [cards[0]]);
+    let r: any = round;
+    for (let i = 1; i < 4; i++) {
+      const cur = cards[i - 1].rank;
+      if (cur === 1 || cur === 13) { r = (await hiloMove(db, cfg, userId, round.id, 'skip', T0 + i)) as any; assert.equal(r.currentMultiplier, i === 1 ? 1 : r.currentMultiplier); continue; }
+      const right = cards[i].rank >= cur ? 'hi' : 'lo';
+      r = (await hiloMove(db, cfg, userId, round.id, right, T0 + i)) as any;
+      assert.equal(r.status, 'open');
+    }
+    if (r.guesses > 0) {
+      const done = (await hiloCashout(db, userId, round.id, T0 + 10)) as any;
+      assert.equal(done.status, 'settled');
+      assert.ok(done.payout > 0);
+    }
+    const r2 = (await hiloStart(db, cfg, userId, frags(10), T0 + 20)) as any;
+    const s2 = await seedOf(db, r2.id);
+    const src2 = new FairStream(s2.server_seed, s2.client_seed, r2.fairness.nonce);
+    const c0 = drawCard(src2).rank, c1 = drawCard(src2).rank;
+    const blocked = c0 === 1 ? 'hi' : c0 === 13 ? 'lo' : null;
+    if (blocked) assert.equal(await code(() => hiloMove(db, cfg, userId, r2.id, blocked, T0 + 21)), 'invalid_action');
+    else {
+      const wrong = c1 >= c0 ? (c1 === c0 ? null : 'lo') : 'hi';
+      if (wrong) { const lost = (await hiloMove(db, cfg, userId, r2.id, wrong, T0 + 21)) as any; assert.equal(lost.payout, 0); assert.equal(lost.status, 'settled'); }
+    }
+    assert.equal(hiloChance(7, 'hi'), 7 / 13);
+  });
+
+  it('blackjack: hole card hidden, doubles and splits take a second stake, results replay, ledger closes', async () => {
+    const { db, cfg, userId } = await setup();
+    let doubled = 0, split = 0;
+    for (let i = 0; i < 400 && (doubled < 2 || split < 1); i++) {
+      const start0 = await bal(db, userId);
+      let r: any = await bjStart(db, cfg, userId, frags(10), T0 + i * 10);
+      if (r.status === 'open') {
+        assert.equal(JSON.stringify(r).includes('"dealer":[') , false, 'the hole card is not in the public view');
+        assert.deepEqual(Object.keys(r.dealer).sort(), ['up', 'upValue']);
+        let step = 0;
+        while (r.status === 'open') {
+          const st = await stateOf(db, r.id);
+          let act = optimalAction(st.hands[st.active].cards, cardValue(st.dealer[0]), r.actions);
+          if (r.actions.includes('split') && split < 1) act = 'split';
+          else if (r.actions.includes('double') && doubled < 2) act = 'double';
+          if (act === 'split') split++;
+          if (act === 'double') doubled++;
+          r = await bjAction(db, userId, r.id, act, T0 + i * 10 + ++step);
+        }
+      }
+      // replay the round from the seed with the same decisions recorded in the result
+      const seed = await seedOf(db, r.id);
+      const res = r.result;
+      const base = frags(10);
+      assert.equal(r.stake, base * res.results.reduce((a: number, h: { stake: number }) => a + h.stake, 0), 'stake = base × stake units');
+      assert.equal(r.payout, Math.floor(base * res.results.reduce((a: number, h: { payout: number }) => a + h.payout, 0) + 1e-9));
+      assert.equal(await bal(db, userId) - start0, r.payout - r.stake);
+      assert.equal(res.dealer[0], bjDeal(new FairStream(seed.server_seed, seed.client_seed, r.fairness.nonce)).dealer[0]);
+    }
+    assert.ok(doubled >= 1 && split >= 1, `doubled ${doubled}, split ${split}`);
+    assert.deepEqual(await ledgerIntegrity(db), { sum: 0, mismatched: [] });
+    // a full replay of one round with the engine
+    const st = bjDeal({ next: (() => { const xs = [0.15, 0.6, 0.15, 0.5, 0.3]; let k = 0; return () => xs[k++]; })() });
+    assert.deepEqual(bjEngineActions(st).includes('split'), true);
+    const after = bjEngineAct({ next: () => 0.3 }, st, 'stand');
+    assert.equal(bjSettle(after).stake, 1);
+  });
+
+  it('bandit wheel: field hidden while betting, payouts match the replayed spin, seeds link up', async () => {
+    const { db, cfg, userId } = await setup();
+    const beacon = new LocalBeacon(T0 - 60_000, 1000);
+    const svc = new WheelService(db, cfg, beacon, 30);
+    await svc.tick(T0);
+    const readyAt = beacon.timeOf((await svc.state(T0, null)).chain!.beaconRound);
+    await svc.tick(readyAt);
+    const s1 = await svc.state(readyAt, userId);
+    assert.equal(s1.round!.status, 'betting');
+    assert.equal(s1.round!.field, null);
+    await svc.placeBet(userId, '1', frags(10), readyAt + 10);
+    await svc.placeBet(userId, '20', frags(5), readyAt + 20);
+    assert.equal(await code(() => svc.placeBet(userId, '1', frags(10), readyAt + 30)), 'already_bet');
+    assert.equal(await code(() => svc.placeBet(userId, '7' as never, frags(10), readyAt + 30)), 'invalid_params');
+    for (let t = readyAt; t <= readyAt + 15_000 + 100; t += 500) await svc.tick(t);
+    const spinning = await svc.state(readyAt + 15_200, userId);
+    assert.equal(spinning.round!.status, 'spinning');
+    assert.ok(spinning.round!.field !== null);
+    assert.equal(spinning.round!.seed, null);
+    assert.equal(await code(() => svc.placeBet(userId, '3', frags(1), readyAt + 15_300)), 'not_betting');
+    for (let t = readyAt + 15_000; t <= readyAt + 60_000; t += 500) await svc.tick(t);
+    const st = await svc.state(readyAt + 60_000, userId);
+    const first = st.history[st.history.length - 1];
+    assert.ok(verifyCrashLink(first.seed, st.chain!.terminalHash));
+    assert.equal(first.index, spinWheel(new FairStream(first.seed, st.chain!.clientSeed!, 0)).index);
+    const bets = (await db.prepare('SELECT * FROM wheel_bets WHERE user_id = ? ORDER BY field').all(userId)) as { field: string; stake: number; payout: number; status: string }[];
+    for (const b of bets) {
+      assert.equal(b.status, 'settled');
+      assert.equal(b.payout, b.field === WHEEL_LAYOUT[first.index] ? Math.floor(b.stake * wheelPayout(b.field as '1')) : 0);
+    }
+    assert.ok(st.history.length >= 2, 'rounds keep coming');
+    assert.deepEqual(await ledgerIntegrity(db), { sum: 0, mismatched: [] });
+  });
+
+  it('jackpot: countdown on the second player, beacon draw, 4 % fee, escrow closes, refunds and limits', async () => {
+    const { db, cfg, userId } = await setup();
+    const { userId: b } = await signUp(db, cfg, { displayName: 'Bea', ageConfirmed: true, country: 'NZ' }, T0);
+    const beacon = new LocalBeacon(T0 - 60_000, 1000);
+    const jp = new JackpotService(db, cfg, beacon);
+    assert.equal(await code(() => jp.enter(userId, 'low', frags(60), T0)), 'invalid_stake');
+    await jp.enter(userId, 'low', frags(30), T0);
+    let st = await jp.state('low', T0, userId);
+    assert.equal(st.current!.status, 'open');
+    await jp.enter(b, 'low', frags(10), T0 + 1000);
+    await jp.enter(userId, 'low', frags(20), T0 + 2000);
+    st = await jp.state('low', T0 + 2000, userId);
+    assert.equal(st.current!.status, 'counting');
+    assert.equal(st.current!.total, 60);
+    assert.deepEqual(st.current!.entries.map((e) => e.ticketFrom), [0, 30_000, 40_000]);
+    assert.equal(st.current!.fairness.serverSeed, null);
+    const before = [await bal(db, userId), await bal(db, b)];
+    await jp.tick(T0 + 1000 + JACKPOT_COUNTDOWN_MS);
+    st = await jp.state('low', T0 + 1000 + JACKPOT_COUNTDOWN_MS, userId);
+    assert.equal(st.current!.status, 'locked');
+    assert.equal(await code(() => jp.enter(b, 'low', frags(5), T0 + 1000 + JACKPOT_COUNTDOWN_MS + 1)), 'jackpot_locked');
+    const resolves = st.current!.fairness.beacon.resolvesAt!;
+    await jp.tick(resolves);
+    st = await jp.state('low', resolves, userId);
+    assert.equal(st.current, null);
+    const last = st.last!;
+    assert.equal(last.status, 'settled');
+    const replay = drawJackpot(new FairStream(last.fairness.serverSeed!, last.fairness.beacon.value!, 0), [{ amount: frags(30) }, { amount: frags(10) }, { amount: frags(20) }]);
+    assert.equal(last.winner!.ticket, replay.ticket);
+    assert.equal(last.winner!.payout, Math.floor(frags(60) * 0.96) / 1000);
+    const gains = [await bal(db, userId) - before[0], await bal(db, b) - before[1]];
+    assert.equal(gains.reduce((x, y) => x + y, 0), Math.floor(frags(60) * 0.96));
+    assert.equal(await balanceOf(db, JACKPOT_ESCROW), 0);
+    // alone for 10 minutes → full refund
+    const solo = await bal(db, b);
+    await jp.enter(b, 'high', frags(50), T0 + 100_000);
+    await jp.tick(T0 + 100_000 + JACKPOT_REFUND_MS);
+    assert.equal(await bal(db, b), solo);
+    assert.equal(await balanceOf(db, JACKPOT_ESCROW), 0);
+    // RG limits apply to entries
+    await setLimit(db, cfg, userId, 'wager', 'day', frags(70), T0 + 200_000);
+    assert.equal(await code(() => jp.enter(userId, 'low', frags(25), T0 + 200_001)), 'rg_limit', '50 Frags already in jackpots today + 25 > 70');
+    assert.deepEqual(await ledgerIntegrity(db), { sum: 0, mismatched: [] });
+  });
+
+  it('open rounds come back after a reload without hidden state; the kill switch covers every new mode', async () => {
+    const { db, cfg, userId } = await setup();
+    await towersStart(db, cfg, userId, frags(5), 'green', T0);
+    await hiloStart(db, cfg, userId, frags(5), T0 + 1);
+    const rounds = await openRounds(db, userId);
+    assert.deepEqual(rounds.map((r) => r.game).sort(), ['hilo', 'towers']);
+    assert.ok(!JSON.stringify(rounds).includes('traps'));
+    for (const g of ['airdrop', 'towers', 'hilo', 'blackjack', 'wheel', 'jackpot']) await setGameFlag(db, 'op', g, false, 'test', T0 + 2);
+    assert.equal(await code(() => playInstant(db, cfg, userId, 'airdrop', frags(1), { target: 2 }, T0 + 3)), 'game_disabled');
+    assert.equal(await code(() => towersPick(db, cfg, userId, rounds.find((r) => r.game === 'towers')!.id, 0, T0 + 3)), 'game_disabled');
+    assert.equal(await code(() => bjStart(db, cfg, userId, frags(1), T0 + 3)), 'game_disabled');
+    assert.equal(await code(() => new JackpotService(db, cfg, new LocalBeacon(T0, 100)).enter(userId, 'high', frags(10), T0 + 3)), 'game_disabled');
+    const rtp = await rtpMonitor(db, T0 - 1);
+    assert.ok(['wheel', 'jackpot', 'towers', 'hilo', 'blackjack', 'airdrop'].every((g) => rtp.some((r) => r.game === g)));
+    assert.equal(rtp.find((r) => r.game === 'blackjack')!.status, 'skill');
+  });
+});
+
+describe('admin (phase 11)', () => {
+  const beaconAt = () => new LocalBeacon(T0 - 60_000, 1000);
+
+  it('settings: maintenance pauses every game but not cash-outs; sign-ups, chat pace and rain follow the switches', async () => {
+    const { db, cfg, userId } = await setup();
+    const mines = await minesStart(db, cfg, userId, frags(10), 3, T0);
+    const layout = JSON.parse((await getBet(db, mines.id))!.state!).mines as number[];
+    await minesReveal(db, cfg, userId, mines.id, [...Array(25).keys()].find((t) => !layout.includes(t))!, T0 + 1);
+    assert.equal(await code(() => setSettings(db, userId, { maintenance: 'yes' }, T0)), 'invalid_params');
+    assert.equal(await code(() => setSettings(db, userId, { nope: true }, T0)), 'invalid_params');
+    assert.equal(await code(() => setSettings(db, userId, { chatSlowModeSeconds: 0 }, T0)), 'invalid_params');
+    await setSettings(db, userId, { maintenance: true, registrationOpen: false, chatSlowModeSeconds: 10, rainEnabled: false, announcement: { text: 'Back at 18:00 UTC', tone: 'warn' } }, T0 + 2);
+    assert.deepEqual(await publicSite(db), { announcement: { text: 'Back at 18:00 UTC', tone: 'warn' }, maintenance: true, registrationOpen: false });
+    assert.equal(await code(() => playInstant(db, cfg, userId, 'dice', frags(1), { chance: 50, direction: 'under' }, T0 + 3)), 'maintenance');
+    assert.equal(await code(() => towersStart(db, cfg, userId, frags(1), 'green', T0 + 3)), 'maintenance');
+    assert.equal(await code(() => minesReveal(db, cfg, userId, mines.id, 0, T0 + 3)), 'maintenance');
+    assert.equal((await minesCashout(db, userId, mines.id, T0 + 4)).status, 'settled', 'cash-out still works');
+    assert.equal(await code(() => signUp(db, cfg, { displayName: 'Late', ageConfirmed: true, country: 'NZ' }, T0 + 5)), 'registration_closed');
+    const user = (await getUser(db, userId))!;
+    await postMessage(db, user, 1, 'hello', T0 + 10);
+    assert.equal(await code(() => postMessage(db, user, 1, 'again', T0 + 5000)), 'chat_slow');
+    await postMessage(db, user, 1, 'again', T0 + 10_010);
+    await rainTick(db, cfg, T0 + 6);
+    assert.equal(((await db.prepare('SELECT COUNT(*) AS n FROM rain_rounds').get()) as { n: number }).n, 0, 'no new Oil Rain while switched off');
+    await setSettings(db, userId, { maintenance: false, announcement: null }, T0 + 7);
+    assert.equal((await playInstant(db, cfg, userId, 'dice', frags(1), { chance: 50, direction: 'under' }, T0 + 8)).status, 'settled');
+    assert.equal((await publicSite(db)).announcement, null);
+  });
+
+  it('per-game limits only tighten the global ones and apply to that game only', async () => {
+    const { db, cfg, userId } = await setup();
+    assert.equal(await code(() => setGameLimits(db, cfg, userId, 'dice', { minStake: null, maxStake: cfg.maxStake + 1, maxWin: null }, T0)), 'invalid_params');
+    assert.equal(await code(() => setGameLimits(db, cfg, userId, 'dice', { minStake: frags(50), maxStake: frags(10), maxWin: null }, T0)), 'invalid_params');
+    assert.equal(await code(() => setGameLimits(db, cfg, userId, 'nope', { minStake: null, maxStake: null, maxWin: null }, T0)), 'not_found');
+    const g = await setGameLimits(db, cfg, userId, 'dice', { minStake: frags(5), maxStake: frags(50), maxWin: frags(200) }, T0);
+    assert.deepEqual(g.limits, { minStake: frags(5), maxStake: frags(50), maxWin: frags(200) });
+    const dice = (stake: number, chance = 50) => playInstant(db, cfg, userId, 'dice', stake, { chance, direction: 'under' }, T0 + 1);
+    assert.equal(await code(() => dice(frags(1))), 'invalid_stake');
+    assert.equal(await code(() => dice(frags(60))), 'invalid_stake');
+    assert.equal(await code(() => dice(frags(50), 10)), 'max_win', '50 × 9.6 > 200');
+    assert.equal((await dice(frags(20))).status, 'settled');
+    assert.equal((await playInstant(db, cfg, userId, 'plinko', frags(1), { rows: 8, risk: 'low' }, T0 + 2)).status, 'settled', 'other games keep the global limits');
+    await setGameFlag(db, userId, 'dice', false, 'check', T0 + 3);
+    await setGameFlag(db, userId, 'dice', true, null, T0 + 4);
+    assert.deepEqual((await gameFlags(db)).find((x) => x.game === 'dice')!.limits, { minStake: frags(5), maxStake: frags(50), maxWin: frags(200) }, 'the kill switch keeps the limits');
+    const crash = new CrashService(db, cfg, beaconAt(), 20);
+    await setGameLimits(db, cfg, userId, 'crash', { minStake: null, maxStake: frags(3), maxWin: null }, T0 + 5);
+    await crash.tick(T0);
+    const readyAt = beaconAt().timeOf((await crash.state(T0, null)).chain!.beaconRound);
+    await crash.tick(readyAt);
+    assert.equal(await code(() => crash.placeBet(userId, frags(4), 200, readyAt + 1)), 'invalid_stake');
+    await crash.placeBet(userId, frags(3), 200, readyAt + 2);
+  });
+
+  it('cases: built-ins are version 1, edits publish new versions, old openings and battles keep theirs', async () => {
+    const { db, cfg, userId } = await setup();
+    const listed = await listCases(db);
+    assert.deepEqual(listed.map((c) => [c.id, c.price, c.version]), SAMPLE_CASES.map((c) => [c.id, priceCase(c), 1]));
+    const box = SAMPLE_CASES[0];
+    const first = await playInstant(db, cfg, userId, 'cases', 0, { caseId: box.id }, T0);
+    assert.deepEqual(JSON.parse(first.params), { caseId: box.id, version: 1 });
+
+    const items = [{ name: 'Scrap', value: 10, weight: 900 }, { name: 'Gear', value: 200, weight: 99 }, { name: 'AK', value: 4000, weight: 1 }];
+    assert.equal(await code(() => saveCase(db, cfg, userId, { id: 'X!', name: 'Bad', items }, T0)), 'invalid_params');
+    assert.equal(await code(() => saveCase(db, cfg, userId, { id: 'big', name: 'Big', items: [{ name: 'a', value: 1, weight: 1 }, { name: 'b', value: cfg.maxWin, weight: 1 }] }, T0)), 'invalid_params');
+    assert.equal(await code(() => saveCase(db, cfg, userId, { id: 'neg', name: 'Neg', items: [{ name: 'a', value: -1, weight: 1 }, { name: 'b', value: 1, weight: 1 }] }, T0)), 'invalid_params');
+    const fresh = await saveCase(db, cfg, userId, { id: 'scrapyard', name: 'Scrapyard', items }, T0);
+    assert.equal(fresh.version, 1);
+    assert.equal(fresh.price, priceCase({ id: 'x', name: 'x', items }));
+    assert.ok(fresh.rtp <= 1 - EDGE.cases + 1e-12 && fresh.rtp > 0.9, 'priced at ⌈EV / (1 − edge)⌉');
+    assert.equal(await code(() => playInstant(db, cfg, userId, 'cases', 0, { caseId: 'scrapyard' }, T0 + 1)), 'case_disabled', 'new cases start disabled');
+    await setCaseState(db, userId, 'scrapyard', { enabled: true }, T0 + 2);
+    assert.ok((await listCases(db)).some((c) => c.id === 'scrapyard'));
+
+    // a battle created now keeps version 1 of the edited case
+    const { userId: other } = await signUp(db, cfg, { displayName: 'Rival', ageConfirmed: true, country: 'NZ' }, T0);
+    const beacon = beaconAt();
+    const battle = await createBattle(db, cfg, userId, [box.id, box.id], 2, 'normal', T0 + 3);
+
+    const edited = { id: box.id, name: `${box.name} II`, items: box.items.map((i, k) => ({ ...i, weight: k === 0 ? i.weight * 2 : i.weight })) };
+    const v2 = await saveCase(db, cfg, userId, edited, T0 + 4);
+    assert.equal(v2.version, 2);
+    assert.equal((await caseVersion(db, box.id)).version, 2);
+    assert.equal((await caseVersion(db, box.id, 1)).name, box.name, 'version 1 is unchanged');
+    const second = await playInstant(db, cfg, userId, 'cases', 0, { caseId: box.id }, T0 + 5);
+    assert.deepEqual(JSON.parse(second.params), { caseId: box.id, version: 2 });
+    assert.equal(second.stake, v2.price * MF_PER_FRAG);
+
+    await joinGame(db, cfg, beacon, battle, other, T0 + 6);
+    const g = await publicGame(db, beacon, battle);
+    await settleDue(db, beacon, g.fairness.beacon.resolvesAt!);
+    const settled = await publicGame(db, beacon, battle);
+    const replay = playBattle(new FairStream(settled.fairness.serverSeed!, settled.fairness.beacon.value!, 0), [box, box], 2, 'normal');
+    assert.deepEqual(settled.result.totals, replay.totals, 'settled with the version it was created with');
+    for (const b of [first, second]) assert.equal((await betDetail(db, beacon, 'cases', b.id, T0 + 10)).verification.status, 'verified');
+    assert.equal((await betDetail(db, beacon, 'battle', battle, T0 + 10)).verification.status, 'verified');
+    const monitor = await rtpMonitor(db, 0);
+    assert.ok(monitor.find((r) => r.game === 'cases')!.theory! > 0.9, 'the RTP monitor reads the version of each opening');
+    assert.deepEqual(await ledgerIntegrity(db), { sum: 0, mismatched: [] });
+  });
+
+  it('promo codes: one use per player, limited uses, expiry, level, RG and a guessing limit', async () => {
+    const { db, cfg, userId: op } = await setup();
+    const players = [];
+    for (const n of ['Ann', 'Ben', 'Cid']) players.push((await signUp(db, cfg, { displayName: n, ageConfirmed: true, country: 'NZ' }, T0)).userId);
+    assert.equal(await code(() => createPromo(db, op, { code: 'x', amount: 5, maxUses: 1 }, T0)), 'invalid_params');
+    assert.equal(await code(() => createPromo(db, op, { code: 'HUGE', amount: 10_000, maxUses: 1000 }, T0)), 'invalid_params', 'budget cap');
+    assert.equal(await code(() => createPromo(db, op, { code: 'OLD1', amount: 5, maxUses: 5, expiresAt: T0 - 1 }, T0)), 'invalid_params');
+    const p = await createPromo(db, op, { code: 'wipe25', amount: 25, maxUses: 2, expiresAt: T0 + HOUR }, T0);
+    assert.equal(p.code, 'WIPE25');
+    assert.equal(await code(() => createPromo(db, op, { code: 'WIPE25', amount: 5, maxUses: 1 }, T0)), 'promo_exists');
+    const [a, b, c] = players;
+    const before = await bal(db, a);
+    assert.deepEqual(await redeemPromo(db, a, ' wipe25 ', T0 + 1), { code: 'WIPE25', amount: 25 });
+    assert.equal(await bal(db, a), before + frags(25));
+    assert.equal(await code(() => redeemPromo(db, a, 'WIPE25', T0 + 2)), 'promo_redeemed');
+    await startCooldown(db, b, 24, T0 + 3);
+    assert.equal(await code(() => redeemPromo(db, b, 'WIPE25', T0 + 4)), 'rg_blocked');
+    await redeemPromo(db, c, 'WIPE25', T0 + 5);
+    assert.equal(await code(() => redeemPromo(db, op, 'WIPE25', T0 + 6)), 'promo_used_up');
+    await createPromo(db, op, { code: 'SOON', amount: 5, maxUses: 10, expiresAt: T0 + 100 }, T0);
+    assert.equal(await code(() => redeemPromo(db, op, 'SOON', T0 + 100)), 'promo_expired');
+    await createPromo(db, op, { code: 'VIP10', amount: 5, maxUses: 10, minLevel: 10 }, T0);
+    assert.equal(await code(() => redeemPromo(db, op, 'VIP10', T0 + 7)), 'level_required');
+    await setPromoActive(db, op, 'VIP10', false, T0 + 8);
+    for (let i = 0; i < PROMO_FAIL_LIMIT - 1; i++) assert.equal(await code(() => redeemPromo(db, a, `NOPE${i}`, T0 + 10 + i)), 'promo_invalid');
+    assert.equal(await code(() => redeemPromo(db, a, 'VIP10', T0 + 30)), 'promo_invalid', 'a paused code is invalid');
+    assert.equal(await code(() => redeemPromo(db, a, 'SOON', T0 + 31)), 'too_many_attempts');
+    assert.equal(await code(() => redeemPromo(db, a, 'SOON', T0 + 31 + HOUR)), 'promo_expired', 'the limit resets after an hour');
+    const list = await listPromos(db);
+    assert.deepEqual(list.find((x) => x.code === 'WIPE25')!.uses, 2);
+    assert.equal(((await db.prepare("SELECT COALESCE(SUM(amount), 0) AS s FROM reward_claims WHERE kind = 'promo_code'").get()) as { s: number }).s, frags(50));
+    assert.equal(await balanceOf(db, PROMO), -frags(50));
+    assert.deepEqual(await ledgerIntegrity(db), { sum: 0, mismatched: [] });
+  });
+
+  it('player tools: capped and reasoned adjustments, never on oneself; notes; ending sessions', async () => {
+    const { db, cfg, userId: op } = await setup({ demoStartBalance: frags(100) });
+    const { userId: p } = await signUp(db, cfg, { displayName: 'Pat', ageConfirmed: true, country: 'NZ' }, T0);
+    const token = await createSession(db, cfg, p, T0);
+    assert.equal(await code(() => adjustBalance(db, op, p, 50, 'ok', T0)), 'invalid_params', 'reason too short');
+    assert.equal(await code(() => adjustBalance(db, op, p, 100_001, 'goodwill after outage', T0)), 'invalid_params');
+    assert.equal(await code(() => adjustBalance(db, op, op, 50, 'goodwill after outage', T0)), 'forbidden');
+    const start = await bal(db, p);
+    assert.equal((await adjustBalance(db, op, p, 50, 'goodwill after outage', T0 + 1)).balance, (start + frags(50)) / MF_PER_FRAG);
+    assert.equal(await code(() => adjustBalance(db, op, p, -(start / MF_PER_FRAG) - 51, 'correction of a support error', T0 + 2)), 'insufficient_balance');
+    await adjustBalance(db, op, p, -20, 'correction of a support error', T0 + 3);
+    assert.equal(await bal(db, p), start + frags(30));
+    assert.equal(await balanceOf(db, ADJUSTMENTS), -frags(30));
+    await addNote(db, op, p, 'Asked about withdrawals.', T0 + 4);
+    const d = await playerDetail(db, p, T0 + 5);
+    assert.equal(d.notes[0].body, 'Asked about withdrawals.');
+    assert.equal(d.sessions, 1);
+    assert.equal((await forceLogout(db, op, p, T0 + 6)).ended, 1);
+    assert.equal(await resolveSession(db, token, T0 + 7), null);
+    const report = await dailyReport(db, 3, T0 + 8);
+    assert.equal(report.rows[0].adjustments, 30);
+    assert.ok((await auditLog(db, { event: 'admin_adjust' })).length === 2);
+    assert.deepEqual(await ledgerIntegrity(db), { sum: 0, mismatched: [] });
+  });
+
+  it('bet explorer: every game verifies from its seeds, active server seeds stay hidden, tampering is caught', async () => {
+    const { db, cfg, userId } = await setup();
+    const beacon = beaconAt();
+    let t = T0;
+    const ids: [string, string][] = [];
+    for (const [g, p, s] of [['dice', { chance: 40, direction: 'over' }, 2], ['plinko', { rows: 12, risk: 'high' }, 1], ['upgrader', { multiplier: 3 }, 2], ['airdrop', { target: 1.7 }, 2], ['cases', { caseId: SAMPLE_CASES[1].id }, 0]] as const) {
+      ids.push([g, (await playInstant(db, cfg, userId, g as 'dice', frags(s as number), p as never, ++t)).id]);
+    }
+    const m = await minesStart(db, cfg, userId, frags(1), 5, ++t);
+    await minesReveal(db, cfg, userId, m.id, 0, ++t).catch(() => undefined);
+    const mb = (await getBet(db, m.id))!;
+    if (mb.status === 'open') await minesCashout(db, userId, m.id, ++t);
+    ids.push(['mines', m.id]);
+    const tw = (await towersStart(db, cfg, userId, frags(1), 'blue', ++t)) as any;
+    await towersPick(db, cfg, userId, tw.id, 0, ++t);
+    if ((await getBet(db, tw.id))!.status === 'open') await towersCashout(db, userId, tw.id, ++t);
+    ids.push(['towers', tw.id]);
+    const hl = (await hiloStart(db, cfg, userId, frags(1), ++t)) as any;
+    await hiloMove(db, cfg, userId, hl.id, 'skip', ++t);
+    const card = ((await hiloMove(db, cfg, userId, hl.id, 'skip', ++t)) as any).cards.at(-1).rank;
+    await hiloMove(db, cfg, userId, hl.id, card <= 7 ? 'hi' : 'lo', ++t);
+    if ((await getBet(db, hl.id))!.status === 'open') await hiloCashout(db, userId, hl.id, ++t);
+    ids.push(['hilo', hl.id]);
+    const rd = await raidStart(db, cfg, userId, frags(1), ++t);
+    await raidBlast(db, cfg, userId, rd.id, 'c4', ++t);
+    if ((await getBet(db, rd.id))!.status === 'open') await raidCashout(db, userId, rd.id, ++t);
+    ids.push(['raid', rd.id]);
+    for (let i = 0; i < 6; i++) {
+      let h = (await bjStart(db, cfg, userId, frags(1), ++t)) as any;
+      while (h.status === 'open') h = await bjAction(db, userId, h.id, h.actions.includes('double') && i % 2 ? 'double' : h.actions.includes('split') ? 'split' : 'stand', ++t);
+      ids.push(['blackjack', h.id]);
+    }
+    for (const [g, id] of ids) {
+      const d = await betDetail(db, beacon, g, id, t);
+      assert.equal(d.verification.status, 'verified', `${g}: ${JSON.stringify(d.verification.checks)}`);
+      assert.equal((d.fairness as any).serverSeed, null, 'the active server seed is not shown');
+      assert.equal((d.fairness as any).seedRevealed, false);
+    }
+    const open = (await towersStart(db, cfg, userId, frags(1), 'green', ++t)) as any;
+    assert.equal((await betDetail(db, beacon, 'towers', open.id, t)).verification.status, 'pending');
+    const trap = JSON.parse((await getBet(db, open.id))!.state!).traps[0][0] as number;
+    await towersPick(db, cfg, userId, open.id, trap === 0 ? 1 : 0, ++t);
+    await towersCashout(db, userId, open.id, ++t);
+
+    const [dg, did] = ids[0];
+    await db.prepare('UPDATE bets SET multiplier = multiplier + 1 WHERE id = ?').run(did);
+    const tampered = await betDetail(db, beacon, dg, did, t);
+    assert.equal(tampered.verification.status, 'mismatch');
+    assert.equal(tampered.verification.checks.find((c) => c.name === 'outcome')!.ok, false);
+    await rotateSeed(db, userId, null, ++t);
+    const revealed = await betDetail(db, beacon, 'plinko', ids[1][1], t);
+    assert.ok((revealed.fairness as any).serverSeed, 'shown once the player rotated the seed');
+
+    const list = await exploreBets(db, { game: 'blackjack' });
+    assert.equal(list.bets.length, 6);
+    assert.equal(list.total.bets, 6);
+    assert.ok((await exploreBets(db, { user: 'test', limit: 5 })).bets.length === 5);
+    assert.ok((await exploreBets(db, { minMultiplier: 1000 })).bets.every((b) => b.multiplier >= 1000));
+  });
+
+  it('live games and PvP verify too; seed chains rotate on demand and when used up', async () => {
+    const { db, cfg, userId } = await setup();
+    const { userId: other } = await signUp(db, cfg, { displayName: 'Opp', ageConfirmed: true, country: 'NZ' }, T0);
+    const beacon = beaconAt();
+    const crash = new CrashService(db, cfg, beacon, 3);
+    const run = async (from: number, to: number) => { for (let x = from; x <= to; x += 250) await crash.tick(x); };
+    await crash.tick(T0);
+    const readyAt = beacon.timeOf((await crash.state(T0, null)).chain!.beaconRound);
+    await crash.tick(readyAt);
+    const bet = await crash.placeBet(userId, frags(5), 120, readyAt + 1);
+    await run(readyAt, readyAt + 400_000);
+    const rounds = (await db.prepare('SELECT chain_id, idx FROM crash_rounds ORDER BY id').all()) as { chain_id: number; idx: number }[];
+    assert.ok(rounds.length > 3, 'rounds go on after the 3-round chain is used up');
+    assert.deepEqual(rounds.slice(0, 4).map((r) => [Number(r.chain_id), Number(r.idx)]), [[1, 0], [1, 1], [1, 2], [2, 0]]);
+    const betId = ((await db.prepare('SELECT id FROM crash_bets WHERE user_id = ?').get(userId)) as { id: string }).id;
+    assert.ok(bet);
+    assert.equal((await betDetail(db, beacon, 'crash', betId, readyAt + 400_000)).verification.status, 'verified');
+    const chains = await listChains(db, 'crash', beacon);
+    assert.equal(chains[0].tip, null, 'the active chain keeps its tip secret');
+    assert.ok(chains.slice(1).every((c) => c.tip && verifyCrashLink(buildChain(c.tip, c.length).seeds[0], c.terminalHash)), 'retired chains publish their tip');
+
+    // rotation while a round runs: the old tip stays hidden until that round is over
+    let now = readyAt + 400_000;
+    while ((await crash.state(now, null)).round?.status !== 'running') { now += 100; await crash.tick(now); }
+    const rotated = await crash.rotateChain(userId, now);
+    const during = await listChains(db, 'crash', beacon);
+    assert.equal(during[0].id, rotated.id);
+    assert.equal(during[1].tip, null, 'the old chain still has a running round');
+    await run(now, now + 300_000);
+    const afterwards = await listChains(db, 'crash', beacon);
+    assert.ok(afterwards.find((c) => c.id === during[1].id)!.tip);
+    assert.ok(((await db.prepare('SELECT COUNT(*) AS n FROM crash_rounds WHERE chain_id = ?').get(rotated.id)) as { n: number }).n > 0, 'new rounds run on the rotated chain');
+
+    const wheel = new WheelService(db, cfg, beacon, 50);
+    await wheel.tick(now);
+    const wReady = beacon.timeOf((await wheel.state(now, null)).chain!.beaconRound);
+    await wheel.tick(wReady);
+    await wheel.placeBet(userId, '3', frags(2), wReady + 1);
+    for (let x = wReady; x <= wReady + 30_000; x += 500) await wheel.tick(x);
+    const wb = ((await db.prepare('SELECT id FROM wheel_bets WHERE user_id = ?').get(userId)) as { id: string }).id;
+    assert.equal((await betDetail(db, beacon, 'wheel', wb, wReady + 30_000)).verification.status, 'verified');
+
+    const cf = await createCoinflip(db, cfg, userId, frags(10), 'scrap', now);
+    await joinGame(db, cfg, beacon, cf, other, now);
+    await settleDue(db, beacon, (await publicGame(db, beacon, cf)).fairness.beacon.resolvesAt!);
+    assert.equal((await betDetail(db, beacon, 'coinflip', cf, now)).verification.status, 'verified');
+
+    const jp = new JackpotService(db, cfg, beacon);
+    await jp.enter(userId, 'low', frags(10), now);
+    await jp.enter(other, 'low', frags(30), now + 1);
+    await jp.tick(now + 1 + JACKPOT_COUNTDOWN_MS);
+    const pot = (await jp.state('low', now + 1 + JACKPOT_COUNTDOWN_MS, userId)).current!;
+    await jp.tick(beacon.timeOf(pot.fairness.beacon.round!));
+    const d = await betDetail(db, beacon, 'jackpot', pot.id, now);
+    assert.equal(d.verification.status, 'verified', JSON.stringify(d.verification));
+    assert.deepEqual(await ledgerIntegrity(db), { sum: 0, mismatched: [] });
+  });
+
+  it('API: settings, limits, cases, promos, explorer and reports through the router, admins only', async () => {
+    let now = T0;
+    const db = await newDb();
+    const beacon = beaconAt();
+    const router = createRouter({ db, cfg: DEFAULT_CONFIG, clock: () => now, fetch: async () => ({ ok: false, text: async () => '' }), publicUrl: 'http://x', beacon, crash: new CrashService(db, DEFAULT_CONFIG, beacon, 20) });
+    const call = async (token: string, method: string, url: string, body?: unknown) => {
+      now += 50;
+      const r = await router.dispatch({ method, url, headers: { 'cf-ipcountry': 'NZ', authorization: `Bearer ${token}` }, body: body ?? null, ip: 't' });
+      return { status: r.status, json: r.payload as any };
+    };
+    const a = (await call('', 'POST', '/auth/demo', { displayName: 'Op', ageConfirmed: true })).json.token;
+    const p = (await call('', 'POST', '/auth/demo', { displayName: 'Player', ageConfirmed: true })).json.token;
+    await call(a, 'POST', '/demo/role', { role: 'admin' });
+    for (const [m, u] of [['GET', '/admin/settings'], ['GET', '/admin/cases'], ['GET', '/admin/promos'], ['GET', '/admin/bets'], ['GET', '/admin/reports/daily'], ['GET', '/admin/chains'], ['POST', '/admin/chains/crash/rotate']]) {
+      assert.equal((await call(p, m, u)).status, 403, `${m} ${u} is admin-only`);
+    }
+    assert.equal((await call(a, 'PUT', '/admin/settings', { announcement: { text: 'Wipe day!', tone: 'info' } })).status, 200);
+    assert.equal((await call('', 'GET', '/site')).json.announcement.text, 'Wipe day!');
+    const lim = await call(a, 'PUT', '/admin/games/dice/limits', { minStake: 2, maxStake: 20, maxWin: null });
+    assert.deepEqual(lim.json.limits, { minStake: 2, maxStake: 20, maxWin: null });
+    assert.deepEqual((await call(p, 'GET', '/games/status')).json.find((g: any) => g.game === 'dice').limits, { minStake: 2, maxStake: 20, maxWin: DEFAULT_CONFIG.maxWin / MF_PER_FRAG });
+    assert.equal((await call(p, 'POST', '/bets/dice', { stake: 1, params: { chance: 50, direction: 'under' } })).json.error, 'invalid_stake');
+    const items = [{ name: 'Rock', value: 1, weight: 9 }, { name: 'Sword', value: 30, weight: 1 }];
+    assert.equal((await call(a, 'POST', '/admin/cases/preview', { name: 'Stone Age', items })).json.price, priceCase({ id: 'x', name: 'x', items }));
+    assert.equal((await call(a, 'PUT', '/admin/cases/stone-age', { name: 'Stone Age', items })).json.version, 1);
+    assert.equal((await call(a, 'PUT', '/admin/cases/stone-age/state', { enabled: true })).status, 200);
+    assert.ok((await call('', 'GET', '/config')).json.cases.some((c: any) => c.id === 'stone-age'));
+    const opened = await call(p, 'POST', '/bets/cases', { params: { caseId: 'stone-age' } });
+    assert.equal(opened.status, 200);
+    assert.equal((await call('', 'GET', '/cases/stone-age/v/1')).json.items.length, 2);
+    assert.equal((await call(a, 'POST', '/admin/promos', { code: 'ROCK10', amount: 10, maxUses: 5 })).status, 200);
+    assert.equal((await call(p, 'POST', '/promo/redeem', { code: 'rock10' })).json.amount, 10);
+    const bets = (await call(a, 'GET', '/admin/bets?game=cases')).json;
+    assert.equal(bets.bets.length, 1);
+    const detail = (await call(a, 'GET', `/admin/bets/cases/${bets.bets[0].ref}`)).json;
+    assert.equal(detail.verification.status, 'verified');
+    const rep = (await call(a, 'GET', '/admin/reports/daily?days=2')).json;
+    assert.equal(rep.rows.length, 2);
+    assert.equal(rep.totals.bonusCost, 10);
+    assert.equal((await call(a, 'POST', '/admin/chains/wheel/rotate')).status, 200);
+    assert.equal((await call('', 'GET', '/chains/wheel')).json.length, 1);
   });
 });

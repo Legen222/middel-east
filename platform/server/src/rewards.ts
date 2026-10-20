@@ -16,22 +16,27 @@
  * promo messaging. Rakeback and affiliate earnings (the player's own money) stay claimable.
  */
 
-import { EDGE, FairStream, openCase, type CaseDef } from '../../engine/src/index';
+import { EDGE, FairStream, openCase, optimalRtp, type CaseDef } from '../../engine/src/index';
 import { systemMessage } from './chat';
 import { type Config, MF_PER_FRAG, fmtFrags, frags } from './config';
 import { type DB, audit, tx } from './db';
-import { fail } from './errors';
+import { AppError, fail } from './errors';
 import { bus } from './events';
 import { promoEligible } from './rg';
 import { takeNonce } from './seeds';
+import { getSettings } from './site';
 import { HOUSE, transfer, userAccount } from './wallet';
 
 export const PROMO = 'house:promo';
+/** House edge of perfect blackjack play; XP and rakeback use it so blackjack earns like any other game. */
+const BLACKJACK_EDGE = Math.round((1 - optimalRtp()) * 10_000) / 10_000;
 
 /** Edge used for expected loss. Plinko/cases use the target edge (their real edge is ≥ this). */
 const EDGE_OF: Record<string, number> = {
   dice: EDGE.dice, crash: EDGE.crash, mines: EDGE.mines, plinko: EDGE.plinko, raid: EDGE.raid,
   upgrader: EDGE.upgrader, cases: EDGE.cases, battle: EDGE.cases, coinflip: EDGE.coinflip,
+  wheel: EDGE.wheel, jackpot: EDGE.jackpot, towers: EDGE.towers, hilo: EDGE.hilo, airdrop: EDGE.airdrop,
+  blackjack: BLACKJACK_EDGE,
 };
 const edgeSql = `CASE game ${Object.entries(EDGE_OF).map(([g, e]) => `WHEN '${g}' THEN ${e}`).join(' ')} ELSE 0 END`;
 
@@ -135,7 +140,8 @@ export function rainTick(db: DB, cfg: Config, now: number): Promise<void> {
       db.afterCommit(() => bus.publish({ topic: 'chat', event: { type: 'rain' } }));
     }
     const slot = Math.floor(now / RAIN_PERIOD_MS) * RAIN_PERIOD_MS;
-    if (!cur || cur.opens_at < slot) {
+    // switched off in the backoffice: a running round still pays out above, no new one opens
+    if ((!cur || cur.opens_at < slot) && (await getSettings(db)).rainEnabled) {
       const el = ((await db.prepare(`SELECT COALESCE(SUM(stake * ${edgeSql}), 0) AS el FROM wagers WHERE created_at >= ?`).get(slot - RAIN_PERIOD_MS)) as { el: number }).el;
       const pot = Math.max(Math.floor(el * 0.01), cfg.demo ? frags(500) : 0);
       await db.prepare("INSERT INTO rain_rounds (opens_at, closes_at, pot, status) VALUES (?, ?, ?, 'open')").run(slot, slot + RAIN_WINDOW_MS, pot);
@@ -209,7 +215,7 @@ export async function crewState(db: DB, userId: string) {
   let ngr = 0;
   for (const m of members) {
     const r = (await db.prepare('SELECT COALESCE(SUM(stake), 0) - COALESCE(SUM(payout), 0) AS ggr FROM wagers WHERE user_id = ? AND settled = 1 AND created_at > ?').get(m.id, since)) as { ggr: number };
-    const bonus = ((await db.prepare("SELECT COALESCE(SUM(amount), 0) AS b FROM reward_claims WHERE user_id = ? AND kind IN ('rakeback', 'daily', 'rain') AND created_at > ?").get(m.id, since)) as { b: number }).b;
+    const bonus = ((await db.prepare("SELECT COALESCE(SUM(amount), 0) AS b FROM reward_claims WHERE user_id = ? AND kind IN ('rakeback', 'daily', 'rain', 'promo_code') AND created_at > ?").get(m.id, since)) as { b: number }).b;
     ngr += r.ggr - bonus;
   }
   return { code: own.code, joinedCode: joined, members: members.length, rate, ngr, available: Math.max(0, Math.floor(ngr * rate)) };
@@ -223,4 +229,78 @@ export function claimCrew(db: DB, userId: string, now: number): Promise<{ amount
     await recordClaim(db, userId, 'affiliate', s.available, { ngr: s.ngr, rate: s.rate, members: s.members }, now);
     return { amount: s.available };
   });
+}
+
+/* ---------- Promo codes ---------- */
+
+export const PROMO_FAIL_LIMIT = 10; // wrong codes per player per hour, against guessing
+const PROMO_CODE = /^[A-Z0-9]{4,20}$/;
+const PROMO_MAX_AMOUNT = frags(10_000);
+const PROMO_MAX_BUDGET = frags(1_000_000);
+
+interface PromoRow { code: string; amount: number; max_uses: number; uses: number; min_level: number; expires_at: number | null; active: number; note: string | null; created_by: string | null; created_at: number }
+
+const publicPromo = (p: PromoRow) => ({
+  code: p.code, amount: p.amount / MF_PER_FRAG, maxUses: Number(p.max_uses), uses: Number(p.uses), minLevel: Number(p.min_level), expiresAt: p.expires_at,
+  active: Number(p.active) === 1, note: p.note, createdBy: p.created_by, createdAt: p.created_at, budget: (p.amount * p.max_uses) / MF_PER_FRAG, spent: (p.amount * p.uses) / MF_PER_FRAG,
+});
+
+export async function createPromo(db: DB, actorId: string, input: { code?: unknown; amount?: unknown; maxUses?: unknown; minLevel?: unknown; expiresAt?: unknown; note?: unknown }, now: number) {
+  const code = String(input.code ?? '').trim().toUpperCase();
+  if (!PROMO_CODE.test(code)) fail('invalid_params', 'Code: 4 to 20 letters and digits.');
+  const amount = Math.round(Number(input.amount) * MF_PER_FRAG);
+  if (!Number.isSafeInteger(amount) || amount < MF_PER_FRAG || amount > PROMO_MAX_AMOUNT) fail('invalid_params', `Amount: 1 to ${PROMO_MAX_AMOUNT / MF_PER_FRAG} Frags per player.`);
+  const maxUses = Number(input.maxUses);
+  if (!Number.isInteger(maxUses) || maxUses < 1 || maxUses > 100_000) fail('invalid_params', 'Uses: 1 to 100,000.');
+  if (amount * maxUses > PROMO_MAX_BUDGET) fail('invalid_params', `Budget (amount × uses) is above ${PROMO_MAX_BUDGET / MF_PER_FRAG} Frags.`);
+  const minLevel = input.minLevel === undefined ? 1 : Number(input.minLevel);
+  if (!Number.isInteger(minLevel) || minLevel < 1 || minLevel > 100) fail('invalid_params', 'Minimum level: 1 to 100.');
+  const expiresAt = input.expiresAt == null ? null : Number(input.expiresAt);
+  if (expiresAt !== null && (!Number.isSafeInteger(expiresAt) || expiresAt <= now)) fail('invalid_params', 'The expiry must be in the future.');
+  const note = input.note == null ? null : String(input.note).trim().slice(0, 200) || null;
+  return tx(db, async (db) => {
+    if (await db.prepare('SELECT 1 FROM promo_codes WHERE code = ?').get(code)) fail('promo_exists', 'This code exists already.', 409);
+    await db.prepare('INSERT INTO promo_codes (code, amount, max_uses, uses, min_level, expires_at, active, note, created_by, created_at) VALUES (?, ?, ?, 0, ?, ?, 1, ?, ?, ?)')
+      .run(code, amount, maxUses, minLevel, expiresAt, note, actorId, now);
+    await audit(db, actorId, 'admin_promo_create', { code, amount, maxUses, minLevel, expiresAt }, now);
+    return publicPromo((await db.prepare('SELECT * FROM promo_codes WHERE code = ?').get(code)) as PromoRow);
+  });
+}
+
+export async function listPromos(db: DB) {
+  return ((await db.prepare('SELECT * FROM promo_codes ORDER BY created_at DESC LIMIT 200').all()) as PromoRow[]).map(publicPromo);
+}
+
+export async function setPromoActive(db: DB, actorId: string, code: string, active: boolean, now: number) {
+  const r = await db.prepare('UPDATE promo_codes SET active = ? WHERE code = ?').run(active ? 1 : 0, String(code).toUpperCase());
+  if (!r.changes) fail('not_found', 'Unknown code.', 404);
+  await audit(db, actorId, 'admin_promo_state', { code: String(code).toUpperCase(), active }, now);
+  return publicPromo((await db.prepare('SELECT * FROM promo_codes WHERE code = ?').get(String(code).toUpperCase())) as PromoRow);
+}
+
+/** One redemption per player and code. Wrong codes count against a per-hour limit. */
+export async function redeemPromo(db: DB, userId: string, codeIn: unknown, now: number): Promise<{ code: string; amount: number }> {
+  const code = String(codeIn ?? '').trim().toUpperCase();
+  const fails = (await db.prepare("SELECT COUNT(*) AS n FROM audit WHERE user_id = ? AND event = 'promo_failed' AND created_at > ?").get(userId, now - 3_600_000)) as { n: number };
+  if (Number(fails.n) >= PROMO_FAIL_LIMIT) fail('too_many_attempts', 'Too many wrong codes. Try again in an hour.', 429);
+  try {
+    return await tx(db, async (db) => {
+      const p = PROMO_CODE.test(code) ? ((await db.prepare('SELECT * FROM promo_codes WHERE code = ?').get(code)) as PromoRow | undefined) : undefined;
+      if (!p || Number(p.active) !== 1) fail('promo_invalid', 'This code is not valid.', 404);
+      if (p!.expires_at !== null && now >= p!.expires_at) fail('promo_expired', 'This code has expired.', 410);
+      if (await db.prepare('SELECT 1 FROM promo_redemptions WHERE code = ? AND user_id = ?').get(code, userId)) fail('promo_redeemed', 'You have already used this code.', 409);
+      if (!(await promoEligible(db, userId, now))) fail('rg_blocked', 'No bonuses during a break.', 403);
+      if ((await progress(db, userId)).level < Number(p!.min_level)) fail('level_required', `This code needs level ${p!.min_level}.`, 403);
+      // conditional update: two players taking the last use at once cannot both get it
+      const took = await db.prepare('UPDATE promo_codes SET uses = uses + 1 WHERE code = ? AND uses < max_uses').run(code);
+      if (!took.changes) fail('promo_used_up', 'This code has been used up.', 410);
+      await db.prepare('INSERT INTO promo_redemptions (code, user_id, amount, created_at) VALUES (?, ?, ?, ?)').run(code, userId, p!.amount, now);
+      await transfer(db, PROMO, userAccount(userId), p!.amount, 'promo', `code:${code}`, now);
+      await recordClaim(db, userId, 'promo_code', p!.amount, { code }, now);
+      return { code, amount: p!.amount / MF_PER_FRAG };
+    });
+  } catch (e) {
+    if (e instanceof AppError && e.code === 'promo_invalid') await audit(db, userId, 'promo_failed', { code: code.slice(0, 24) }, now);
+    throw e;
+  }
 }

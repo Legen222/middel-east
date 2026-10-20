@@ -12,6 +12,8 @@
 
 import { DatabaseSync } from 'node:sqlite';
 
+import { SAMPLE_CASES, caseRtp, priceCase } from '../../engine/src/index';
+
 export interface RunResult { changes: number }
 export interface Stmt {
   get(...args: unknown[]): Promise<any>;
@@ -275,6 +277,69 @@ CREATE INDEX IF NOT EXISTS crash_bets_user ON crash_bets(user_id, created_at);
 CREATE UNIQUE INDEX IF NOT EXISTS crash_bets_one ON crash_bets(round_id, user_id);
 CREATE INDEX IF NOT EXISTS crash_rounds_chain ON crash_rounds(chain_id, idx);
 
+-- Bandit Wheel: live rounds from its own hash chain (same scheme as crash).
+CREATE TABLE IF NOT EXISTS wheel_chains (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  terminal_hash TEXT NOT NULL,
+  tip TEXT NOT NULL,
+  length INTEGER NOT NULL,
+  beacon_round INTEGER NOT NULL,
+  client_seed TEXT,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS wheel_rounds (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  chain_id INTEGER NOT NULL REFERENCES wheel_chains(id),
+  idx INTEGER NOT NULL,
+  seed TEXT NOT NULL,
+  field_index INTEGER NOT NULL,   -- hidden until the spin starts
+  betting_ends_at INTEGER NOT NULL,
+  spin_ends_at INTEGER NOT NULL,
+  status TEXT NOT NULL            -- betting | spinning | settled
+);
+CREATE TABLE IF NOT EXISTS wheel_bets (
+  id TEXT PRIMARY KEY,
+  round_id INTEGER NOT NULL REFERENCES wheel_rounds(id),
+  user_id TEXT NOT NULL REFERENCES users(id),
+  field TEXT NOT NULL,
+  stake INTEGER NOT NULL,
+  payout INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL,           -- open | settled
+  created_at INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS wheel_bets_one ON wheel_bets(round_id, user_id, field);
+CREATE INDEX IF NOT EXISTS wheel_bets_user ON wheel_bets(user_id, created_at);
+
+-- Jackpot: one open pot per room; client seed = beacon round picked at lock.
+CREATE TABLE IF NOT EXISTS jackpot_rounds (
+  id TEXT PRIMARY KEY,
+  room TEXT NOT NULL,             -- high | low
+  status TEXT NOT NULL,           -- open | counting | locked | settled | refunded
+  server_seed TEXT NOT NULL,
+  server_hash TEXT NOT NULL,
+  total INTEGER NOT NULL DEFAULT 0,
+  countdown_ends_at INTEGER,
+  beacon_round INTEGER,
+  beacon_value TEXT,
+  ticket INTEGER,
+  winner_entry INTEGER,
+  payout INTEGER,
+  created_at INTEGER NOT NULL,
+  settled_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS jackpot_rounds_room ON jackpot_rounds(room, status);
+CREATE TABLE IF NOT EXISTS jackpot_entries (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  round_id TEXT NOT NULL REFERENCES jackpot_rounds(id),
+  user_id TEXT,                   -- NULL = demo bot (house)
+  amount INTEGER NOT NULL,
+  ticket_from INTEGER NOT NULL,
+  payout INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS jackpot_entries_round ON jackpot_entries(round_id, id);
+CREATE INDEX IF NOT EXISTS jackpot_entries_user ON jackpot_entries(user_id, created_at);
+
 CREATE TABLE IF NOT EXISTS openid_nonces (
   nonce TEXT PRIMARY KEY,
   created_at INTEGER NOT NULL
@@ -283,19 +348,25 @@ CREATE TABLE IF NOT EXISTS openid_nonces (
 -- Every wager across instant/stateful bets, PvP seats (humans only, cancelled games excluded) and crash bets.
 -- Responsible-gambling limits, session summaries, AML turnover and live RTP all read from here.
 CREATE VIEW IF NOT EXISTS wagers AS
-  SELECT user_id, game, stake, payout, created_at, settled_at, CASE WHEN status = 'settled' THEN 1 ELSE 0 END AS settled FROM bets
+  SELECT user_id, game, stake, payout, created_at, settled_at, CASE WHEN status = 'settled' THEN 1 ELSE 0 END AS settled, id AS ref FROM bets
   UNION ALL
-  SELECT s.user_id, g.type, s.stake, s.payout, s.created_at, g.settled_at, CASE WHEN g.status = 'settled' THEN 1 ELSE 0 END
+  SELECT s.user_id, g.type, s.stake, s.payout, s.created_at, g.settled_at, CASE WHEN g.status = 'settled' THEN 1 ELSE 0 END, g.id
     FROM pvp_seats s JOIN pvp_games g ON g.id = s.game_id WHERE s.user_id IS NOT NULL AND g.status != 'cancelled'
   UNION ALL
-  SELECT b.user_id, 'crash', b.stake, b.payout, b.created_at, r.crash_at, CASE WHEN b.status = 'settled' THEN 1 ELSE 0 END
-    FROM crash_bets b JOIN crash_rounds r ON r.id = b.round_id;
+  SELECT b.user_id, 'crash', b.stake, b.payout, b.created_at, r.crash_at, CASE WHEN b.status = 'settled' THEN 1 ELSE 0 END, b.id
+    FROM crash_bets b JOIN crash_rounds r ON r.id = b.round_id
+  UNION ALL
+  SELECT b.user_id, 'wheel', b.stake, b.payout, b.created_at, r.spin_ends_at, CASE WHEN b.status = 'settled' THEN 1 ELSE 0 END, b.id
+    FROM wheel_bets b JOIN wheel_rounds r ON r.id = b.round_id
+  UNION ALL
+  SELECT e.user_id, 'jackpot', e.amount, e.payout, e.created_at, r.settled_at, CASE WHEN r.status = 'settled' THEN 1 ELSE 0 END, r.id
+    FROM jackpot_entries e JOIN jackpot_rounds r ON r.id = e.round_id WHERE e.user_id IS NOT NULL AND r.status != 'refunded';
 
 -- Retention
 CREATE TABLE IF NOT EXISTS reward_claims (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id TEXT NOT NULL REFERENCES users(id),
-  kind TEXT NOT NULL,             -- rakeback | daily | rain | affiliate
+  kind TEXT NOT NULL,             -- rakeback | daily | rain | affiliate | promo_code
   amount INTEGER NOT NULL,
   data TEXT,
   created_at INTEGER NOT NULL
@@ -326,8 +397,69 @@ CREATE TABLE IF NOT EXISTS game_flags (
   enabled INTEGER NOT NULL,
   reason TEXT,
   updated_by TEXT,
+  updated_at INTEGER NOT NULL,
+  min_stake INTEGER,              -- per-game limits (mF); NULL = global limit. Only ever tighter than global.
+  max_stake INTEGER,
+  max_win INTEGER
+);
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,            -- JSON
+  updated_by TEXT,
   updated_at INTEGER NOT NULL
 );
+
+-- Cases are data, not code: every edit creates a new immutable version; bets reference the version.
+CREATE TABLE IF NOT EXISTS cases (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  sort INTEGER NOT NULL DEFAULT 0,
+  current_version INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS case_versions (
+  case_id TEXT NOT NULL REFERENCES cases(id),
+  version INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  items TEXT NOT NULL,            -- JSON [{name, value (Frags), weight}]
+  price INTEGER NOT NULL,         -- Frags, = ⌈EV / (1 − edge)⌉
+  rtp REAL NOT NULL,
+  created_by TEXT,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (case_id, version)
+);
+
+-- Promo ("flash") codes and their redemptions.
+CREATE TABLE IF NOT EXISTS promo_codes (
+  code TEXT PRIMARY KEY,
+  amount INTEGER NOT NULL,        -- mF per redemption
+  max_uses INTEGER NOT NULL,
+  uses INTEGER NOT NULL DEFAULT 0,
+  min_level INTEGER NOT NULL DEFAULT 1,
+  expires_at INTEGER,
+  active INTEGER NOT NULL DEFAULT 1,
+  note TEXT,
+  created_by TEXT,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS promo_redemptions (
+  code TEXT NOT NULL REFERENCES promo_codes(code),
+  user_id TEXT NOT NULL REFERENCES users(id),
+  amount INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (code, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS player_notes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  author_id TEXT NOT NULL,
+  body TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS player_notes_user ON player_notes(user_id, created_at);
 CREATE TABLE IF NOT EXISTS chat_messages (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id TEXT,                   -- NULL = system message
@@ -371,6 +503,12 @@ CREATE TABLE IF NOT EXISTS audit (
 CREATE INDEX IF NOT EXISTS audit_user ON audit(user_id, created_at);
 `;
 
+/** The built-in cases as version 1. Idempotent; edits from the backoffice become version 2, 3, … */
+const sq = (v: string) => `'${v.replace(/'/g, "''")}'`;
+export const CASE_SEED = SAMPLE_CASES.map((c, i) => `
+INSERT INTO cases (id, name, enabled, sort, current_version, created_at, updated_at) VALUES (${sq(c.id)}, ${sq(c.name)}, 1, ${i}, 1, 0, 0) ON CONFLICT (id) DO NOTHING;
+INSERT INTO case_versions (case_id, version, name, items, price, rtp, created_by, created_at) VALUES (${sq(c.id)}, 1, ${sq(c.name)}, ${sq(JSON.stringify(c.items))}, ${priceCase(c)}, ${caseRtp(c)}, NULL, 0) ON CONFLICT (case_id, version) DO NOTHING;`).join('');
+
 /** Opens (and migrates) a SQLite database. Synchronous so tests and the browser demo can set up in one step. */
 export function openDb(path = ':memory:'): DB {
   const raw = new DatabaseSync(path);
@@ -378,6 +516,7 @@ export function openDb(path = ':memory:'): DB {
   const legacy = raw.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'users'").get() !== undefined;
   if (legacy) migrateLegacy(raw);
   raw.exec(SCHEMA);
+  raw.exec(CASE_SEED);
   return new SqliteDb(raw);
 }
 
@@ -393,6 +532,8 @@ function migrateLegacy(raw: Raw): void {
   const sc = cols('sessions');
   if (!sc.includes('mfa_at')) raw.exec('ALTER TABLE sessions ADD COLUMN mfa_at INTEGER');
   if (!sc.includes('mfa_step')) raw.exec('ALTER TABLE sessions ADD COLUMN mfa_step INTEGER');
+  const gf = cols('game_flags');
+  if (gf.length && !gf.includes('min_stake')) raw.exec('ALTER TABLE game_flags ADD COLUMN min_stake INTEGER; ALTER TABLE game_flags ADD COLUMN max_stake INTEGER; ALTER TABLE game_flags ADD COLUMN max_win INTEGER;');
   raw.exec('DROP VIEW IF EXISTS wagers');
 }
 

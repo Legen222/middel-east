@@ -65,8 +65,8 @@ export function createApp(deps: AppDeps, opts: AppOptions = {}) {
     streams.add(res);
     const off = bus.subscribe((e) => {
       if (only && e.topic !== only) return;
-      // crash events keep their own names (betting, running, …); chat events arrive as "chat"
-      const name = e.topic === 'crash' ? e.event.type : 'chat';
+      // crash events keep their own names (betting, running, …); every other topic arrives under its topic name
+      const name = e.topic === 'crash' ? e.event.type : e.topic;
       res.write(`event: ${name}\ndata: ${JSON.stringify(e.event)}\n\n`);
     });
     const ping = setInterval(() => res.write(`: ping ${Date.now()}\n\n`), 15_000);

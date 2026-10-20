@@ -15,7 +15,8 @@ export const userAccount = (userId: string) => `user:${userId}`;
 export const HOUSE = 'house:bankroll';
 export const FAUCET = 'house:demo-faucet';
 
-export type LedgerKind = 'stake' | 'payout' | 'refund' | 'demo_grant' | 'deposit' | 'withdrawal' | 'rakeback' | 'promo' | 'affiliate';
+export type LedgerKind = 'stake' | 'payout' | 'refund' | 'demo_grant' | 'deposit' | 'withdrawal' | 'rakeback' | 'promo' | 'affiliate' | 'adjustment';
+export const ADJUSTMENTS = 'house:adjustments';
 
 const cached = (account: string) => account.startsWith('user:');
 

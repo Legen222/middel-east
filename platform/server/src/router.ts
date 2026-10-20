@@ -7,30 +7,46 @@
  * node:http (http.ts) and the in-browser demo (platform/web/demo) both call dispatch.
  */
 
-import { PLINKO_TABLES, SAMPLE_CASES, caseRtp, plinkoTheoreticalRtp, priceCase, EDGE, type RaidTool } from '../../engine/src/index';
+import { PLINKO_TABLES, plinkoTheoreticalRtp, EDGE, type RaidTool } from '../../engine/src/index';
 import { type Role, type Session, createSession, demoRefill, endSession, resolveSession, signUp } from './accounts';
-import { auditLog, holdPlayer, listPlayers, overview, playerDetail, releaseHold, requireRole, rgCases, rgScan, rtpMonitor, setRole, updateCase } from './admin';
 import {
-  GAMES, activeSeedPublic, balance, getBet, liveRtp, openGames, minesCashout, minesReveal, minesStart, playInstant,
+  addNote, adjustBalance, auditLog, forceLogout, holdPlayer, listPlayers, overview, playerDetail, releaseHold, requireRole, rgCases, rgScan, rtpMonitor, setRole, updateCase,
+} from './admin';
+import {
+  GAMES, activeSeedPublic, balance, getBet, liveRtp, minesCashout, minesReveal, minesStart, playInstant,
   publicBet, raidBlast, raidCashout, raidStart, type InstantParams,
 } from './bets';
 import type { Beacon } from './beacon';
+import { adminCases, caseVersion, listCases, previewCase, saveCase, setCaseState } from './cases';
+import { type ChainGame, listChains } from './chains';
 import { activeMute, deleteMessage, listMessages, mute, postMessage, unmute } from './chat';
 import { checkGeo, withdrawalCheck } from './compliance';
 import { type Clock, type Config, MF_PER_FRAG, ipAllowed } from './config';
 import type { CrashService } from './crash';
 import type { DB } from './db';
 import { AppError, fail } from './errors';
-import { gameFlags, setGameFlag } from './flags';
+import { betDetail, exploreBets } from './explorer';
+import { GAME_IDS, type GameLimits, gameConfig, gameFlags, setGameFlag, setGameLimits } from './flags';
 import { confirm as mfaConfirm, enroll as mfaEnroll, verify as mfaVerify } from './mfa';
+import { JackpotService } from './jackpot';
+import { bjAction, bjStart, hiloCashout, hiloMove, hiloStart, openRounds, towersCashout, towersPick, towersStart } from './originals';
+import { WheelService } from './wheel';
+import type { BjAction, TowerLevel, WheelField } from '../../engine/src/index';
 import { cancelGame, createBattle, createCoinflip, joinGame, listGames, publicGame, settleDue } from './pvp';
-import { DAILY_CASE, RAKEBACK_BANDS, claimCrew, claimRakeback, createCrewCode, crewState, joinRain, openDaily, progress, rainState, redeemCrewCode } from './rewards';
+import { dailyReport } from './reports';
+import {
+  DAILY_CASE, RAKEBACK_BANDS, claimCrew, claimRakeback, createCrewCode, createPromo, crewState, joinRain, listPromos, openDaily, progress, rainState, redeemCrewCode,
+  redeemPromo, setPromoActive,
+} from './rewards';
 import { REALITY_CHECK_OPTIONS, activeBlock, getLimits, promoEligible, selfExclude, sessionSummary, setLimit, setRealityCheck, startCooldown, type LimitKind, type LimitPeriod } from './rg';
 import { rotateSeed } from './seeds';
+import { getSettings, publicSite, setSettings } from './site';
 import { type Fetch, loginUrl, verifyAssertion } from './steam';
 
 export interface AppDeps {
   db: DB; cfg: Config; clock: Clock; fetch: Fetch; publicUrl: string; beacon: Beacon; crash: CrashService;
+  /** Live services; created here when the caller does not pass the instances its tickers drive. */
+  wheel?: WheelService; jackpot?: JackpotService;
   /** Readiness details for GET /ready (database reachable, leader status, …). */
   ready?: () => Promise<Record<string, unknown>>;
 }
@@ -45,6 +61,8 @@ export interface ApiResponse { status: number; payload: unknown }
 
 export function createRouter(deps: AppDeps) {
   const { db, cfg, clock } = deps;
+  const wheel = deps.wheel ?? new WheelService(db, cfg, deps.beacon);
+  const jackpot = deps.jackpot ?? new JackpotService(db, cfg, deps.beacon);
   const routes: { method: string; pattern: RegExp; keys: string[]; handler: (c: Ctx, p: Record<string, string>) => unknown }[] = [];
   const route = (method: string, path: string, handler: (c: Ctx, p: Record<string, string>) => unknown) => {
     const keys: string[] = [];
@@ -54,6 +72,14 @@ export function createRouter(deps: AppDeps) {
   const num = (v: unknown, name: string) => (typeof v === 'number' && Number.isFinite(v) ? v : fail('invalid_params', `${name} is missing or not a number.`));
   const stakeMf = (v: unknown) => Math.round(num(v, 'stake') * MF_PER_FRAG); // API takes Frags, stores mF
   const uid = async (c: Ctx) => (await c.auth()).user.id;
+  const limitsInFrags = (l: GameLimits) => ({ minStake: l.minStake === null ? null : l.minStake / MF_PER_FRAG, maxStake: l.maxStake === null ? null : l.maxStake / MF_PER_FRAG, maxWin: l.maxWin === null ? null : l.maxWin / MF_PER_FRAG });
+  /** Stake range and max win per game after per-game limits, in Frags. */
+  const effectiveLimits = async () => {
+    const out: Record<string, { minStake: number; maxStake: number; maxWin: number }> = {};
+    for (const g of GAME_IDS) { const e = await gameConfig(db, cfg, g); out[g] = { minStake: e.minStake / MF_PER_FRAG, maxStake: e.maxStake / MF_PER_FRAG, maxWin: e.maxWin / MF_PER_FRAG }; }
+    return out;
+  };
+  const viewer = async (c: Ctx) => (await resolveSession(db, c.token, clock()))?.user.id ?? null;
 
   /* ---------- public ---------- */
   route('GET', '/health', () => ({ ok: true, demo: cfg.demo }));
@@ -61,13 +87,26 @@ export function createRouter(deps: AppDeps) {
     await db.prepare('SELECT 1 AS ok').get();
     return { ok: true, dialect: db.dialect, ...(deps.ready ? await deps.ready() : {}) };
   });
-  route('GET', '/config', () => ({
+  route('GET', '/config', async () => ({
     demo: cfg.demo, currency: 'Frags', fragsPerDollar: 100, minStake: cfg.minStake / MF_PER_FRAG, maxStake: cfg.maxStake / MF_PER_FRAG, maxWin: cfg.maxWin / MF_PER_FRAG,
     games: GAMES, houseEdge: EDGE, operatorMfa: cfg.requireOperatorMfa,
     plinko: Object.fromEntries(Object.entries(PLINKO_TABLES).map(([r, t]) => [r, Object.fromEntries(Object.entries(t).map(([k, v]) => [k, { multipliers: v, rtp: plinkoTheoreticalRtp(Number(r) as 8, k as 'low') }]))])),
-    cases: SAMPLE_CASES.map((c) => { const W = c.items.reduce((s, i) => s + i.weight, 0); return { id: c.id, name: c.name, price: priceCase(c), rtp: caseRtp(c), items: c.items.map((i) => ({ name: i.name, value: i.value, chance: i.weight / W })) }; }),
+    cases: await listCases(db),
+    limits: await effectiveLimits(),
     responsibleGambling: { realityCheckOptions: REALITY_CHECK_OPTIONS, limitIncreaseDelayHours: cfg.limitIncreaseDelayHours },
   }));
+  route('GET', '/site', () => publicSite(db));
+  route('GET', '/cases', () => listCases(db));
+  // any version ever published, so old openings and battles stay verifiable
+  route('GET', '/cases/:id/v/:version', async (_c, p) => {
+    const v = await caseVersion(db, p.id, num(Number(p.version), 'version'));
+    const W = v.items.reduce((s, i) => s + i.weight, 0);
+    return { ...v, items: v.items.map((i) => ({ ...i, chance: i.weight / W })) };
+  });
+  route('GET', '/chains/:game', (_c, p) => {
+    if (p.game !== 'crash' && p.game !== 'wheel') fail('not_found', 'Unknown game.', 404);
+    return listChains(db, p.game as ChainGame, deps.beacon);
+  });
   route('GET', '/stats/rtp', async (c) => {
     const days = Math.min(90, Math.max(1, Number(c.url.searchParams.get('days') ?? 30)));
     return { days, games: (await liveRtp(db, clock() - days * 86_400_000)).map((g) => ({ ...g, theory: theoryRtp(g.game) })) };
@@ -121,7 +160,7 @@ export function createRouter(deps: AppDeps) {
   route('POST', '/seed/rotate', async (c) => rotateSeed(db, await uid(c), c.body?.clientSeed ? String(c.body.clientSeed) : null, clock()));
 
   /* ---------- games ---------- */
-  for (const g of ['dice', 'plinko', 'upgrader', 'cases'] as (keyof InstantParams)[]) {
+  for (const g of ['dice', 'plinko', 'upgrader', 'cases', 'airdrop'] as (keyof InstantParams)[]) {
     route('POST', `/bets/${g}`, async (c) => {
       const id = await uid(c);
       const stake = g === 'cases' ? cfg.minStake : stakeMf(c.body?.stake);
@@ -134,7 +173,22 @@ export function createRouter(deps: AppDeps) {
   route('POST', '/raid/start', async (c) => fmtMoney(await raidStart(db, cfg, await uid(c), stakeMf(c.body?.stake), clock())));
   route('POST', '/raid/:id/blast', async (c, p) => fmtMoney(await raidBlast(db, cfg, await uid(c), p.id, String(c.body?.tool) as RaidTool, clock())));
   route('POST', '/raid/:id/cashout', async (c, p) => fmtMoney(await raidCashout(db, await uid(c), p.id, clock())));
-  route('GET', '/games/open', async (c) => (await openGames(db, await uid(c))).map((g) => fmtMoney(g)));
+  route('GET', '/games/open', async (c) => (await openRounds(db, await uid(c))).map((g) => fmtMoney(g)));
+  route('POST', '/towers/start', async (c) => fmtMoney(await towersStart(db, cfg, await uid(c), stakeMf(c.body?.stake), String(c.body?.level) as TowerLevel, clock())));
+  route('POST', '/towers/:id/pick', async (c, p) => fmtMoney(await towersPick(db, cfg, await uid(c), p.id, num(c.body?.door, 'door'), clock())));
+  route('POST', '/towers/:id/cashout', async (c, p) => fmtMoney(await towersCashout(db, await uid(c), p.id, clock())));
+  route('POST', '/hilo/start', async (c) => fmtMoney(await hiloStart(db, cfg, await uid(c), stakeMf(c.body?.stake), clock())));
+  route('POST', '/hilo/:id/move', async (c, p) => fmtMoney(await hiloMove(db, cfg, await uid(c), p.id, String(c.body?.move) as 'hi', clock())));
+  route('POST', '/hilo/:id/cashout', async (c, p) => fmtMoney(await hiloCashout(db, await uid(c), p.id, clock())));
+  route('POST', '/blackjack/start', async (c) => fmtMoney(await bjStart(db, cfg, await uid(c), stakeMf(c.body?.stake), clock())));
+  route('POST', '/blackjack/:id/action', async (c, p) => fmtMoney(await bjAction(db, await uid(c), p.id, String(c.body?.action) as BjAction, clock())));
+
+  /* ---------- live: Bandit Wheel and Jackpot ---------- */
+  route('GET', '/wheel/state', async (c) => wheel.state(clock(), await viewer(c)));
+  route('POST', '/wheel/bet', async (c) => wheel.placeBet(await uid(c), String(c.body?.field) as WheelField, stakeMf(c.body?.stake), clock()));
+  route('GET', '/jackpot/:room', async (c, p) => { await jackpot.tick(clock()); return jackpot.state(p.room, clock(), await viewer(c)); });
+  route('POST', '/jackpot/:room/enter', async (c, p) => jackpot.enter(await uid(c), p.room, stakeMf(c.body?.amount), clock()));
+  route('POST', '/jackpot/:room/bot', async (c, p) => { if (!cfg.demo) fail('no_bots', 'Bots are only available in demo mode.', 403); return jackpot.bot(await uid(c), p.room, clock()); });
   route('GET', '/bets', async (c) => {
     const id = await uid(c);
     const limit = Math.min(100, Math.max(1, Number(c.url.searchParams.get('limit') ?? 20)));
@@ -145,7 +199,6 @@ export function createRouter(deps: AppDeps) {
   });
 
   /* ---------- PvP ---------- */
-  const viewer = async (c: Ctx) => (await resolveSession(db, c.token, clock()))?.user.id ?? null;
   route('GET', '/pvp/list/:type', async (c, p) => {
     if (p.type !== 'coinflip' && p.type !== 'battle') fail('not_found', 'Unknown game type.', 404);
     await settleDue(db, deps.beacon, clock());
@@ -187,10 +240,15 @@ export function createRouter(deps: AppDeps) {
   route('POST', '/rewards/rain', async (c) => joinRain(db, await uid(c), clock()));
   route('POST', '/crew/code', async (c) => createCrewCode(db, await uid(c), String(c.body?.code ?? ''), clock()));
   route('POST', '/crew/redeem', async (c) => redeemCrewCode(db, await uid(c), String(c.body?.code ?? ''), clock()));
+  route('POST', '/promo/redeem', async (c) => redeemPromo(db, await uid(c), c.body?.code, clock()));
   route('POST', '/crew/claim', async (c) => { const r = await claimCrew(db, await uid(c), clock()); return { amount: r.amount / MF_PER_FRAG }; });
 
   /* ---------- chat ---------- */
-  route('GET', '/games/status', async () => (await gameFlags(db)).map((g) => ({ game: g.game, enabled: g.enabled, reason: g.reason })));
+  route('GET', '/games/status', async () => {
+    const limits = await effectiveLimits();
+    const maintenance = (await getSettings(db)).maintenance;
+    return (await gameFlags(db)).map((g) => ({ game: g.game, enabled: g.enabled && !maintenance, reason: maintenance ? 'Maintenance' : g.reason, limits: limits[g.game] }));
+  });
   route('GET', '/chat', async (c) => {
     const s = await resolveSession(db, c.token, clock());
     return { messages: await listMessages(db, s?.user.id ?? null), rain: await rainState(db, s?.user.id ?? null, clock()), mute: s ? await activeMute(db, s.user.id, clock()) : null, role: s?.user.role ?? null };
@@ -227,10 +285,48 @@ export function createRouter(deps: AppDeps) {
   route('POST', '/admin/players/:id/hold', async (c, p) => holdPlayer(db, (await admin(c)).id, p.id, c.body?.hours === null ? null : num(c.body?.hours, 'hours'), String(c.body?.reason ?? ''), clock()));
   route('DELETE', '/admin/players/:id/hold', async (c, p) => releaseHold(db, (await admin(c)).id, p.id, clock()));
   route('PUT', '/admin/players/:id/role', async (c, p) => setRole(db, (await admin(c)).id, p.id, String(c.body?.role) as Role, clock()));
-  route('GET', '/admin/games', async (c) => { await admin(c); return gameFlags(db); });
+  route('GET', '/admin/games', async (c) => { await admin(c); return (await gameFlags(db)).map((g) => ({ ...g, limits: limitsInFrags(g.limits) })); });
+  route('PUT', '/admin/games/:game/limits', async (c, p) => {
+    const a = await admin(c);
+    const mf = (k: string) => (c.body?.[k] == null ? null : Math.round(num(c.body[k], k) * MF_PER_FRAG));
+    const g = await setGameLimits(db, cfg, a.id, p.game, { minStake: mf('minStake'), maxStake: mf('maxStake'), maxWin: mf('maxWin') }, clock());
+    return { ...g, limits: limitsInFrags(g.limits) };
+  });
   route('PUT', '/admin/games/:game', async (c, p) => setGameFlag(db, (await admin(c)).id, p.game, c.body?.enabled === true, c.body?.reason == null ? null : String(c.body.reason), clock()));
   route('GET', '/admin/rg-cases', async (c) => { await admin(c); await rgScan(db, cfg, clock()); return rgCases(db, c.url.searchParams.get('status') === 'all' ? 'all' : 'open'); });
   route('PUT', '/admin/rg-cases/:id', async (c, p) => updateCase(db, (await admin(c)).id, Number(p.id), String(c.body?.status ?? ''), String(c.body?.note ?? ''), clock()));
+  route('POST', '/admin/players/:id/adjust', async (c, p) => adjustBalance(db, (await admin(c)).id, p.id, num(c.body?.amount, 'amount'), String(c.body?.reason ?? ''), clock()));
+  route('POST', '/admin/players/:id/notes', async (c, p) => addNote(db, (await admin(c)).id, p.id, String(c.body?.body ?? ''), clock()));
+  route('POST', '/admin/players/:id/logout', async (c, p) => forceLogout(db, (await admin(c)).id, p.id, clock()));
+
+  route('GET', '/admin/settings', async (c) => { await admin(c); return getSettings(db); });
+  route('PUT', '/admin/settings', async (c) => setSettings(db, (await admin(c)).id, c.body ?? {}, clock()));
+
+  route('GET', '/admin/cases', async (c) => { await admin(c); return adminCases(db); });
+  route('POST', '/admin/cases/preview', async (c) => { await admin(c); return previewCase(cfg, c.body?.name, c.body?.items); });
+  route('PUT', '/admin/cases/:id', async (c, p) => saveCase(db, cfg, (await admin(c)).id, { id: p.id, name: c.body?.name, items: c.body?.items }, clock()));
+  route('PUT', '/admin/cases/:id/state', async (c, p) => setCaseState(db, (await admin(c)).id, p.id, { enabled: c.body?.enabled, sort: c.body?.sort }, clock()));
+
+  route('GET', '/admin/promos', async (c) => { await admin(c); return listPromos(db); });
+  route('POST', '/admin/promos', async (c) => createPromo(db, (await admin(c)).id, c.body ?? {}, clock()));
+  route('PUT', '/admin/promos/:code', async (c, p) => setPromoActive(db, (await admin(c)).id, p.code, c.body?.active === true, clock()));
+
+  route('GET', '/admin/bets', async (c) => {
+    await admin(c);
+    const q = c.url.searchParams;
+    const n = (k: string) => (q.get(k) ? Number(q.get(k)) : undefined);
+    return exploreBets(db, { game: q.get('game') ?? undefined, user: q.get('user') ?? undefined, minPayout: n('minPayout'), minMultiplier: n('minMultiplier'), since: n('since'), before: n('before'), limit: n('limit') });
+  });
+  route('GET', '/admin/bets/:game/:ref', async (c, p) => { await admin(c); return betDetail(db, deps.beacon, p.game, p.ref, clock()); });
+  route('GET', '/admin/reports/daily', async (c) => { await admin(c); return dailyReport(db, Number(c.url.searchParams.get('days') ?? 14), clock()); });
+
+  route('GET', '/admin/chains', async (c) => { await admin(c); return { crash: await listChains(db, 'crash', deps.beacon), wheel: await listChains(db, 'wheel', deps.beacon) }; });
+  route('POST', '/admin/chains/:game/rotate', async (c, p) => {
+    const a = await admin(c);
+    if (p.game === 'crash') return deps.crash.rotateChain(a.id, clock());
+    if (p.game === 'wheel') return wheel.rotateChain(a.id, clock());
+    return fail('not_found', 'Unknown game.', 404);
+  });
   route('GET', '/admin/audit', async (c) => {
     await admin(c);
     const q = c.url.searchParams;
@@ -307,7 +403,7 @@ export function createRouter(deps: AppDeps) {
     try { checkGeo(cfg, headers[cfg.countryHeader]?.toUpperCase() ?? null, !cfg.demo); return true; } catch { return false; }
   };
 
-  return { dispatch, streamAllowed, crash: deps.crash };
+  return { dispatch, streamAllowed, crash: deps.crash, wheel, jackpot };
 }
 
 const theoryRtp = (g: string) => ({ dice: 1 - EDGE.dice, plinko: null, upgrader: 1 - EDGE.upgrader, cases: null, mines: 1 - EDGE.mines, raid: 1 - EDGE.raid } as Record<string, number | null>)[g] ?? null;

@@ -13,9 +13,9 @@ import { type DB, audit, tx } from './db';
 import { fail } from './errors';
 import { type ChatEvent, bus } from './events';
 import { activeBlock } from './rg';
+import { getSettings } from './site';
 
 export const CHAT_MAX = 200;
-export const CHAT_INTERVAL_MS = 3000;
 export const CHAT_HISTORY = 50;
 const LINK = /(https?:\/\/|www\.|discord\.gg|\b[a-z0-9-]+\.(com|gg|net|io|org|ru|xyz|me|cc|co)\b)/i;
 
@@ -38,7 +38,8 @@ export async function postMessage(db: DB, user: { id: string; display_name: stri
     if (mute) fail('muted', mute.until ? `You are muted until ${new Date(mute.until).toISOString().slice(11, 16)} UTC.` : 'You are muted.', 403, { until: mute.until, reason: mute.reason });
     if (await activeBlock(db, user.id, now)) fail('rg_blocked', 'Chat is read-only during a break.', 403);
     const last = (await db.prepare('SELECT created_at FROM chat_messages WHERE user_id = ? ORDER BY id DESC LIMIT 1').get(user.id)) as { created_at: number } | undefined;
-    if (last && now - last.created_at < CHAT_INTERVAL_MS) fail('chat_slow', 'Slow down: one message every 3 seconds.', 429);
+    const gap = (await getSettings(db)).chatSlowModeSeconds; // backoffice → Settings, default 3 s
+    if (last && now - last.created_at < gap * 1000) fail('chat_slow', `Slow down: one message every ${gap} second${gap === 1 ? '' : 's'}.`, 429);
     const r = (await db.prepare("INSERT INTO chat_messages (user_id, name, level, role, kind, body, created_at) VALUES (?, ?, ?, ?, 'user', ?, ?) RETURNING id")
       .get(user.id, user.display_name, level, user.role, text, now)) as { id: number };
     announce(db, { type: 'message', id: r.id });

@@ -9,17 +9,20 @@
  *                watch at |z| > 3. A real bug (wrong table, wrong edge) drives |z| up without bound as n grows.
  *   RG cases     net loss in 24 h above a threshold, ≥ 3 limit raises/removals in 30 days, a session
  *                longer than 3 h with a bet in the last 15 min. One open case per player and reason.
+ *   Player tools balance adjustments (capped, reason required, never on one's own account), private notes,
+ *                ending all sessions of an account.
  */
 
-import { EDGE, PLINKO_TABLES, SAMPLE_CASES, caseRtp, plinkoTheoreticalRtp, priceCase, type PlinkoRisk, type PlinkoRows } from '../../engine/src/index';
+import { EDGE, PLINKO_TABLES, plinkoTheoreticalRtp, type PlinkoRisk, type PlinkoRows } from '../../engine/src/index';
 import type { Role } from './accounts';
+import { caseRtpMap } from './cases';
 import { activeMute } from './chat';
 import { type Config, MF_PER_FRAG } from './config';
 import { type DB, audit, tx } from './db';
 import { fail } from './errors';
 import { GAME_IDS, GAME_NAME, gameFlags, type GameId } from './flags';
 import { activeBlock, getLimits } from './rg';
-import { houseBalances, ledgerIntegrity, userAccount } from './wallet';
+import { ADJUSTMENTS, houseBalances, ledgerIntegrity, transfer, userAccount } from './wallet';
 
 const DAY = 86_400_000;
 const f = (mf: number) => mf / MF_PER_FRAG;
@@ -40,29 +43,42 @@ export async function setRole(db: DB, actorId: string, userId: string, role: Rol
 
 /* ---------- RTP monitor ---------- */
 
-const battleTheory = (caseIds: string[]) => {
-  let ev = 0, cost = 0;
-  for (const id of caseIds) { const c = SAMPLE_CASES.find((x) => x.id === id); if (!c) continue; const p = priceCase(c); ev += caseRtp(c) * p; cost += p; }
-  return cost ? ev / cost : null;
-};
+type CaseInfo = Map<string, { rtp: number; price: number }>;
+const caseKey = (id: string, version: number | undefined) => `${id}@${version ?? 1}`; // rounds from before case versions used version 1
 
-function betTheory(game: string, params: string): number | null {
+/** A battle seat's expected return: the price-weighted RTP of its cases. */
+function battleTheory(cases: CaseInfo, params: { caseIds?: string[]; versions?: number[] }): number | null {
+  let ev = 0, cost = 0;
+  for (const [i, id] of (params.caseIds ?? []).entries()) {
+    const c = cases.get(caseKey(id, params.versions?.[i]));
+    if (!c) return null;
+    ev += c.rtp * c.price; cost += c.price;
+  }
+  return cost ? ev / cost : null;
+}
+
+function betTheory(cases: CaseInfo, game: string, params: string): number | null {
   const p = JSON.parse(params || '{}');
   switch (game) {
     case 'dice': return 1 - EDGE.dice;
     case 'upgrader': return 1 - EDGE.upgrader;
     case 'mines': return 1 - EDGE.mines;
     case 'raid': return 1 - EDGE.raid;
+    case 'airdrop': return 1 - EDGE.airdrop;
+    case 'towers': return 1 - EDGE.towers;
+    case 'hilo': return 1 - EDGE.hilo;
+    // blackjack is a skill game: the return depends on the player's decisions, so no single theory value
     case 'plinko': return PLINKO_TABLES[p.rows as PlinkoRows]?.[p.risk as PlinkoRisk] ? plinkoTheoreticalRtp(p.rows, p.risk) : null;
-    case 'cases': { const c = SAMPLE_CASES.find((x) => x.id === p.caseId); return c ? caseRtp(c) : null; }
+    case 'cases': return cases.get(caseKey(p.caseId, p.version))?.rtp ?? null;
     default: return null;
   }
 }
 
-export interface RtpRow { game: GameId; name: string; n: number; wagered: number; paid: number; rtp: number | null; theory: number | null; z: number | null; status: 'ok' | 'watch' | 'alarm' | 'low_sample' }
+export interface RtpRow { game: GameId; name: string; n: number; wagered: number; paid: number; rtp: number | null; theory: number | null; z: number | null; status: 'ok' | 'watch' | 'alarm' | 'low_sample' | 'skill' }
 
 export async function rtpMonitor(db: DB, since: number): Promise<RtpRow[]> {
   const acc = new Map<string, { n: number; stake: number; paid: number; sx: number; st: number; sd2: number }>();
+  const cases = await caseRtpMap(db);
   const add = (game: string, stake: number, payout: number, theory: number | null) => {
     if (theory === null || stake <= 0) return;
     const a = acc.get(game) ?? { n: 0, stake: 0, paid: 0, sx: 0, st: 0, sd2: 0 };
@@ -71,16 +87,26 @@ export async function rtpMonitor(db: DB, since: number): Promise<RtpRow[]> {
     acc.set(game, a);
   };
   for (const r of (await db.prepare("SELECT game, stake, payout, params FROM bets WHERE status = 'settled' AND settled_at >= ?").all(since)) as { game: string; stake: number; payout: number; params: string }[]) {
-    add(r.game, r.stake, r.payout, betTheory(r.game, r.params));
+    add(r.game, r.stake, r.payout, betTheory(cases, r.game, r.params));
   }
   for (const r of (await db.prepare("SELECT b.stake, b.payout FROM crash_bets b JOIN crash_rounds r ON r.id = b.round_id WHERE b.status = 'settled' AND r.crash_at >= ?").all(since)) as { stake: number; payout: number }[]) {
     add('crash', r.stake, r.payout, 1 - EDGE.crash);
   }
   for (const r of (await db.prepare(`SELECT g.type, g.params, s.stake, s.payout FROM pvp_seats s JOIN pvp_games g ON g.id = s.game_id
       WHERE s.user_id IS NOT NULL AND g.status = 'settled' AND g.settled_at >= ?`).all(since)) as { type: string; params: string; stake: number; payout: number }[]) {
-    add(r.type, r.stake, r.payout, r.type === 'coinflip' ? 1 - EDGE.coinflip : battleTheory(JSON.parse(r.params).caseIds ?? []));
+    add(r.type, r.stake, r.payout, r.type === 'coinflip' ? 1 - EDGE.coinflip : battleTheory(cases, JSON.parse(r.params)));
   }
+  for (const r of (await db.prepare("SELECT b.stake, b.payout FROM wheel_bets b JOIN wheel_rounds r ON r.id = b.round_id WHERE b.status = 'settled' AND r.spin_ends_at >= ?").all(since)) as { stake: number; payout: number }[]) {
+    add('wheel', r.stake, r.payout, 1 - EDGE.wheel);
+  }
+  for (const r of (await db.prepare(`SELECT e.amount, e.payout FROM jackpot_entries e JOIN jackpot_rounds r ON r.id = e.round_id
+      WHERE e.user_id IS NOT NULL AND r.status = 'settled' AND r.settled_at >= ?`).all(since)) as { amount: number; payout: number }[]) {
+    add('jackpot', r.amount, r.payout, 1 - EDGE.jackpot);
+  }
+  // blackjack: shown with its actual RTP; no z-test because the theory depends on how players play
+  const bj = (await db.prepare("SELECT COUNT(*) AS n, COALESCE(SUM(stake), 0) AS s, COALESCE(SUM(payout), 0) AS p FROM bets WHERE game = 'blackjack' AND status = 'settled' AND settled_at >= ?").get(since)) as { n: number; s: number; p: number };
   return GAME_IDS.map((g) => {
+    if (g === 'blackjack') return { game: g, name: GAME_NAME[g], n: bj.n, wagered: f(bj.s), paid: f(bj.p), rtp: bj.s ? bj.p / bj.s : null, theory: null, z: null, status: 'skill' as const };
     const a = acc.get(g);
     if (!a) return { game: g, name: GAME_NAME[g], n: 0, wagered: 0, paid: 0, rtp: null, theory: null, z: null, status: 'low_sample' as const };
     const dev = a.sx - a.st;
@@ -172,7 +198,55 @@ export async function playerDetail(db: DB, userId: string, now: number) {
     rewards: rewards.map((r) => ({ kind: r.kind, count: r.n, total: f(r.total) })),
     cases: await rgCases(db, 'all', userId),
     audit: await auditLog(db, { userId, limit: 30 }),
+    notes: await playerNotes(db, userId),
+    sessions: ((await db.prepare('SELECT COUNT(*) AS n FROM sessions WHERE user_id = ? AND expires_at > ?').get(userId, now)) as { n: number }).n,
   };
+}
+
+/* ---------- player tools ---------- */
+
+export const ADJUST_MAX = 100_000 * MF_PER_FRAG;
+
+/**
+ * Credits (amount > 0) or debits (amount < 0) a player from `house:adjustments`, e.g. goodwill after an
+ * outage or the correction of a support error. A debit never takes a balance below zero.
+ */
+export async function adjustBalance(db: DB, actorId: string, userId: string, amountFrags: number, reason: string, now: number) {
+  const amount = Math.round(amountFrags * MF_PER_FRAG);
+  if (!Number.isSafeInteger(amount) || amount === 0 || Math.abs(amount) > ADJUST_MAX) fail('invalid_params', `Adjustment: ±0.001 to ±${ADJUST_MAX / MF_PER_FRAG} Frags.`);
+  const why = String(reason ?? '').trim();
+  if (why.length < 5 || why.length > 200) fail('invalid_params', 'Give a reason (5 to 200 characters).');
+  if (actorId === userId) fail('forbidden', 'Operators cannot adjust their own balance.', 403);
+  if (!(await db.prepare('SELECT 1 FROM users WHERE id = ?').get(userId))) fail('not_found', 'Player not found.', 404);
+  return tx(db, async (db) => {
+    const ref = `adj:${now}`;
+    if (amount > 0) await transfer(db, ADJUSTMENTS, userAccount(userId), amount, 'adjustment', ref, now);
+    else await transfer(db, userAccount(userId), ADJUSTMENTS, -amount, 'adjustment', ref, now);
+    await audit(db, actorId, 'admin_adjust', { user: userId, amount, reason: why }, now);
+    return { userId, amount: f(amount), balance: await cachedBalance(db, userId) };
+  });
+}
+
+export async function playerNotes(db: DB, userId: string) {
+  const rows = (await db.prepare('SELECT n.id, n.body, n.created_at, n.author_id, u.display_name AS author FROM player_notes n LEFT JOIN users u ON u.id = n.author_id WHERE n.user_id = ? ORDER BY n.created_at DESC, n.id DESC LIMIT 50').all(userId)) as { id: number; body: string; created_at: number; author_id: string; author: string | null }[];
+  return rows.map((r) => ({ id: Number(r.id), body: r.body, author: r.author ?? r.author_id, createdAt: r.created_at }));
+}
+
+export async function addNote(db: DB, actorId: string, userId: string, body: string, now: number) {
+  const text = String(body ?? '').trim();
+  if (text.length < 1 || text.length > 1000) fail('invalid_params', 'Notes are 1 to 1000 characters.');
+  if (!(await db.prepare('SELECT 1 FROM users WHERE id = ?').get(userId))) fail('not_found', 'Player not found.', 404);
+  await db.prepare('INSERT INTO player_notes (user_id, author_id, body, created_at) VALUES (?, ?, ?, ?)').run(userId, actorId, text, now);
+  await audit(db, actorId, 'admin_note', { user: userId }, now);
+  return playerNotes(db, userId);
+}
+
+/** Ends every session of the account (lost device, suspected takeover). */
+export async function forceLogout(db: DB, actorId: string, userId: string, now: number) {
+  if (!(await db.prepare('SELECT 1 FROM users WHERE id = ?').get(userId))) fail('not_found', 'Player not found.', 404);
+  const r = await db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
+  await audit(db, actorId, 'admin_logout', { user: userId, sessions: r.changes }, now);
+  return { userId, ended: Number(r.changes) };
 }
 
 /** Operator hold: blocks betting (not reading, not cash-outs of open rounds). */

@@ -13,6 +13,7 @@ import type { Config } from './config';
 import { type DB, audit, tx } from './db';
 import { fail } from './errors';
 import { createSeed } from './seeds';
+import { getSettings } from './site';
 import { FAUCET, balanceOf, transfer, userAccount } from './wallet';
 
 export type Role = 'player' | 'moderator' | 'admin';
@@ -45,6 +46,7 @@ export async function signUp(db: DB, cfg: Config, input: { displayName: string; 
       const existing = (await db.prepare('SELECT id FROM users WHERE steam_id = ?').get(input.steamId)) as { id: string } | undefined;
       if (existing) return { userId: existing.id, created: false };
     }
+    if (!(await getSettings(db)).registrationOpen) fail('registration_closed', 'New sign-ups are paused right now. Please try again later.', 403);
     const id = randomBytes(8).toString('hex');
     await db.prepare('INSERT INTO users (id, steam_id, display_name, country, age_confirmed_at, created_at) VALUES (?, ?, ?, ?, ?, ?)')
       .run(id, input.steamId ?? null, validateName(input.displayName), input.country, now, now);

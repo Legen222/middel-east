@@ -12,7 +12,7 @@
 
 import pg from 'pg';
 
-import { type DB, type RunResult, SCHEMA, type Stmt, runAfterCommit } from './db';
+import { CASE_SEED, type DB, type RunResult, SCHEMA, type Stmt, runAfterCommit } from './db';
 
 pg.types.setTypeParser(20, (v) => Number(v)); // int8
 pg.types.setTypeParser(1700, (v) => Number(v)); // numeric
@@ -52,6 +52,15 @@ const MIGRATIONS: { version: number; sql: () => string }[] = [
   { version: 2, sql: () => `ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_pending TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_pending_at BIGINT;
     ALTER TABLE sessions ADD COLUMN IF NOT EXISTS mfa_step BIGINT;` },
+  // Bandit Wheel and Jackpot tables, wagers view extended. The shared schema is idempotent
+  // (IF NOT EXISTS / OR REPLACE), so replaying it adds exactly what is missing.
+  { version: 3, sql: pgSchema },
+  // Admin phase: per-game limits on game_flags (new tables come from the replayed schema).
+  { version: 4, sql: () => `ALTER TABLE game_flags ADD COLUMN IF NOT EXISTS min_stake BIGINT;
+    ALTER TABLE game_flags ADD COLUMN IF NOT EXISTS max_stake BIGINT;
+    ALTER TABLE game_flags ADD COLUMN IF NOT EXISTS max_win BIGINT;
+    ${pgSchema()}
+    ${CASE_SEED}` },
 ];
 
 type Queryable = pg.Pool | pg.PoolClient;

@@ -15,12 +15,13 @@
 
 import { randomBytes } from 'node:crypto';
 
-import { EDGE, FairStream, SAMPLE_CASES, newServerSeed, playBattle, playCoinflip, priceCase, type BattleMode, type CoinSide } from '../../engine/src/index';
+import { EDGE, FairStream, newServerSeed, playBattle, playCoinflip, type BattleMode, type CoinSide } from '../../engine/src/index';
 import type { Beacon } from './beacon';
 import { type Config, MF_PER_FRAG } from './config';
 import { type DB, audit, tx } from './db';
 import { fail } from './errors';
-import { assertGameEnabled } from './flags';
+import { type CaseVersion, caseVersion, playableCase } from './cases';
+import { assertGameEnabled, gameConfig } from './flags';
 import { checkBet } from './rg';
 import { HOUSE, transfer, userAccount } from './wallet';
 
@@ -49,23 +50,31 @@ async function takeSeat(db: DB, cfg: Config, game: GameRow, seat: number, userId
   await db.prepare('INSERT INTO pvp_seats (game_id, seat, user_id, stake, created_at) VALUES (?, ?, ?, ?, ?)').run(game.id, seat, userId, game.seat_stake, now);
 }
 
-export function createCoinflip(db: DB, cfg: Config, userId: string, stake: number, side: CoinSide, now: number): Promise<string> {
+export function createCoinflip(db: DB, cfgIn: Config, userId: string, stake: number, side: CoinSide, now: number): Promise<string> {
   if (side !== 'rust' && side !== 'scrap') fail('invalid_params', 'Side: rust or scrap.');
-  if (!Number.isSafeInteger(stake) || stake < cfg.minStake || stake > cfg.maxStake) fail('invalid_stake', `Stake: ${cfg.minStake / MF_PER_FRAG} to ${cfg.maxStake / MF_PER_FRAG} Frags.`);
-  if (stake * 2 * (1 - EDGE.coinflip) > cfg.maxWin) fail('max_win', 'This stake exceeds the max win.');
-  return create(db, cfg, userId, 'coinflip', { side }, 2, stake, now);
+  return tx(db, async (db) => {
+    const cfg = await gameConfig(db, cfgIn, 'coinflip');
+    if (!Number.isSafeInteger(stake) || stake < cfg.minStake || stake > cfg.maxStake) fail('invalid_stake', `Stake: ${cfg.minStake / MF_PER_FRAG} to ${cfg.maxStake / MF_PER_FRAG} Frags.`);
+    if (stake * 2 * (1 - EDGE.coinflip) > cfg.maxWin) fail('max_win', 'This stake exceeds the max win.');
+    return create(db, cfg, userId, 'coinflip', { side }, 2, stake, now);
+  });
 }
 
-export function createBattle(db: DB, cfg: Config, userId: string, caseIds: string[], seats: number, mode: BattleMode, now: number): Promise<string> {
+export function createBattle(db: DB, cfgIn: Config, userId: string, caseIds: string[], seats: number, mode: BattleMode, now: number): Promise<string> {
   if (!Array.isArray(caseIds) || caseIds.length < 1 || caseIds.length > 10) fail('invalid_params', '1 to 10 cases.');
   if (![2, 3, 4].includes(seats)) fail('invalid_params', '2, 3 or 4 seats.');
   if (!['normal', 'crazy', 'terminal'].includes(mode)) fail('invalid_params', 'Mode: normal, crazy or terminal.');
-  const cases = caseIds.map((id) => SAMPLE_CASES.find((c) => c.id === id) ?? fail('invalid_params', `Unknown case: ${id}`));
-  const cost = cases.reduce((s, c) => s + priceCase(c), 0) * MF_PER_FRAG;
-  const bestPool = cases.reduce((s, c) => s + Math.max(...c.items.map((i) => i.value)), 0) * MF_PER_FRAG * seats;
-  if (bestPool > cfg.maxWin) fail('max_win', 'This battle could exceed the max win. Pick fewer or cheaper cases.');
-  if (cost > cfg.maxStake) fail('invalid_stake', 'This battle is too expensive.');
-  return create(db, cfg, userId, 'battle', { caseIds, mode }, seats, cost, now);
+  return tx(db, async (db) => {
+    const cfg = await gameConfig(db, cfgIn, 'battle');
+    const cases: CaseVersion[] = [];
+    for (const id of caseIds) cases.push(await playableCase(db, id));
+    const cost = cases.reduce((s, c) => s + c.price, 0) * MF_PER_FRAG;
+    const bestPool = cases.reduce((s, c) => s + Math.max(...c.items.map((i) => i.value)), 0) * MF_PER_FRAG * seats;
+    if (bestPool > cfg.maxWin) fail('max_win', 'This battle could exceed the max win. Pick fewer or cheaper cases.');
+    if (cost < cfg.minStake || cost > cfg.maxStake) fail('invalid_stake', cost > cfg.maxStake ? 'This battle is too expensive.' : 'This battle is below the minimum stake.');
+    // the versions are fixed now: a case edited while the battle waits for players does not change it
+    return create(db, cfg, userId, 'battle', { caseIds: cases.map((c) => c.id), versions: cases.map((c) => c.version), mode }, seats, cost, now);
+  });
 }
 
 function create(db: DB, cfg: Config, userId: string, type: GameRow['type'], params: object, seats: number, seatStake: number, now: number): Promise<string> {
@@ -131,7 +140,9 @@ export async function settleDue(db: DB, beacon: Beacon, now: number): Promise<nu
         payouts = [o.creatorWins ? win : 0, o.creatorWins ? 0 : win];
         result = { roll: o.roll, side: o.side, winnerSeat: o.creatorWins ? 0 : 1 };
       } else {
-        const cases = (params.caseIds as string[]).map((id) => SAMPLE_CASES.find((c) => c.id === id)!);
+        const cases: CaseVersion[] = [];
+        const versions = (params.versions ?? []) as number[]; // battles from before case versions used version 1
+        for (const [i, id] of (params.caseIds as string[]).entries()) cases.push(await caseVersion(db, id, versions[i] ?? 1));
         const o = playBattle(src, cases, g.seats, params.mode as BattleMode);
         payouts = o.payouts.map((p) => Math.floor(p * MF_PER_FRAG));
         result = { drops: o.drops.map((r) => r.map((i) => ({ name: i.name, value: i.value }))), totals: o.totals, winners: o.winners };

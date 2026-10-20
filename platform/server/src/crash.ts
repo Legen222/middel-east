@@ -21,11 +21,12 @@ import { randomBytes } from 'node:crypto';
 
 import { buildChain, crashPoint, sha256Hex } from '../../engine/src/index';
 import type { Beacon } from './beacon';
+import { type ChainRow, latestChain, publishChain } from './chains';
 import { type Config, MF_PER_FRAG } from './config';
-import { type DB, tx } from './db';
+import { type DB, audit, tx } from './db';
 import { fail } from './errors';
 import { bus } from './events';
-import { assertGameEnabled } from './flags';
+import { assertGameEnabled, gameConfig } from './flags';
 import { checkBet } from './rg';
 import { HOUSE, transfer, userAccount } from './wallet';
 
@@ -38,7 +39,6 @@ export const MAX_TARGET = 1_000_000; // 10 000×
 export const multiplierAt = (elapsedMs: number) => Math.floor(100 * Math.exp(RATE * Math.max(0, elapsedMs)) + 1e-9); // ×100
 export const durationFor = (crash100: number) => Math.ceil(Math.log(crash100 / 100) / RATE);
 
-interface ChainRow { id: number; terminal_hash: string; tip: string; length: number; beacon_round: number; client_seed: string | null }
 interface RoundRow { id: number; chain_id: number; idx: number; seed: string; crash: number; betting_ends_at: number; crash_at: number; status: 'betting' | 'running' | 'crashed' }
 interface BetRow { id: string; round_id: number; user_id: string; stake: number; target: number; cashed_at: number | null; payout: number; status: 'open' | 'settled'; created_at: number }
 
@@ -49,7 +49,6 @@ export type CrashEvent =
   | { type: 'bet'; round: number; name: string; stake: number; target: number }
   | { type: 'cashout'; round: number; name: string; multiplier: number; payout: number };
 
-const chainOf = async (db: DB) => (await db.prepare('SELECT * FROM crash_chains ORDER BY id DESC LIMIT 1').get()) as ChainRow | undefined;
 const currentOf = async (db: DB) => (await db.prepare('SELECT * FROM crash_rounds ORDER BY id DESC LIMIT 1').get()) as RoundRow | undefined;
 const nameOf = async (db: DB, userId: string) => ((await db.prepare('SELECT display_name AS n FROM users WHERE id = ?').get(userId)) as { n: string } | undefined)?.n ?? '?';
 
@@ -67,16 +66,18 @@ export class CrashService {
 
   /** Creates the chain if needed and loads its seeds into memory. */
   private async ensureChain(now: number): Promise<ChainRow> {
-    let c = await chainOf(this.db);
-    if (!c) {
-      const tip = randomBytes(32).toString('hex');
-      const { terminal } = buildChain(tip, this.chainLength);
-      await this.db.prepare('INSERT INTO crash_chains (terminal_hash, tip, length, beacon_round, created_at) VALUES (?, ?, ?, ?, ?)')
-        .run(terminal, tip, this.chainLength, this.beacon.roundAt(now) + 2, now);
-      c = (await chainOf(this.db))!;
-    }
+    const c = (await latestChain(this.db, 'crash')) ?? (await publishChain(this.db, 'crash', this.chainLength, this.beacon, now));
     if (this.seedsFor !== c.id) { this.seeds = buildChain(c.tip, c.length).seeds; this.seedsFor = c.id; }
     return c;
+  }
+
+  /** Backoffice: publish a new chain now. The running round finishes on the old one. */
+  rotateChain(actorId: string, now: number) {
+    return tx(this.db, async (db) => {
+      const c = await publishChain(db, 'crash', this.chainLength, this.beacon, now);
+      await audit(db, actorId, 'admin_chain_rotate', { game: 'crash', chain: c.id, terminalHash: c.terminal_hash, beaconRound: c.beacon_round }, now);
+      return { id: c.id, terminalHash: c.terminal_hash, length: c.length, beaconRound: c.beacon_round };
+    });
   }
 
   /** Advances the state machine. Call every ~200 ms on the leader; tests call it with a fake clock. */
@@ -84,15 +85,17 @@ export class CrashService {
     const c = await this.ensureChain(now);
     if (!c.client_seed) {
       const v = await this.beacon.get(c.beacon_round, now);
-      if (!v) return;
-      await this.db.prepare('UPDATE crash_chains SET client_seed = ? WHERE id = ?').run(v.randomness, c.id);
-      c.client_seed = v.randomness;
+      if (v) {
+        await this.db.prepare('UPDATE crash_chains SET client_seed = ? WHERE id = ?').run(v.randomness, c.id);
+        c.client_seed = v.randomness;
+      }
     }
     await tx(this.db, async (db) => {
       const r = await currentOf(db);
       if (!r || (r.status === 'crashed' && now >= r.crash_at + PAUSE_MS)) {
-        const idx = r ? r.idx + 1 : 0;
-        if (idx >= c.length) return; // chain exhausted: a new chain must be published first
+        if (!c.client_seed) return; // a new chain waits for its beacon round; the last round already finished
+        const idx = r && r.chain_id === c.id ? r.idx + 1 : 0;
+        if (idx >= c.length) { await publishChain(db, 'crash', this.chainLength, this.beacon, now); return; } // used up: the next tick starts the new chain
         const seed = this.seeds[idx];
         const crash = Math.round(crashPoint(seed, c.client_seed!).crash * 100);
         const bettingEndsAt = now + BETTING_MS;
@@ -123,11 +126,12 @@ export class CrashService {
   placeBet(userId: string, stake: number, target: number, now: number) {
     return tx(this.db, async (db) => {
       await assertGameEnabled(db, 'crash');
+      const cfg = await gameConfig(db, this.cfg, 'crash');
       const r = await currentOf(db);
       if (!r || r.status !== 'betting' || now >= r.betting_ends_at) fail('not_betting', 'Betting is closed. Wait for the next round.', 409);
       if (!Number.isInteger(target) || target < MIN_TARGET || target > MAX_TARGET) fail('invalid_params', 'Auto cash-out: 1.01× to 10,000×.');
-      if (!Number.isSafeInteger(stake) || stake < this.cfg.minStake || stake > this.cfg.maxStake) fail('invalid_stake', `Stake: ${this.cfg.minStake / MF_PER_FRAG} to ${this.cfg.maxStake / MF_PER_FRAG} Frags.`);
-      if ((stake * target) / 100 > this.cfg.maxWin) fail('max_win', `Max win is ${this.cfg.maxWin / MF_PER_FRAG} Frags: lower the stake or the auto cash-out.`);
+      if (!Number.isSafeInteger(stake) || stake < cfg.minStake || stake > cfg.maxStake) fail('invalid_stake', `Stake: ${cfg.minStake / MF_PER_FRAG} to ${cfg.maxStake / MF_PER_FRAG} Frags.`);
+      if ((stake * target) / 100 > cfg.maxWin) fail('max_win', `Max win is ${cfg.maxWin / MF_PER_FRAG} Frags: lower the stake or the auto cash-out.`);
       if (await db.prepare('SELECT 1 FROM crash_bets WHERE round_id = ? AND user_id = ?').get(r!.id, userId)) fail('already_bet', 'You already placed a bet this round.', 409);
       await checkBet(db, userId, stake, now);
       const id = randomBytes(10).toString('hex');
@@ -155,7 +159,7 @@ export class CrashService {
 
   /** Public state. The crash point and seed of the current round stay hidden until it has crashed. */
   async state(now: number, viewerId: string | null) {
-    const c = await chainOf(this.db);
+    const c = await latestChain(this.db, 'crash');
     const r = await currentOf(this.db);
     const history = ((await this.db.prepare("SELECT id, idx, crash, seed FROM crash_rounds WHERE status = 'crashed' ORDER BY id DESC LIMIT 20").all()) as { id: number; idx: number; crash: number; seed: string }[])
       .map((h) => ({ round: h.id, index: h.idx, crash: h.crash / 100, seed: h.seed }));

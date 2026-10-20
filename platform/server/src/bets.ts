@@ -16,21 +16,22 @@
 import { randomBytes } from 'node:crypto';
 
 import {
-  FairStream, PLINKO_TABLES, RAID_LAYERS, RAID_TOOLS, SAMPLE_CASES, TILES, caseEv, diceMultiplier, layMines,
-  minesMultiplier, openCase, playDice, playPlinko, playUpgrader, priceCase, raidMultiplier,
+  FairStream, PLINKO_TABLES, RAID_LAYERS, RAID_TOOLS, TILES, caseEv, diceMultiplier, layMines,
+  minesMultiplier, openCase, playAirdrop, playDice, playPlinko, playUpgrader, raidMultiplier, validateTarget,
   upgraderChance, validateDice, type DiceBet, type PlinkoRisk, type PlinkoRows, type RaidTool,
 } from '../../engine/src/index';
 import { type Config, MF_PER_FRAG, fmtFrags } from './config';
 import { type DB, tx } from './db';
 import { fail } from './errors';
 import { systemMessage } from './chat';
-import { GAME_NAME, type GameId, assertGameEnabled } from './flags';
+import { type CaseVersion, playableCase } from './cases';
+import { GAME_NAME, type GameId, assertGameEnabled, gameConfig } from './flags';
 import { checkBet } from './rg';
 import { activeSeed, takeNonce, type SeedRow } from './seeds';
 import { HOUSE, balanceOf, transfer, userAccount } from './wallet';
 
-export type Game = 'dice' | 'plinko' | 'upgrader' | 'cases' | 'mines' | 'raid';
-export const GAMES: Game[] = ['dice', 'plinko', 'upgrader', 'cases', 'mines', 'raid'];
+export type Game = 'dice' | 'plinko' | 'upgrader' | 'cases' | 'mines' | 'raid' | 'airdrop' | 'towers' | 'hilo' | 'blackjack';
+export const GAMES: Game[] = ['dice', 'plinko', 'upgrader', 'cases', 'mines', 'raid', 'airdrop', 'towers', 'hilo', 'blackjack'];
 
 export interface BetRow {
   id: string; user_id: string; game: Game; status: 'open' | 'settled'; stake: number; payout: number; multiplier: number;
@@ -40,18 +41,18 @@ export interface BetRow {
 const newBetId = () => randomBytes(10).toString('hex');
 const payoutFor = (stake: number, mult: number) => Math.floor(stake * mult + 1e-9);
 
-function checkStake(cfg: Config, stake: number): void {
+export function checkStake(cfg: Config, stake: number): void {
   if (!Number.isSafeInteger(stake) || stake < cfg.minStake || stake > cfg.maxStake) {
     fail('invalid_stake', `Stake: ${cfg.minStake / MF_PER_FRAG} to ${cfg.maxStake / MF_PER_FRAG} Frags.`, 400, { min: cfg.minStake, max: cfg.maxStake });
   }
 }
-function checkMaxWin(cfg: Config, stake: number, maxMult: number): void {
+export function checkMaxWin(cfg: Config, stake: number, maxMult: number): void {
   if (stake * maxMult > cfg.maxWin) {
     fail('max_win', `Max win per bet is ${cfg.maxWin / MF_PER_FRAG} Frags. Highest stake here: ${Math.floor(cfg.maxWin / maxMult / MF_PER_FRAG)} Frags.`, 400, { maxWin: cfg.maxWin, maxStake: Math.floor(cfg.maxWin / maxMult) });
   }
 }
 
-async function open(db: DB, userId: string, game: Game, stake: number, params: unknown, now: number): Promise<{ bet: string; seed: SeedRow; nonce: number }> {
+export async function open(db: DB, userId: string, game: Game, stake: number, params: unknown, now: number): Promise<{ bet: string; seed: SeedRow; nonce: number }> {
   await assertGameEnabled(db, game);
   await checkBet(db, userId, stake, now);
   const id = newBetId();
@@ -65,7 +66,7 @@ async function open(db: DB, userId: string, game: Game, stake: number, params: u
 /** Wins announced in chat: at least 10× and 100 Frags. */
 export const BIG_WIN = { minMultiple: 10, minPayout: 100 * MF_PER_FRAG };
 
-async function settle(db: DB, betId: string, userId: string, stake: number, mult: number, result: unknown, now: number): Promise<BetRow> {
+export async function settle(db: DB, betId: string, userId: string, stake: number, mult: number, result: unknown, now: number): Promise<BetRow> {
   const payout = payoutFor(stake, mult);
   if (payout > 0) await transfer(db, HOUSE, userAccount(userId), payout, 'payout', betId, now);
   await db.prepare("UPDATE bets SET status = 'settled', payout = ?, multiplier = ?, result = ?, state = NULL, settled_at = ? WHERE id = ?")
@@ -78,8 +79,14 @@ async function settle(db: DB, betId: string, userId: string, stake: number, mult
 }
 
 export const getBet = async (db: DB, id: string): Promise<BetRow | undefined> => (await db.prepare('SELECT * FROM bets WHERE id = ?').get(id)) as BetRow | undefined;
-const stream = (seed: SeedRow, nonce: number) => new FairStream(seed.server_seed, seed.client_seed, nonce);
-const seedById = async (db: DB, id: string) => (await db.prepare('SELECT * FROM seeds WHERE id = ?').get(id)) as SeedRow;
+export const stream = (seed: SeedRow, nonce: number) => new FairStream(seed.server_seed, seed.client_seed, nonce);
+/** The bet's stream advanced past the floats it has already used. */
+export function resumeStream(seed: SeedRow, nonce: number, used: number): FairStream {
+  const s = stream(seed, nonce);
+  for (let i = 0; i < used; i++) s.next();
+  return s;
+}
+export const seedById = async (db: DB, id: string) => (await db.prepare('SELECT * FROM seeds WHERE id = ?').get(id)) as SeedRow;
 
 /* ---------- instant games ---------- */
 
@@ -87,21 +94,27 @@ export interface InstantParams {
   dice: DiceBet;
   plinko: { rows: PlinkoRows; risk: PlinkoRisk };
   upgrader: { multiplier: number }; // target value / stake, e.g. 2 = double
-  cases: { caseId: string };
+  cases: { caseId: string; version?: number }; // version is set by the server
+  airdrop: { target: number };
 }
 
-export function playInstant<G extends keyof InstantParams>(db: DB, cfg: Config, userId: string, game: G, stakeIn: number, params: InstantParams[G], now: number): Promise<BetRow> {
+export function playInstant<G extends keyof InstantParams>(db: DB, cfgIn: Config, userId: string, game: G, stakeIn: number, paramsIn: InstantParams[G], now: number): Promise<BetRow> {
   return tx(db, async (db) => {
+    const cfg = await gameConfig(db, cfgIn, game);
     let stake = stakeIn;
+    let params = paramsIn;
     let maxMult: number;
+    let box: CaseVersion | null = null;
     switch (game) {
       case 'dice': { const p = params as DiceBet; validateDice(p); maxMult = diceMultiplier(p.chance); break; }
       case 'plinko': { const p = params as InstantParams['plinko']; const t = PLINKO_TABLES[p.rows]?.[p.risk]; if (!t) fail('invalid_params', 'Unknown Scrap Chute table.'); maxMult = Math.max(...t); break; }
       case 'upgrader': { const p = params as InstantParams['upgrader']; upgraderChance(1, p.multiplier); maxMult = p.multiplier; break; }
+      case 'airdrop': { const p = params as InstantParams['airdrop']; validateTarget(p.target); maxMult = p.target; break; }
       case 'cases': {
-        const c = SAMPLE_CASES.find((x) => x.id === (params as InstantParams['cases']).caseId) ?? fail('invalid_params', 'Unknown case.');
-        stake = priceCase(c) * MF_PER_FRAG; // price is fixed, the client's stake is ignored
-        maxMult = Math.max(...c.items.map((i) => i.value)) * MF_PER_FRAG / stake;
+        box = await playableCase(db, (params as InstantParams['cases']).caseId);
+        params = { caseId: box.id, version: box.version } as InstantParams[G]; // the bet records the exact item list it used
+        stake = box.price * MF_PER_FRAG; // price is fixed, the client's stake is ignored
+        maxMult = Math.max(...box.items.map((i) => i.value)) * MF_PER_FRAG / stake;
         break;
       }
       default: return fail('invalid_game', 'Unknown game.');
@@ -114,10 +127,10 @@ export function playInstant<G extends keyof InstantParams>(db: DB, cfg: Config, 
       case 'dice': { const o = playDice(src, params as DiceBet); return settle(db, bet, userId, stake, o.multiplier, o, now); }
       case 'plinko': { const p = params as InstantParams['plinko']; const o = playPlinko(src, p.rows, p.risk); return settle(db, bet, userId, stake, o.multiplier, o, now); }
       case 'upgrader': { const o = playUpgrader(src, 1, (params as InstantParams['upgrader']).multiplier); return settle(db, bet, userId, stake, o.win ? o.value : 0, o, now); }
+      case 'airdrop': { const o = playAirdrop(src, (params as InstantParams['airdrop']).target); return settle(db, bet, userId, stake, o.multiplier, o, now); }
       default: {
-        const c = SAMPLE_CASES.find((x) => x.id === (params as InstantParams['cases']).caseId)!;
-        const o = openCase(src, c);
-        return settle(db, bet, userId, stake, (o.item.value * MF_PER_FRAG) / stake, { ticket: o.ticket, item: o.item, ev: caseEv(c) }, now);
+        const o = openCase(src, box!);
+        return settle(db, bet, userId, stake, (o.item.value * MF_PER_FRAG) / stake, { ticket: o.ticket, item: o.item, ev: caseEv(box!), version: box!.version }, now);
       }
     }
   });
@@ -127,8 +140,9 @@ export function playInstant<G extends keyof InstantParams>(db: DB, cfg: Config, 
 
 interface MinesState { mines: number[]; revealed: number[] }
 
-export function minesStart(db: DB, cfg: Config, userId: string, stake: number, mineCount: number, now: number) {
+export function minesStart(db: DB, cfgIn: Config, userId: string, stake: number, mineCount: number, now: number) {
   return tx(db, async (db) => {
+    const cfg = await gameConfig(db, cfgIn, 'mines');
     if (!Number.isInteger(mineCount) || mineCount < 1 || mineCount > 24) fail('invalid_params', 'Mines: 1 to 24.');
     await assertNoOpen(db, userId, 'mines');
     checkStake(cfg, stake);
@@ -140,8 +154,9 @@ export function minesStart(db: DB, cfg: Config, userId: string, stake: number, m
   });
 }
 
-export function minesReveal(db: DB, cfg: Config, userId: string, betId: string, tile: number, now: number) {
+export function minesReveal(db: DB, cfgIn: Config, userId: string, betId: string, tile: number, now: number) {
   return tx(db, async (db) => {
+    const cfg = await gameConfig(db, cfgIn, 'mines');
     const b = await openBet(db, userId, betId, 'mines');
     await assertGameEnabled(db, 'mines');
     const s = JSON.parse(b.state!) as MinesState;
@@ -177,8 +192,9 @@ async function publicMines(b: BetRow, db: DB) {
 
 interface RaidState { tools: RaidTool[] }
 
-export function raidStart(db: DB, cfg: Config, userId: string, stake: number, now: number) {
+export function raidStart(db: DB, cfgIn: Config, userId: string, stake: number, now: number) {
   return tx(db, async (db) => {
+    const cfg = await gameConfig(db, cfgIn, 'raid');
     await assertNoOpen(db, userId, 'raid');
     checkStake(cfg, stake);
     checkMaxWin(cfg, stake, raidMultiplier(['satchel'])); // smallest first step that could be taken
@@ -188,8 +204,9 @@ export function raidStart(db: DB, cfg: Config, userId: string, stake: number, no
   });
 }
 
-export function raidBlast(db: DB, cfg: Config, userId: string, betId: string, tool: RaidTool, now: number) {
+export function raidBlast(db: DB, cfgIn: Config, userId: string, betId: string, tool: RaidTool, now: number) {
   return tx(db, async (db) => {
+    const cfg = await gameConfig(db, cfgIn, 'raid');
     const b = await openBet(db, userId, betId, 'raid');
     await assertGameEnabled(db, 'raid');
     if (!(tool in RAID_TOOLS)) fail('invalid_params', 'Explosive: c4, rocket or satchel.');
@@ -236,12 +253,12 @@ export async function openGames(db: DB, userId: string) {
   return out;
 }
 
-async function assertNoOpen(db: DB, userId: string, game: Game): Promise<void> {
+export async function assertNoOpen(db: DB, userId: string, game: Game): Promise<void> {
   const r = (await db.prepare("SELECT id FROM bets WHERE user_id = ? AND game = ? AND status = 'open'").get(userId, game)) as { id: string } | undefined;
   if (r) fail('open_game', 'You already have a round in progress.', 409, { betId: r.id });
 }
 
-async function openBet(db: DB, userId: string, betId: string, game: Game): Promise<BetRow> {
+export async function openBet(db: DB, userId: string, betId: string, game: Game): Promise<BetRow> {
   const b = await getBet(db, betId);
   if (!b || b.user_id !== userId || b.game !== game) fail('not_found', 'Round not found.', 404);
   if (b!.status !== 'open') fail('already_settled', 'This round is already settled.', 409);

@@ -25,7 +25,9 @@ import { PgBus, setBus } from './events';
 import { createApp } from './http';
 import { PgLeader, openPg } from './pg';
 import { settleDue } from './pvp';
+import { JackpotService } from './jackpot';
 import { rainTick } from './rewards';
+import { WheelService } from './wheel';
 
 const env = process.env;
 const flag = (v: string | undefined, dflt: boolean) => (v === undefined || v === '' ? dflt : /^(1|true|yes|on)$/i.test(v));
@@ -63,10 +65,12 @@ if (env.DATABASE_URL) {
 const httpFetch = (url: string, init: { method: string; headers: Record<string, string>; body?: string }) => fetch(url, init);
 const beacon = env.BEACON === 'drand' ? new DrandBeacon(httpFetch) : new LocalBeacon(Date.now() - 60_000);
 const crash = new CrashService(db, cfg, beacon, Number(env.CRASH_CHAIN ?? 100_000));
+const wheel = new WheelService(db, cfg, beacon, Number(env.WHEEL_CHAIN ?? 100_000));
+const jackpot = new JackpotService(db, cfg, beacon);
 
 let isLeader = !leader;
 const app = createApp({
-  db, cfg, clock: systemClock, fetch: httpFetch, publicUrl: env.PUBLIC_URL ?? `http://localhost:${port}`, beacon, crash,
+  db, cfg, clock: systemClock, fetch: httpFetch, publicUrl: env.PUBLIC_URL ?? `http://localhost:${port}`, beacon, crash, wheel, jackpot,
   ready: async () => ({ leader: isLeader, beacon: beacon.name, demo: cfg.demo }),
 }, { trustProxy: cfg.trustProxy, log });
 app.listen(port, () => log({ t: new Date().toISOString(), msg: 'listening', port, db: db.dialect, beacon: beacon.name, demo: cfg.demo, operatorMfa: cfg.requireOperatorMfa }));
@@ -83,6 +87,8 @@ const ticker = setInterval(async () => {
     if (!isLeader) return;
     const now = Date.now();
     await crash.tick(now);
+    await wheel.tick(now);
+    await jackpot.tick(now);
     await settleDue(db, beacon, now);
     await rainTick(db, cfg, now);
     if (now - lastScan > 60_000) { lastScan = now; await rgScan(db, cfg, now); }

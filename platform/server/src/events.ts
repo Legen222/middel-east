@@ -9,9 +9,15 @@
 import type pg from 'pg';
 
 import type { CrashEvent } from './crash';
+import type { WheelEvent } from './wheel';
 
 export type ChatEvent = { type: 'message'; id: number } | { type: 'deleted'; id: number } | { type: 'rain' };
-export type BusEvent = { topic: 'crash'; event: CrashEvent } | { topic: 'chat'; event: ChatEvent };
+export type BusEvent =
+  | { topic: 'crash'; event: CrashEvent }
+  | { topic: 'chat'; event: ChatEvent }
+  | { topic: 'wheel'; event: WheelEvent }
+  | { topic: 'jackpot'; event: { type: 'update'; room: string } }
+  | { topic: 'site'; event: { type: 'settings' } };
 
 export interface Bus {
   publish(e: BusEvent): void;
