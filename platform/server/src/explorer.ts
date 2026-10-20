@@ -78,7 +78,7 @@ async function replayBet(db: DB, b: BetRow): Promise<Check[]> {
   switch (b.game) {
     case 'dice': { const o = playDice(src, p as DiceBet); outcome(o.roll === r.roll && near(o.multiplier, mult), `roll ${o.roll}, ×${o.multiplier}`); break; }
     case 'plinko': { const o = playPlinko(src, p.rows as PlinkoRows, p.risk as PlinkoRisk); outcome(o.bucket === r.bucket && near(o.multiplier, mult), `bucket ${o.bucket}, ×${o.multiplier}`); break; }
-    case 'upgrader': { const o = playUpgrader(src, 1, p.multiplier); outcome(o.win === mult > 0 && near(o.roll, r.roll), `roll ${o.roll.toFixed(8)}, ${o.win ? 'upgraded' : 'lost'}`); break; }
+    case 'upgrader': { const o = playUpgrader(src, 1, p.multiplier, undefined, p.zone ?? 0); outcome(o.win === mult > 0 && near(o.roll, r.roll), `roll ${o.roll.toFixed(8)}, zone from ${((p.zone ?? 0) / 100).toFixed(2)} %, ${o.win ? 'upgraded' : 'lost'}`); break; }
     case 'airdrop': { const o = playAirdrop(src, p.target); outcome(near(o.landing, r.landing) && near(o.multiplier, mult), `landed ${o.landing}×, target ${p.target}×`); break; }
     case 'cases': {
       const c = await caseVersion(db, p.caseId, p.version ?? 1);

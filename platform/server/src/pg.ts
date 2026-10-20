@@ -61,6 +61,8 @@ const MIGRATIONS: { version: number; sql: () => string }[] = [
     ALTER TABLE game_flags ADD COLUMN IF NOT EXISTS max_win BIGINT;
     ${pgSchema()}
     ${CASE_SEED}` },
+  // Six more built-in crates (version 1). The seed is idempotent, existing cases stay as they are.
+  { version: 5, sql: () => CASE_SEED },
 ];
 
 type Queryable = pg.Pool | pg.PoolClient;

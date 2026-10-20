@@ -13,7 +13,7 @@ import {
   addNote, adjustBalance, auditLog, forceLogout, holdPlayer, listPlayers, overview, playerDetail, releaseHold, requireRole, rgCases, rgScan, rtpMonitor, setRole, updateCase,
 } from './admin';
 import {
-  GAMES, activeSeedPublic, balance, getBet, liveRtp, minesCashout, minesReveal, minesStart, playInstant,
+  GAMES, activeSeedPublic, balance, getBet, liveRtp, minesCashout, minesReveal, minesStart, openCases, playInstant,
   publicBet, raidBlast, raidCashout, raidStart, type InstantParams,
 } from './bets';
 import type { Beacon } from './beacon';
@@ -167,6 +167,13 @@ export function createRouter(deps: AppDeps) {
       return fmtMoney(await publicBet(await playInstant(db, cfg, id, g, stake, c.body?.params ?? {}, clock()), db));
     });
   }
+  route('POST', '/bets/cases/multi', async (c) => {
+    const id = await uid(c);
+    const bets = await openCases(db, cfg, id, String(c.body?.params?.caseId ?? ''), num(c.body?.count, 'count'), clock());
+    const out = [];
+    for (const b of bets) out.push(fmtMoney(await publicBet(b, db)));
+    return out;
+  });
   route('POST', '/mines/start', async (c) => fmtMoney(await minesStart(db, cfg, await uid(c), stakeMf(c.body?.stake), num(c.body?.mines, 'mines'), clock())));
   route('POST', '/mines/:id/reveal', async (c, p) => fmtMoney(await minesReveal(db, cfg, await uid(c), p.id, num(c.body?.tile, 'tile'), clock())));
   route('POST', '/mines/:id/cashout', async (c, p) => fmtMoney(await minesCashout(db, await uid(c), p.id, clock())));

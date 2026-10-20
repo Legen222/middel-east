@@ -63,7 +63,8 @@ export function createCoinflip(db: DB, cfgIn: Config, userId: string, stake: num
 export function createBattle(db: DB, cfgIn: Config, userId: string, caseIds: string[], seats: number, mode: BattleMode, now: number): Promise<string> {
   if (!Array.isArray(caseIds) || caseIds.length < 1 || caseIds.length > 10) fail('invalid_params', '1 to 10 cases.');
   if (![2, 3, 4].includes(seats)) fail('invalid_params', '2, 3 or 4 seats.');
-  if (!['normal', 'crazy', 'terminal'].includes(mode)) fail('invalid_params', 'Mode: normal, crazy or terminal.');
+  if (!['normal', 'crazy', 'terminal', 'team'].includes(mode)) fail('invalid_params', 'Mode: normal, crazy, terminal or team.');
+  if (mode === 'team' && seats !== 4) fail('invalid_params', 'Team battles are 2 vs 2: pick 4 seats.');
   return tx(db, async (db) => {
     const cfg = await gameConfig(db, cfgIn, 'battle');
     const cases: CaseVersion[] = [];

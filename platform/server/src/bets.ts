@@ -18,7 +18,7 @@ import { randomBytes } from 'node:crypto';
 import {
   FairStream, PLINKO_TABLES, RAID_LAYERS, RAID_TOOLS, TILES, caseEv, diceMultiplier, layMines,
   minesMultiplier, openCase, playAirdrop, playDice, playPlinko, playUpgrader, raidMultiplier, validateTarget,
-  upgraderChance, validateDice, type DiceBet, type PlinkoRisk, type PlinkoRows, type RaidTool,
+  upgraderChance, validateDice, validateZone, type DiceBet, type PlinkoRisk, type PlinkoRows, type RaidTool,
 } from '../../engine/src/index';
 import { type Config, MF_PER_FRAG, fmtFrags } from './config';
 import { type DB, tx } from './db';
@@ -93,7 +93,7 @@ export const seedById = async (db: DB, id: string) => (await db.prepare('SELECT 
 export interface InstantParams {
   dice: DiceBet;
   plinko: { rows: PlinkoRows; risk: PlinkoRisk };
-  upgrader: { multiplier: number }; // target value / stake, e.g. 2 = double
+  upgrader: { multiplier: number; zone?: number }; // target value / stake (2 = double); zone = where the win arc starts, 0–9999
   cases: { caseId: string; version?: number }; // version is set by the server
   airdrop: { target: number };
 }
@@ -108,7 +108,14 @@ export function playInstant<G extends keyof InstantParams>(db: DB, cfgIn: Config
     switch (game) {
       case 'dice': { const p = params as DiceBet; validateDice(p); maxMult = diceMultiplier(p.chance); break; }
       case 'plinko': { const p = params as InstantParams['plinko']; const t = PLINKO_TABLES[p.rows]?.[p.risk]; if (!t) fail('invalid_params', 'Unknown Scrap Chute table.'); maxMult = Math.max(...t); break; }
-      case 'upgrader': { const p = params as InstantParams['upgrader']; upgraderChance(1, p.multiplier); maxMult = p.multiplier; break; }
+      case 'upgrader': {
+        const p = params as InstantParams['upgrader'];
+        upgraderChance(1, p.multiplier);
+        validateZone(p.zone ?? 0);
+        params = { multiplier: p.multiplier, zone: p.zone ?? 0 } as InstantParams[G];
+        maxMult = p.multiplier;
+        break;
+      }
       case 'airdrop': { const p = params as InstantParams['airdrop']; validateTarget(p.target); maxMult = p.target; break; }
       case 'cases': {
         box = await playableCase(db, (params as InstantParams['cases']).caseId);
@@ -126,13 +133,25 @@ export function playInstant<G extends keyof InstantParams>(db: DB, cfgIn: Config
     switch (game) {
       case 'dice': { const o = playDice(src, params as DiceBet); return settle(db, bet, userId, stake, o.multiplier, o, now); }
       case 'plinko': { const p = params as InstantParams['plinko']; const o = playPlinko(src, p.rows, p.risk); return settle(db, bet, userId, stake, o.multiplier, o, now); }
-      case 'upgrader': { const o = playUpgrader(src, 1, (params as InstantParams['upgrader']).multiplier); return settle(db, bet, userId, stake, o.win ? o.value : 0, o, now); }
+      case 'upgrader': { const p = params as InstantParams['upgrader']; const o = playUpgrader(src, 1, p.multiplier, undefined, p.zone); return settle(db, bet, userId, stake, o.win ? o.value : 0, o, now); }
       case 'airdrop': { const o = playAirdrop(src, (params as InstantParams['airdrop']).target); return settle(db, bet, userId, stake, o.multiplier, o, now); }
       default: {
         const o = openCase(src, box!);
         return settle(db, bet, userId, stake, (o.item.value * MF_PER_FRAG) / stake, { ticket: o.ticket, item: o.item, ev: caseEv(box!), version: box!.version }, now);
       }
     }
+  });
+}
+
+export const MAX_MULTI_OPEN = 5;
+
+/** Opens 1–5 of the same case at once: one bet (and nonce) per case, all in one transaction, so it is all or nothing. */
+export function openCases(db: DB, cfg: Config, userId: string, caseId: string, count: number, now: number): Promise<BetRow[]> {
+  if (!Number.isInteger(count) || count < 1 || count > MAX_MULTI_OPEN) fail('invalid_params', `Open 1 to ${MAX_MULTI_OPEN} cases at once.`);
+  return tx(db, async (db) => {
+    const out: BetRow[] = [];
+    for (let i = 0; i < count; i++) out.push(await playInstant(db, cfg, userId, 'cases', 0, { caseId }, now));
+    return out;
   });
 }
 

@@ -229,6 +229,26 @@ describe('upgrader', () => {
     assert.throws(() => upgraderChance(100, 110)); // 86 % > 80 % cap
     assert.throws(() => upgraderChance(1, 1000)); // 0.095 % < 1 % floor
   });
+  it('a movable zone: wins exactly on the arc [s, s + chance) of the ring, wrapping past 1', () => {
+    // chance 0.475, zone starts at 0.9 → wins for f in [0.9, 1) and [0, 0.375)
+    assert.equal(playUpgrader(fixed([0.8999]), 100, 200, EDGE.upgrader, 9000).win, false);
+    assert.equal(playUpgrader(fixed([0.9]), 100, 200, EDGE.upgrader, 9000).win, true);
+    assert.equal(playUpgrader(fixed([0.9999]), 100, 200, EDGE.upgrader, 9000).win, true);
+    assert.equal(playUpgrader(fixed([0.3749]), 100, 200, EDGE.upgrader, 9000).win, true);
+    assert.equal(playUpgrader(fixed([0.375]), 100, 200, EDGE.upgrader, 9000).win, false);
+    // middle of the ring
+    assert.equal(playUpgrader(fixed([0.2999]), 100, 200, EDGE.upgrader, 3000).win, false);
+    assert.equal(playUpgrader(fixed([0.3]), 100, 200, EDGE.upgrader, 3000).win, true);
+    assert.equal(playUpgrader(fixed([0.7749]), 100, 200, EDGE.upgrader, 3000).win, true);
+    assert.equal(playUpgrader(fixed([0.775]), 100, 200, EDGE.upgrader, 3000).win, false);
+    // every placement covers the same share of a fine grid of rolls
+    for (const zone of [0, 1, 2500, 5000, 7777, 9999]) {
+      let wins = 0;
+      for (let i = 0; i < 100_000; i++) if (playUpgrader(fixed([i / 100_000]), 100, 200, EDGE.upgrader, zone).win) wins++;
+      assert.ok(Math.abs(wins - 47_500) <= 1, `zone ${zone}: ${wins}`);
+    }
+    for (const bad of [-1, 10_000, 0.5, NaN]) assert.throws(() => playUpgrader(fixed([0.1]), 100, 200, EDGE.upgrader, bad), RangeError);
+  });
 });
 
 describe('coinflip', () => {
@@ -264,6 +284,21 @@ describe('cases', () => {
     assert.deepEqual(tie.payouts, [100, 100]);
     const term = playBattle(fixed([0.9, 0.1, 0.1, 0.9]), [c, c], 2, 'terminal');
     assert.deepEqual(term.winners, [1]);
+  });
+  it('team battle: 2 vs 2 on combined totals, the winning pair splits the pool, a team tie splits four ways', () => {
+    const c: typeof SAMPLE_CASES[number] = { id: 't', name: 't', items: [{ name: 'lo', value: 10, weight: 1 }, { name: 'hi', value: 100, weight: 1 }] };
+    // seats 1–4 draw hi, lo, lo, hi → teams 110 vs 110: tie
+    const tie = playBattle(fixed([0.9, 0.1, 0.1, 0.9]), [c], 4, 'team');
+    assert.deepEqual(tie.winners, [0, 1, 2, 3]);
+    assert.deepEqual(tie.payouts, [55, 55, 55, 55]);
+    // hi, hi, lo, hi → 200 vs 110: team 1 (seats 1, 2) takes 310, split in two
+    const win = playBattle(fixed([0.9, 0.9, 0.1, 0.9]), [c], 4, 'team');
+    assert.deepEqual(win.winners, [0, 1]);
+    assert.deepEqual(win.payouts, [155, 155, 0, 0]);
+    // the best single drop does not decide: seat 4 has the top item but its team loses
+    const lone = playBattle(fixed([0.9, 0.9, 0.1, 0.9, 0.9, 0.9, 0.1, 0.1]), [c, c], 4, 'team');
+    assert.deepEqual(lone.winners, [0, 1]);
+    assert.throws(() => playBattle(fixed([0.1]), [c], 2, 'team'), RangeError);
   });
 });
 

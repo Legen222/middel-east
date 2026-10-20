@@ -12,7 +12,7 @@ mehrere Instanzen mit Leader-Wahl und LISTEN/NOTIFY). Nutzt die Engine aus `../e
 ```bash
 npm install
 npm run check   # Typprüfung + Prüfung auf nicht abgewartete Promises
-npm test        # 59 Tests (SQLite) inkl. Nachspielen aus offengelegtem Seed, PvP, Crash, Nebenläufigkeit, API
+npm test        # 62 Tests (SQLite) inkl. Nachspielen aus offengelegtem Seed, PvP, Crash, Nebenläufigkeit, API
 npm run test:pg # dieselben Tests gegen Postgres (TEST_PG_URL, Standard postgres://scrapline@127.0.0.1:5432/scrapline_test)
 npm start       # baut dist/main.mjs und startet: PORT=8787, DB_PATH oder DATABASE_URL, weitere Variablen in src/main.ts
 DATABASE_URL=postgres://… node tools/cluster-smoke.mjs   # zwei Instanzen, eine Datenbank (nach npm run build)

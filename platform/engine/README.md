@@ -5,7 +5,7 @@ läuft identisch auf dem Server (Node) und im Browser (Prüfer-Seite). **Nur Dem
 
 ```bash
 npm install
-npm test              # 75 Tests: SHA-256 vs node:crypto, Testvektoren, exakte RTP-Beweise
+npm test              # 83 Tests: SHA-256 vs node:crypto, Testvektoren, exakte RTP-Beweise
 npm run sim           # Monte-Carlo, 10 Mio. Runden pro Lauf → sim/RESULTS.md, sim/results.json
 npm run sim -- 1000000 42   # Runden pro Lauf, Seed
 npm run build:verify  # verify/verify.html: eigenständige Prüfer-Seite

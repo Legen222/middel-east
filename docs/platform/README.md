@@ -12,10 +12,11 @@
 | 10 | [07-produktion.md](07-produktion.md) · [`deploy/`](../../deploy) | Postgres, mehrere API-Instanzen mit Leader, Live-Events per SSE, Operator-2FA, Docker, CI |
 | 11 | [08-modi-und-admin.md](08-modi-und-admin.md) | Live-Analyse der Wettbewerber im Browser; sechs neue Modi (Bandit Wheel, Jackpot, Monument Run, Hi-Lo, Blackjack, Airdrop); komplettes Backoffice (Reports, Wett-Explorer mit Nachprüfung, Limits pro Spiel, Case-Manager mit Versionen, Promo-Codes, Wartungsmodus, Seed-Ketten, Spieler-Werkzeuge) |
 | 12 | [02-konzept.md](02-konzept.md) (Richtung C) · [`platform/web`](../../platform/web) | Redesign der Oberfläche im Stil **C · BLUEPRINT (Clean Premium)**: Graphit, Blueprint-Blau, Messing, Archivo/IBM Plex, 8-px-Raster, Bemaßungslinien, Proof-Panel pro Runde; neue Navigation (Top-Bar, Spielleiste, Konto-Menü, Chat ein-/ausblendbar), Lobby mit technischen Zeichnungen aller 15 Spiele. Name SCRAPLINE und alle Spiellogik bleiben. |
+| 13 | [08-modi-und-admin.md § 5](08-modi-und-admin.md#5-nachtrag-phase-13--kisten-case-battle-workbench) | Workbench mit frei verschiebbarer Gewinnzone und Dreh-Animation, 1–5 Kisten auf einmal und sechs neue Kisten, Case-Battle-Raum mit Walzen pro Spieler und 2v2-Teammodus |
 
 ```bash
-cd platform/engine && npm install && npm test && npm run sim      # 75 Tests, Monte-Carlo (60 × 10 Mio. Runden)
-cd platform/server && npm install && npm test && npm start        # 59 Tests, API auf :8787 (SQLite)
+cd platform/engine && npm install && npm test && npm run sim      # 83 Tests, Monte-Carlo (71 × 10 Mio. Runden)
+cd platform/server && npm install && npm test && npm start        # 62 Tests, API auf :8787 (SQLite)
 cd platform/server && npm run test:pg                           # dieselben Tests gegen Postgres
 docker compose -f deploy/docker-compose.yml --env-file deploy/.env up --build   # kompletter Stack auf :8080
 cd platform/web    && npm install && npm run dev                  # App auf :5174

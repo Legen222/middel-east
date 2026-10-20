@@ -6,7 +6,7 @@
 import {
   FairStream, PLINKO_TABLES, SAMPLE_CASES, TILES,
   crashPoint, diceMultiplier, layMines, minesMultiplier, openCase, playBattle, playCoinflip, playDice,
-  playPlinko, playRaid, playUpgrader, priceCase, sha256Hex, toHex, hmacHex, verifyChainLink,
+  playPlinko, playRaid, playUpgrader, upgraderOffset, priceCase, sha256Hex, toHex, hmacHex, verifyChainLink,
   type BattleMode, type FloatSource, type PlinkoRisk, type PlinkoRows, type RaidTool,
   type CaseDef, WHEEL_LAYOUT, spinWheel, wheelPayout, drawJackpot, jackpotTicketRanges, playAirdrop, airdropChance,
   TOWER_LEVELS, layTraps, towersMultiplier, type TowerLevel, drawCard, hiloChance, hiloMultiplier, hiloWins, RANK_NAMES,
@@ -77,11 +77,15 @@ const GAMES: Record<string, { label: string; fields: string; run: (s: FloatSourc
   },
   upgrader: {
     label: 'Workbench',
-    fields: `<label>Stake value<input id="p-in" value="100" inputmode="decimal"></label><label>Target value<input id="p-target" value="200" inputmode="decimal"></label>`,
+    fields: `<label>Stake value<input id="p-in" value="100" inputmode="decimal"></label><label>Target value<input id="p-target" value="200" inputmode="decimal"></label>
+      <label>Zone start (0–9999, from the bet's params)<input id="p-zone" value="0" inputmode="numeric"></label>`,
     run: (s) => {
-      const o = playUpgrader(s, num('p-in'), num('p-target'));
+      const o = playUpgrader(s, num('p-in'), num('p-target'), undefined, Math.round(num('p-zone')));
+      const off = upgraderOffset(o.roll, o.zone);
       return { headline: o.win ? 'Upgrade succeeded' : 'Upgrade failed', tone: o.win ? 'win' : 'lose', rows: [
-        ['Chance', `${fmt(o.chance * 100, 4)} % = stake / target · 0.95`], ['Roll', `f = ${o.roll.toFixed(8)} ${o.win ? '<' : '≥'} chance`]] };
+        ['Chance', `${fmt(o.chance * 100, 4)} % = stake / target · 0.95`],
+        ['Win zone', `${fmt(o.zone / 100, 2)} % → ${fmt(((o.zone / 10000 + o.chance) % 1) * 100, 2)} % of the ring`],
+        ['Roll', `f = ${o.roll.toFixed(8)} · (f − start) mod 1 = ${off.toFixed(8)} ${o.win ? '<' : '≥'} chance`]] };
     },
   },
   coinflip: {
@@ -112,12 +116,14 @@ const GAMES: Record<string, { label: string; fields: string; run: (s: FloatSourc
     label: 'Case Battle',
     fields: `<label>Cases (ids, comma-separated)<input id="p-bcases" value="toolbox,military-crate,elite-crate"></label>
       <label>Seats<select id="p-seats"><option>2</option><option>3</option><option>4</option></select></label>
-      <label>Mode<select id="p-mode"><option value="normal">Normal</option><option value="crazy">Crazy</option><option value="terminal">Terminal</option></select></label>`,
+      <label>Mode<select id="p-mode"><option value="normal">Normal</option><option value="crazy">Crazy</option><option value="terminal">Terminal</option><option value="team">Team 2v2 (4 seats: P1+P2 vs P3+P4)</option></select></label>`,
     run: (s) => {
       const ids = val('p-bcases').split(',').map((x) => x.trim());
       const cases = ids.map((id) => { const c = SAMPLE_CASES.find((x) => x.id === id); if (!c) throw new Error(`Unknown case: ${id}`); return c; });
       const o = playBattle(s, cases, Number(val('p-seats')), val('p-mode') as BattleMode);
+      const teamRow: Row[] = val('p-mode') === 'team' ? [['Team totals', `P1+P2: ${o.totals[0] + o.totals[1]} · P3+P4: ${o.totals[2] + o.totals[3]}`]] : [];
       return { headline: `Winner: seat ${o.winners.map((w) => w + 1).join(' & ')}`, tone: 'neutral', rows: [
+        ...teamRow,
         ...o.drops.map((r, i) => [`Round ${i + 1}`, r.map((it, s2) => `P${s2 + 1}: ${it.name} (${it.value})`).join(' · ')] as Row),
         ['Totals', o.totals.map((t, i) => `P${i + 1}: ${t}`).join(' · ')], ['Payout', o.payouts.map((p, i) => `P${i + 1}: ${fmt(p)}`).join(' · ')]] };
     },

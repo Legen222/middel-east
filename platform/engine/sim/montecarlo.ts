@@ -154,6 +154,12 @@ run('upgrader', 'mixed: chance 1 %…80 %', 1 - EDGE.upgrader, N, (r) => {
   const target = (input * (1 - EDGE.upgrader)) / chance;
   return { stake: input, payout: playUpgrader(r, input, target).value };
 });
+run('upgrader', 'mixed chance, zone anywhere on the ring', 1 - EDGE.upgrader, N, (r) => {
+  const chance = 0.01 + r.next() * 0.79;
+  const input = 1000;
+  const target = (input * (1 - EDGE.upgrader)) / chance;
+  return { stake: input, payout: playUpgrader(r, input, target, EDGE.upgrader, Math.floor(r.next() * 10_000)).value };
+});
 
 /* ---------- Coinflip ---------- */
 run('coinflip', 'creator seat, random side', 1 - EDGE.coinflip, N, (r) => {
@@ -171,7 +177,7 @@ for (const c of SAMPLE_CASES) {
 const battleCases = [SAMPLE_CASES[0], SAMPLE_CASES[1], SAMPLE_CASES[2]];
 const battleCost = battleCases.reduce((s, c) => s + priceCase(c), 0);
 const battleEv = battleCases.reduce((s, c) => s + caseRtp(c) * priceCase(c), 0) / battleCost;
-for (const [seats, mode] of [[2, 'normal'], [3, 'crazy'], [4, 'terminal']] as [number, BattleMode][]) {
+for (const [seats, mode] of [[2, 'normal'], [3, 'crazy'], [4, 'terminal'], [4, 'team']] as [number, BattleMode][]) {
   for (let seat = 0; seat < seats; seat++) {
     run('battles', `${seats} seats / ${mode} / seat ${seat + 1}`, battleEv, N, (r) => ({ stake: battleCost, payout: playBattle(r, battleCases, seats, mode).payouts[seat] }));
   }

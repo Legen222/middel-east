@@ -14,6 +14,8 @@
  *   normal   — highest total wins everything
  *   crazy    — lowest total wins everything
  *   terminal — highest value in the final round wins everything
+ *   team     — 2 vs 2 (4 seats; seats 1–2 against 3–4): the team with the higher combined total
+ *              wins and its two players split the pool; a tie between the teams splits it four ways
  * Ties split equally. Seats are symmetric, so each seat's expected return equals the cases' RTP.
  */
 
@@ -48,7 +50,10 @@ export function openCase(src: FloatSource, c: CaseDef): { ticket: number; item: 
   throw new Error('unreachable: ticket beyond weight total');
 }
 
-export type BattleMode = 'normal' | 'crazy' | 'terminal';
+export type BattleMode = 'normal' | 'crazy' | 'terminal' | 'team';
+
+/** Team of a seat in team mode: seats 0–1 are team 0, seats 2–3 team 1. */
+export const battleTeam = (seat: number): number => (seat < 2 ? 0 : 1);
 
 export interface BattleOutcome {
   drops: CaseItem[][]; // [round][seat]
@@ -59,6 +64,7 @@ export interface BattleOutcome {
 
 export function playBattle(src: FloatSource, cases: CaseDef[], seats: number, mode: BattleMode): BattleOutcome {
   if (seats < 2 || seats > 4) throw new RangeError('2 to 4 seats');
+  if (mode === 'team' && seats !== 4) throw new RangeError('team battles need 4 seats');
   const drops: CaseItem[][] = [];
   const totals = new Array(seats).fill(0);
   for (const c of cases) {
@@ -70,7 +76,9 @@ export function playBattle(src: FloatSource, cases: CaseDef[], seats: number, mo
     }
     drops.push(round);
   }
-  const score = mode === 'terminal' ? drops[drops.length - 1].map((i) => i.value) : totals;
+  const teamTotals = [0, 0];
+  totals.forEach((t, i) => { teamTotals[battleTeam(i)] += t; });
+  const score = mode === 'terminal' ? drops[drops.length - 1].map((i) => i.value) : mode === 'team' ? totals.map((_, i) => teamTotals[battleTeam(i)]) : totals;
   const best = mode === 'crazy' ? Math.min(...score) : Math.max(...score);
   const winners = score.flatMap((v, i) => (v === best ? [i] : []));
   const pool = totals.reduce((a, b) => a + b, 0);
@@ -126,6 +134,80 @@ export const SAMPLE_CASES: CaseDef[] = [
       { name: 'Glory AK', value: 21000, weight: 30000 },
       { name: 'Big Grin Door', value: 1240, weight: 12000 },
       { name: 'Complete Blueprint Set', value: 120000, weight: 8000 },
+    ],
+  },
+  {
+    id: 'scrap-box',
+    name: 'Scrap Box',
+    items: [
+      { name: 'Burlap Shirt', value: 4, weight: 40000 },
+      { name: 'Leather Gloves', value: 8, weight: 25000 },
+      { name: 'Snow Jacket', value: 15, weight: 15000 },
+      { name: 'Road Sign Kilt', value: 35, weight: 10000 },
+      { name: 'Metal Facemask', value: 90, weight: 7000 },
+      { name: 'Tempered Hatchet', value: 260, weight: 2700 },
+      { name: 'Alien Red', value: 1900, weight: 300 },
+    ],
+  },
+  {
+    id: 'road-sign',
+    name: 'Road Sign',
+    items: [
+      { name: 'Road Sign Gloves', value: 20, weight: 36000 },
+      { name: 'Road Sign Kilt', value: 35, weight: 26000 },
+      { name: 'Coffee Can Helmet', value: 60, weight: 17000 },
+      { name: 'Road Sign Vest', value: 130, weight: 12000 },
+      { name: 'Metal Chest Plate', value: 420, weight: 6500 },
+      { name: 'No Mercy Jacket', value: 1200, weight: 2200 },
+      { name: 'Big Grin Door', value: 1240, weight: 300 },
+    ],
+  },
+  {
+    id: 'tech-trash',
+    name: 'Tech Trash',
+    items: [
+      { name: 'Tech Trash', value: 50, weight: 35000 },
+      { name: 'Targeting Computer', value: 140, weight: 26000 },
+      { name: 'CCTV Camera', value: 260, weight: 18000 },
+      { name: 'Laser Sight', value: 520, weight: 12000 },
+      { name: 'Hazmat Visor', value: 600, weight: 6000 },
+      { name: 'Alien Red', value: 1900, weight: 2600 },
+      { name: 'Tempered MP5', value: 5000, weight: 400 },
+    ],
+  },
+  {
+    id: 'locked-crate',
+    name: 'Locked Crate',
+    items: [
+      { name: 'Hazmat Visor', value: 600, weight: 36000 },
+      { name: 'Alien Red', value: 1900, weight: 26000 },
+      { name: 'Night Stalker', value: 4200, weight: 18000 },
+      { name: 'Neon AK', value: 6610, weight: 12000 },
+      { name: 'Tempered AK', value: 8420, weight: 6500 },
+      { name: 'Glory AK', value: 21000, weight: 1400 },
+      { name: 'Complete Blueprint Set', value: 120000, weight: 100 },
+    ],
+  },
+  {
+    id: 'bradley-crate',
+    name: 'Bradley Crate',
+    items: [
+      { name: 'Metal Chest Plate', value: 420, weight: 30000 },
+      { name: 'No Mercy Jacket', value: 1200, weight: 28000 },
+      { name: 'Night Stalker', value: 4200, weight: 20000 },
+      { name: 'Tempered MP5', value: 5000, weight: 12000 },
+      { name: 'Tempered AK', value: 8420, weight: 8000 },
+      { name: 'Glory AK', value: 21000, weight: 2000 },
+    ],
+  },
+  {
+    id: 'cargo-ship',
+    name: 'Cargo Ship',
+    items: [
+      { name: 'Neon AK', value: 6610, weight: 30000 },
+      { name: 'Tempered AK', value: 8420, weight: 20000 },
+      { name: 'Glory AK', value: 21000, weight: 45000 },
+      { name: 'Complete Blueprint Set', value: 120000, weight: 5000 },
     ],
   },
 ];

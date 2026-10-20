@@ -211,7 +211,7 @@ Größenlimit (16 KB) und Geo-Prüfung.
 
 ```bash
 cd platform/server && npm install
-npm test     # 59 Tests (Stand Phase 11)
+npm test     # 62 Tests (Stand Phase 13)
 npm start    # http://localhost:8787, Datei data/scrapline-demo.sqlite
 ```
 
@@ -233,7 +233,7 @@ npm start    # http://localhost:8787, Datei data/scrapline-demo.sqlite
 | Thema | Vorgabe |
 |---|---|
 | Umgebungen | dev → staging (Spielgeld, echte Anbieter im Sandbox-Modus) → prod |
-| CI | Typprüfung, Engine-Tests (57), Server-Tests (44, SQLite und Postgres), Monte-Carlo-Kurzlauf (1 Mio. Runden) bei jedem Merge, voller Lauf (10 Mio.) nächtlich |
+| CI | Typprüfung, Engine-Tests, Server-Tests (SQLite und Postgres), Monte-Carlo-Kurzlauf (1 Mio. Runden) bei jedem Merge, voller Lauf (10 Mio.) nächtlich |
 | Deployment | Container. API und Worker mit mehreren Replikas. Crash-Leader mit Leader-Election (genau 1 aktiv) |
 | Daten | Postgres mit Replika und Point-in-Time-Recovery. Tägliches Backup mit Test-Wiederherstellung |
 | Monitoring | Traces, Metriken und Logs. **RTP-Monitor** je Spiel: Alarm, wenn der rollierende RTP mehr als 4 Standardfehler von der Theorie abweicht. Ledger-Integrität stündlich |

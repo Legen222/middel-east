@@ -4,7 +4,7 @@ import { after, describe, it } from 'node:test';
 
 import { FairStream, SAMPLE_CASES, layMines, openCase, playDice, playPlinko, playRaid, playUpgrader, priceCase, type RaidTool } from '../../engine/src/index';
 import { signUp } from '../src/accounts';
-import { getBet, minesCashout, minesReveal, minesStart, playInstant, raidBlast, raidCashout, raidStart } from '../src/bets';
+import { getBet, minesCashout, minesReveal, minesStart, openCases, playInstant, raidBlast, raidCashout, raidStart } from '../src/bets';
 import { checkGeo, withdrawalCheck } from '../src/compliance';
 import { type Config, DEFAULT_CONFIG, MF_PER_FRAG, frags } from '../src/config';
 import { openDb, type DB } from '../src/db';
@@ -1338,5 +1338,82 @@ describe('admin (phase 11)', () => {
     assert.equal(rep.totals.bonusCost, 10);
     assert.equal((await call(a, 'POST', '/admin/chains/wheel/rotate')).status, 200);
     assert.equal((await call('', 'GET', '/chains/wheel')).json.length, 1);
+  });
+});
+
+describe('cases, battles and upgrader (phase 13)', () => {
+  it('upgrader: the win zone can sit anywhere on the ring; the result replays with the stored zone', async () => {
+    const { db, cfg, userId } = await setup();
+    const beacon = new LocalBeacon(T0 - 60_000, 1000);
+    let wins = 0;
+    for (let i = 0; i < 40; i++) {
+      const zone = (i * 2477) % 10_000;
+      const b = await playInstant(db, cfg, userId, 'upgrader', frags(2), { multiplier: 2, zone }, T0 + i);
+      assert.deepEqual(JSON.parse(b.params), { multiplier: 2, zone });
+      const r = JSON.parse(b.result!);
+      const start = zone / 10_000;
+      const inZone = (r.roll - start + 1) % 1 < r.chance;
+      assert.equal(b.payout > 0, inZone, `zone ${zone} roll ${r.roll}`);
+      if (b.payout) wins++;
+      assert.equal((await betDetail(db, beacon, 'upgrader', b.id, T0 + 100)).verification.status, 'verified');
+    }
+    assert.ok(wins > 5 && wins < 35, 'about half of 40 at 47.5 %');
+    const legacy = await playInstant(db, cfg, userId, 'upgrader', frags(2), { multiplier: 3 }, T0 + 50);
+    assert.deepEqual(JSON.parse(legacy.params), { multiplier: 3, zone: 0 }, 'no zone = zone 0 (roll under)');
+    for (const zone of [-1, 10_000, 12.5]) assert.equal(await code(() => playInstant(db, cfg, userId, 'upgrader', frags(2), { multiplier: 2, zone }, T0 + 60)), 'RangeError', 'the router answers invalid_params');
+    assert.deepEqual(await ledgerIntegrity(db), { sum: 0, mismatched: [] });
+  });
+
+  it('multi-open: up to five of one case, one bet and nonce each, all or nothing', async () => {
+    const { db, cfg, userId } = await setup();
+    const toolbox = SAMPLE_CASES.find((c) => c.id === 'toolbox')!;
+    const price = priceCase(toolbox) * MF_PER_FRAG;
+    // a wager limit counts stakes only, so where the batch fails does not depend on what the first cases paid
+    await setLimit(db, cfg, userId, 'wager', 'day', 4 * price, T0);
+    const before = await bal(db, userId);
+    const bets = await openCases(db, cfg, userId, 'toolbox', 2, T0);
+    assert.equal(bets.length, 2);
+    assert.deepEqual(bets.map((b) => b.nonce), [0, 1]);
+    const paid = bets.reduce((s, b) => s + b.payout, 0);
+    assert.equal(await bal(db, userId), before - 2 * price + paid);
+    const count = async () => ((await db.prepare('SELECT COUNT(*) AS n FROM bets').get()) as { n: number }).n;
+    const balance = await bal(db, userId);
+    assert.equal(await code(() => openCases(db, cfg, userId, 'toolbox', 3, T0 + 1)), 'rg_limit', 'the third case of the batch would pass the wager limit');
+    assert.equal(await count(), 2, 'the two cases before it were rolled back too');
+    assert.equal(await bal(db, userId), balance);
+    await setLimit(db, cfg, userId, 'wager', 'day', null, T0 + 2); // removing applies only after the delay
+    assert.equal((await openCases(db, cfg, userId, 'toolbox', 2, T0 + 3)).length, 2, 'exactly up to the limit is fine');
+    assert.equal(await code(() => openCases(db, cfg, userId, 'toolbox', 6, T0 + 4)), 'invalid_params');
+    assert.equal(await code(() => openCases(db, cfg, userId, 'toolbox', 0, T0 + 4)), 'invalid_params');
+    const later = T0 + 25 * HOUR; // limit removal has applied, a new day
+    const cheap = await openCases(db, cfg, userId, 'scrap-box', 5, later);
+    assert.equal(cheap.length, 5);
+    assert.deepEqual(cheap.map((b) => b.nonce), [4, 5, 6, 7, 8]);
+    assert.deepEqual(await ledgerIntegrity(db), { sum: 0, mismatched: [] });
+  });
+
+  it('team battle: 2 vs 2, the winning pair splits the pool, escrow closes and the result verifies', async () => {
+    const { db, cfg, userId } = await setup();
+    const beacon = new LocalBeacon(T0 - 60_000, 1000);
+    const { userId: mate } = await signUp(db, cfg, { displayName: 'Mate', ageConfirmed: true, country: 'NZ' }, T0);
+    assert.equal(await code(() => createBattle(db, cfg, userId, ['scrap-box'], 2, 'team', T0)), 'invalid_params', 'team needs 4 seats');
+    const id = await createBattle(db, cfg, userId, ['scrap-box', 'road-sign', 'tech-trash'], 4, 'team', T0);
+    await joinGame(db, cfg, beacon, id, mate, T0 + 1);
+    await joinGame(db, cfg, beacon, id, null, T0 + 2);
+    await joinGame(db, cfg, beacon, id, null, T0 + 3);
+    const locked = await publicGame(db, beacon, id);
+    assert.equal(locked.status, 'locked');
+    await settleDue(db, beacon, locked.fairness.beacon.resolvesAt!);
+    const g = await publicGame(db, beacon, id);
+    assert.equal(g.status, 'settled');
+    const totals = g.result.totals as number[];
+    const team = [totals[0] + totals[1], totals[2] + totals[3]];
+    const pool = totals.reduce((a: number, b: number) => a + b, 0);
+    const expect = team[0] > team[1] ? [0, 1] : team[1] > team[0] ? [2, 3] : [0, 1, 2, 3];
+    assert.deepEqual(g.result.winners, expect);
+    for (const p of g.players) assert.equal(p.payout, expect.includes(p.seat) ? pool / expect.length : 0);
+    assert.equal(await balanceOf(db, ESCROW), 0);
+    assert.equal((await betDetail(db, beacon, 'battle', id, T0)).verification.status, 'verified');
+    assert.deepEqual(await ledgerIntegrity(db), { sum: 0, mismatched: [] });
   });
 });

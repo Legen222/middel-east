@@ -223,3 +223,61 @@ Strategien mit sehr schweren Rändern (Hi-Lo ohne Stopp, Schwarz bis Raum 8) bek
 - **Bonusbedingungen** (Umsatzanforderung) für Promo-Guthaben, sobald Guthaben auszahlbar ist; in der Lizenz-Jurisdiktion prüfen.
 - **Blackjack** braucht in manchen Jurisdiktionen eine eigene Spielzulassung (Tischspiel); Jackpot als PvP-Pool ebenfalls prüfen ([05-go-live.md](05-go-live.md)).
 - **Berichte** an das Format der Aufsicht anpassen (z. B. tägliche GGR-Meldung pro Spielkategorie).
+
+## 5. Nachtrag Phase 13 – Kisten, Case Battle, Workbench
+
+Stand: 20.10.2026. Code:
+- `platform/engine/src/games/{cases,upgrader}.ts`
+- `platform/server/src/{bets,pvp}.ts`
+- `platform/web/src/views/{cases,battle,upgrader}.ts`
+
+### 5.1 Workbench mit verschiebbarer Gewinnzone
+
+- Der Wurf f ∈ [0, 1) ist ein Punkt auf einem Ring. Der Spieler legt die Gewinnzone selbst auf den Ring: Sie beginnt bei s = zone / 10 000 (zone ganzzahlig 0 … 9 999) und ist so lang wie die Chance, über 1 hinaus wird umgebrochen.
+  - Gewinn ⇔ (f − s) mod 1 < Chance, mit Chance = Einsatz ÷ Ziel · 0,95.
+- f ist auf dem Ring gleichverteilt. Deshalb deckt jede Lage der Zone denselben Anteil ab: P(Gewinn) = Chance für jedes s, RTP = 95 %.
+  - Die Lage bestimmt nur, *wo* man gewinnt, nie *wie oft*.
+  - `zone = 0` entspricht dem bisherigen „Wurf unter der Chance“, alte Wetten bleiben gültig.
+- Die Zone wird in den Parametern der Wette gespeichert. Prüfer und Wett-Explorer rechnen mit ihr nach.
+- **Oberfläche:**
+  - Ring mit 100 Teilstrichen. Die Zone lässt sich ziehen, per Tipp versetzen oder mit den Pfeiltasten verschieben; dazu die Vorgaben Low, Middle, High und Random.
+  - Die Nadel dreht fünf Runden und bleibt auf dem Wurf stehen.
+  - Ziel ist wahlweise ein Multiplikator oder ein Skin aus den Kisten. Die Chance muss zwischen 1 und 80 % liegen.
+
+### 5.2 Kisten
+
+- **Sechs neue Kisten**, jetzt zehn insgesamt (31 bis 21 784 Frags):
+  - Scrap Box, Road Sign, Tech Trash, Locked Crate, Bradley Crate, Cargo Ship.
+- Preise wie immer ⌈EV ÷ 0,93⌉. Kleine Kisten verlieren durch das Aufrunden etwas RTP; die Scrap Box liegt bei 91,5 %.
+- Die Postgres-Migration v5 legt die neuen Kisten als Version 1 an.
+- **1 bis 5 Kisten auf einmal** (`POST /bets/cases/multi`):
+  - Jede Kiste ist eine eigene Wette mit eigener Nonce.
+  - Alle laufen in einer Transaktion: Scheitert eine (Guthaben, Limit), wird keine geöffnet.
+- **Oberfläche:**
+  - Eine Walze pro Kiste, alle drehen gleichzeitig. Dazu ein Schnell-Modus und eine Summe gegen die Kosten.
+  - Drops der Sitzung und Inhaltstabelle mit allen Chancen.
+
+### 5.3 Case Battle
+
+- **Neuer Modus 2v2** (4 Plätze, Plätze 1+2 gegen 3+4):
+  - Das Team mit der höheren Gesamtsumme gewinnt, seine zwei Spieler teilen den Pool.
+  - Bei Gleichstand der Teams wird durch vier geteilt.
+  - Die Plätze bleiben symmetrisch, also erwartet jeder Platz den RTP der Kisten.
+- **Battle-Raum:**
+  - Eine Spalte pro Spieler mit senkrechter Walze; die Runden laufen nacheinander ab, mit laufender Summe, Drop-Liste und Teamfarben.
+  - Sieger hervorgehoben, Wiederholung mit Schnell-Modus.
+  - Wer den Raum offen hat, während der Beacon zieht, sieht die Runden live.
+- **Erstellen:**
+  - Kisten mit + und − wählen, bis zu 10 Runden.
+  - Formate 1v1, 1v1v1, 1v1v1v1 und 2v2; Regeln Normal, Crazy, Terminal.
+
+### 5.4 Monte-Carlo (je 10 000 000 Runden, alle 71 Läufe bestanden)
+
+| Lauf | Theorie | Simuliert | z |
+|---|---:|---:|---:|
+| Workbench, Chance 1–80 %, Zone irgendwo auf dem Ring | 95,0000 % | 94,9095 % | −1,42 |
+| Case Battle 2v2, Platz 1 / 2 / 3 / 4 | 92,9682 % | 92,9578 / 92,9754 / 92,9392 / 92,9486 % | −0,31 / 0,22 / −0,87 / −0,59 |
+| Scrap Box (31 Frags) | 91,5161 % | 91,5669 % | 0,44 |
+| Cargo Ship (20 556 Frags) | 92,9996 % | 92,9863 % | −0,36 |
+
+Engine 83 Tests, Server 62 Tests auf SQLite und Postgres. Ein Server-Test für das gleichzeitige Öffnen hing anfangs vom Glück der ersten Kisten ab; er prüft das „alles oder nichts“ jetzt über ein Einsatzlimit, das nur Einsätze zählt und deshalb deterministisch ist.
