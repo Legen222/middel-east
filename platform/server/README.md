@@ -1,8 +1,10 @@
 # SCRAPLINE Demo-Backend
 
-Wallet mit doppelter Buchführung, Wett-Service (Dice, Scrap Chute, Workbench, Cases, Minefield, Raid), PvP (Coinflip,
-Case Battle), Crash-Runden (Scrap Press, live per Server-Sent Events), Belohnungen (Level, Rakeback, Scrap Crate,
-Oil Rain, Crew-Codes), Live-Chat mit Moderation, Operator-Backoffice (RTP-Monitor, Kill-Switch, Holds, RG-Fälle, Audit), Provably-Fair-Seeds,
+Wallet mit doppelter Buchführung, Wett-Service (Dice, Scrap Chute, Workbench, Cases, Airdrop, Minefield, Raid, Monument Run,
+Hi-Lo, Blackjack), PvP (Coinflip, Case Battle, Jackpot), Live-Runden (Scrap Press, Bandit Wheel; per Server-Sent Events),
+Belohnungen (Level, Rakeback, Scrap Crate, Oil Rain, Crew- und Promo-Codes), Live-Chat mit Moderation, Operator-Backoffice
+(Reports, RTP-Monitor, Wett-Explorer mit Nachprüfung, Kill-Switch und Limits pro Spiel, Case-Manager mit Versionen,
+Wartungsmodus, Seed-Ketten, Holds, Saldo-Korrekturen, RG-Fälle, Audit), Provably-Fair-Seeds,
 Responsible Gambling, Geo-Blocking, Steam-OpenID, KYC- und AML-Hooks, Operator-2FA (TOTP) und eine JSON-API mit
 Live-Events per SSE (`/events`). Speicher: SQLite (`node:sqlite`, Tests und Einzelknoten) oder Postgres (`DATABASE_URL`,
 mehrere Instanzen mit Leader-Wahl und LISTEN/NOTIFY). Nutzt die Engine aus `../engine`. **Nur Spielgeld.**
@@ -10,7 +12,7 @@ mehrere Instanzen mit Leader-Wahl und LISTEN/NOTIFY). Nutzt die Engine aus `../e
 ```bash
 npm install
 npm run check   # Typprüfung + Prüfung auf nicht abgewartete Promises
-npm test        # 44 Tests (SQLite) inkl. Nachspielen aus offengelegtem Seed, PvP, Crash, Nebenläufigkeit, API
+npm test        # 59 Tests (SQLite) inkl. Nachspielen aus offengelegtem Seed, PvP, Crash, Nebenläufigkeit, API
 npm run test:pg # dieselben Tests gegen Postgres (TEST_PG_URL, Standard postgres://scrapline@127.0.0.1:5432/scrapline_test)
 npm start       # baut dist/main.mjs und startet: PORT=8787, DB_PATH oder DATABASE_URL, weitere Variablen in src/main.ts
 DATABASE_URL=postgres://… node tools/cluster-smoke.mjs   # zwei Instanzen, eine Datenbank (nach npm run build)

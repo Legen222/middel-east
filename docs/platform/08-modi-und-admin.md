@@ -1,0 +1,225 @@
+# Phase 11 – Sechs neue Modi & komplettes Backoffice (SCRAPLINE)
+
+Stand: 20.10.2026.
+- Code:
+  - `platform/engine/src/games/{wheel,jackpot,airdrop,towers,hilo,blackjack}.ts`
+  - `platform/server/src/{wheel,jackpot,originals,site,cases,chains,explorer,reports}.ts`
+  - `platform/web/src/views/{wheel,jackpot,towers,blackjack,hilo,airdrop,admin-ops}.ts`
+- Die Oberfläche ist englisch, dieses Dokument bleibt deutsch.
+
+## 1. Live-Analyse der Wettbewerber (Browser)
+
+**Methode**
+
+- Headless Chromium (Playwright) über den Proxy der Umgebung: Startseiten und Spielseiten geladen, Text, Links und Screenshots gesichert.
+- Die Chrome-Erweiterung („Claude in Chrome“) war in dieser Sitzung nicht verbunden. Deshalb lief die Analyse im eingebauten Chromium des Containers.
+
+**Nicht erreichbar**
+
+Die Netzwerk-Policy dieser Umgebung hat folgende Hosts geblockt (kein Umgehungsversuch):
+
+| Host | Wirkung |
+|---|---|
+| `challenges.cloudflare.com` | Cloudflare-Prüfung lädt nicht. bandit.camp bleibt im Ladebildschirm, Unterseiten von RustyPot und RustClash zeigen „Just a moment …“. |
+| `api.rustyloot.gg` | RustyLoot lädt nur eine leere Hülle. RustMagic bleibt ebenfalls leer. |
+| rusteasy.com, rain.gg, www.rustbet.com | `ERR_TUNNEL_CONNECTION_FAILED` |
+
+Freigeben lassen sich diese Hosts in den Umgebungseinstellungen unter *Network access* → erlaubte Domains. Danach kann die Analyse mit denselben Skripten wiederholt werden.
+
+### 1.1 Befunde
+
+| Seite | Modi (live gesehen) | Bemerkenswert |
+|---|---|---|
+| **RustChance** | Jackpot in zwei Räumen (*High Rollers*: 100 Items oder Timer; *Low Ballers*: 50 Items), Coinflip, Wheel (Felder X2 / X14 / X2), Crash, Bonuses, Shop | Jeder Jackpot zeigt Hash, Secret, Ticket und einen random.org-Seed mit Seriennummer. Dazu Level-Belohnungen auf jeder Stufe (Bronze I … Silver …), Redeem-Code, Affiliates und ein Oster-Event (Sterne aus Einzahlungen → Cases und Gewinnspiel-Tickets). Auszahlung über einen Item-Shop mit Tageslimit. |
+| **Howl.gg** | Cubes, Mines, Jackpot, Coinflip, **Hi-Lo**, Dice, **Blackjack**, Cases (Gratis-Tagescase), Slots von Drittanbietern, Live-Games, Sportsbook | Rain im Chat („131 users joined and received 310.72 coins“). VIP-„Rank Match“ für Spieler anderer Casinos, Reload- und Monatsboni. Einzahlung mit Rust-/CS2-Skins, Krypto, Karte, PayPal und Paysafe. Eigene Seiten zu Self-Exclusion, AML und KYC. Jede Wette hat eine öffentliche URL (`/bets/mines/…`). |
+| **RustyPot** | Jackpot (200 Items, Timer), Coinflip | Ticket-Anzeige mit 8 Nachkommastellen, „[Admin] Server: Connecting …“-Status, Discord-Giveaways. |
+| **bandit.camp** | (nur Ladebildschirm) | Namensgeber des In-Game-Rads: Das Bandit-Camp-Rad in Rust hat 25 Felder (1 × 12, 3 × 6, 5 × 4, 10 × 2, 20 × 1). |
+
+### 1.2 Lücken, die SCRAPLINE schließt
+
+- **Fairness**
+  - Die Wettbewerber zeigen Hash und Seed.
+  - Keiner zeigt einen RTP pro Spiel oder hat einen öffentlichen Prüfer, der Wheel, Hi-Lo oder Blackjack nachrechnet.
+  - SCRAPLINE veröffentlicht RTP, Beweis und Monte-Carlo-Lauf für jedes Spiel.
+  - Beacon-basierte Client-Seeds lassen weder Betreiber noch Spieler das Ergebnis steuern.
+- **Spielerschutz**
+  - Rank-Match und Reload-Boni zielen auf Vielspieler.
+  - SCRAPLINE sperrt Boni (Promo-Codes, Rain, Kisten) während Pausen und Selbstsperren.
+- **Betrieb**
+  - Ein Admin-Status im öffentlichen UI (RustyPot) ist kein Backoffice.
+  - SCRAPLINE hat jetzt ein vollständiges, auditiertes Backoffice (Abschnitt 3).
+
+## 2. Die sechs neuen Modi
+
+| Modus | Vorbild | Typ | House Edge | RTP | Seeds |
+|---|---|---|---:|---:|---|
+| **Bandit Wheel** | Rust-Bandit-Camp, RustChance Wheel | live, alle 25 s | 4 % | 96 % jedes Feld | Hash-Kette + Beacon |
+| **Jackpot** | RustChance, Howl, RustyPot | PvP-Topf, 2 Räume | 4 % vom Topf | 96 % jeder Einsatz | Topf-Seed + Beacon (Runde +2 beim Schließen) |
+| **Monument Run** | „Towers“-Spiele | Original, Schritt für Schritt | 3 % | 97 % jede Strategie | Spieler-Seed |
+| **Hi-Lo** | Howl | Original, Karten | 3 % | 97 % jede Strategie | Spieler-Seed |
+| **Blackjack** | Howl | Original, Skill | — | 99,31 % bei optimalem Spiel | Spieler-Seed |
+| **Airdrop** | Limbo | Original, sofort | 2 % | 98 % jedes Ziel | Spieler-Seed |
+
+### 2.1 Mathematik
+
+**Bandit Wheel**
+- Feld = ⌊f · 25⌋. Das Feld mit n Segmenten zahlt (1 − e) · 25 ÷ n, also 2 / 4 / 6 / 12 / 24 ×.
+- E[Auszahlung] = n/25 · (1 − e) · 25/n = 1 − e für jedes Feld.
+
+**Jackpot**
+- Ein Ticket pro Milli-Frag, vergeben in der Reihenfolge des Eintritts. Gewinnerticket = ⌊f · Σ⌋.
+- Ein Einsatz a gewinnt mit a/Σ und erhält Σ · (1 − e).
+- E = a/Σ · Σ(1 − e) = a(1 − e), also RTP = 1 − e für jede Topfgröße und jede Mischung.
+
+**Monument Run**
+- 8 Räume. Die Keycard bestimmt Türen und Fallen: Grün 4/1, Blau 3/1, Rot 2/1, Schwarz 3/2.
+- Pro Raum gilt p = sicher ÷ Türen. Auszahlung nach k Räumen: (1 − e) / p^k.
+- Der Gewinnfaktor ist ein Martingal, deshalb RTP = 1 − e für jede Stopp-Regel.
+- Die Fallen werden beim Start gezogen (partieller Fisher–Yates je Raum) und bleiben bis zum Ende auf dem Server.
+
+**Hi-Lo**
+- Karte = ⌊f · 52⌋, Rang = Karte mod 13 + 1. Gleich zählt für beide Seiten.
+- P(höher oder gleich) = (14 − r)/13 und P(niedriger oder gleich) = r/13.
+- Faktor nach richtigen Tipps mit den Chancen pᵢ: (1 − e) / Πpᵢ. Das ist wieder ein Martingal, also 97 % für jede Strategie.
+- Überspringen ist kostenlos. Tipps mit p = 1 werden abgelehnt, sonst ließe sich der Faktor ohne Risiko aufblähen.
+
+**Blackjack**
+- Unendliches Deck. Regeln:
+  - S17, Blackjack zahlt 3:2, der Dealer schaut nach (Peek).
+  - Double auf zwei beliebige Karten, ein Split.
+  - Gesplittete Asse bekommen je eine Karte.
+  - Kein Double nach Split, keine Versicherung, kein Surrender.
+- Der exakte RTP bei optimalem Spiel kommt aus dynamischer Programmierung über (harte Summe, Ass): **0,9930976** (99,31 %).
+- Es ist ein Skill-Spiel: Der RTP-Monitor zeigt den Ist-Wert, aber keinen z-Test.
+- Double und Split setzen einen zweiten Einsatz, mit derselben RG-Prüfung und Buchung im Ledger.
+
+**Airdrop**
+- h = ⌊f₁ · 2³²⌋ · 2²⁰ + ⌊f₂ · 2²⁰⌋ (gleichverteilt auf 52 Bit).
+- Landung = ⌊100 · (1 − e) · 2⁵² / (2⁵² − h)⌋ / 100, die Formel der Scrap Press.
+- P(Landung ≥ x) = (1 − e)/x, also RTP = 1 − e für jedes Ziel von 1,01 × bis 10 000 ×.
+
+### 2.2 Monte-Carlo (je 10 000 000 Runden, alle bestanden)
+
+Ein Auszug, vollständig in [`platform/engine/sim/RESULTS.md`](../../platform/engine/sim/RESULTS.md). Insgesamt 60 Läufe, keiner mit |z| ≥ 4.
+
+| Spiel | Konfiguration | Theorie | Simuliert | z |
+|---|---|---:|---:|---:|
+| Wheel | Feld 20 (24 ×) | 96,0000 % | 95,8932 % | −0,72 |
+| Jackpot | 2–20 Einsätze, zufällige Höhen | 96,0000 % | 96,0315 % | 0,21 |
+| Monument Run | zufällige Karte, Tür und Stopp | 97,0000 % | 96,7402 % | −0,49 |
+| Hi-Lo | 25 % Stopp, 10 % Skip, Stopp ≥ 1 000 × | 97,0000 % | 98,3390 % | 1,58 |
+| Blackjack | optimale Strategie | 99,3098 % | 99,3304 % | 0,58 |
+| Airdrop | Ziel log-gleichverteilt 1,01–1 000 × | 98,0000 % | 98,1931 % | 0,51 |
+
+Strategien mit sehr schweren Rändern (Hi-Lo ohne Stopp, Schwarz bis Raum 8) bekommen in der Simulation eine Obergrenze. Sonst dominieren einzelne Treffer mit 10⁴ × die Varianz. Der Beweis gilt trotzdem für jede Stopp-Regel.
+
+### 2.3 Fairness im Betrieb
+
+**Live-Spiele (Wheel, Scrap Press)**
+- Die Rundenseeds stammen aus einer veröffentlichten Hash-Kette.
+- Der Client-Seed ist eine Beacon-Runde, die erst nach der Veröffentlichung feststeht.
+- Das Wheel-Feld wird erst nach Wettschluss gesendet, der Seed nach der Runde.
+
+**Kettenwechsel**
+- Ein Admin kann eine neue Kette veröffentlichen. Eine aufgebrauchte Kette wird automatisch ersetzt.
+- Die laufende Runde endet auf der alten Kette, die nächste beginnt bei Index 0 der neuen.
+- Der Tip einer stillgelegten Kette wird erst veröffentlicht, wenn ihre letzte Runde vorbei ist. Sonst ließe sich die laufende Runde aus ihm berechnen.
+
+**Jackpot und PvP**
+- Der Topf-Seed ist ab Öffnung als Hash sichtbar.
+- Beim Schließen wird die Beacon-Runde *aktuell + 2* festgelegt, damit weder Spieler noch Betreiber den Ausgang kennen.
+- Bleibt ein Topf 10 Minuten ohne zweiten Spieler, wird er erstattet.
+
+**Hidden State**
+- Fallen (Monument Run), künftige Karten (Hi-Lo) und die Hole Card (Blackjack) verlassen den Server erst mit dem Rundenende.
+- Nach einem Reload liefert `/games/open` nur den öffentlichen Zustand.
+
+## 3. Backoffice-Erweiterungen
+
+| Tab | Inhalt | API |
+|---|---|---|
+| Reports | Tagesbericht (UTC): Wetten, aktive Spieler, Anmeldungen, Einsatz, Auszahlung, GGR, Marge, Bonuskosten (alle Belohnungen inkl. Promo-Codes) und Korrekturbuchungen, NGR; Aufteilung pro Spiel; CSV-Export | `GET /admin/reports/daily?days=` |
+| Bets | Wett-Explorer über alle Spiele (Filter: Spiel, Spieler, Mindestauszahlung, Mindest-Multiplikator) mit Summen; Detail mit **serverseitiger Nachprüfung** | `GET /admin/bets`, `GET /admin/bets/:game/:ref` |
+| Games | Kill-Switch und **Limits pro Spiel** (Min-/Max-Einsatz, Max-Gewinn) | `PUT /admin/games/:game/limits` |
+| Cases | **Case-Manager**: anlegen, neue Version veröffentlichen, live schalten, Reihenfolge; Live-Vorschau von Preis, RTP und Chancen; Versionshistorie | `GET /admin/cases`, `POST /admin/cases/preview`, `PUT /admin/cases/:id`, `PUT /admin/cases/:id/state` |
+| Promo codes | Codes mit Betrag, Nutzungen, Mindestlevel, Ablauf, Notiz; pausieren | `GET/POST /admin/promos`, `PUT /admin/promos/:code` |
+| Settings | Banner (Info/Warnung), **Wartungsmodus**, Anmeldungen an/aus, Chat-Slow-Mode, Oil Rain an/aus; Seed-Ketten von Scrap Press und Wheel mit Wechsel | `GET/PUT /admin/settings`, `GET /admin/chains`, `POST /admin/chains/:game/rotate` |
+| Players (Detail) | zusätzlich **Saldo-Korrektur**, **Notizen**, **alle Sitzungen beenden** | `POST /admin/players/:id/{adjust,notes,logout}` |
+
+Öffentliche Endpunkte dazu:
+- `GET /site`: Banner, Wartung, Anmeldung offen.
+- `GET /cases` und `GET /cases/:id/v/:version`: jede je veröffentlichte Version, zum Nachprüfen.
+- `GET /chains/:game`: aktive und stillgelegte Ketten.
+- `POST /promo/redeem`.
+- `/config` liefert die Cases aus dem Case-Manager und die effektiven Limits pro Spiel.
+
+### 3.1 Regeln, die das Backoffice durchsetzt
+
+**Wartung**
+- Pausiert jedes Spiel auf einmal, mit derselben Prüfung wie der Kill-Switch.
+- Auszahlungen laufender Runden funktionieren weiter, damit kein Guthaben festhängt.
+- Das Banner erscheint in jedem offenen Browser innerhalb einer Sekunde (Event-Bus `site` → SSE).
+
+**Limits pro Spiel**
+- Sie gelten an jedem Einstieg: Sofortspiele, Mines, Raid, Monument Run, Hi-Lo, Blackjack, Crash, Wheel, Jackpot, Coinflip, Battle.
+- Sie können die globalen Limits nur **verschärfen**. Werte außerhalb des globalen Rahmens werden abgelehnt.
+
+**Cases sind Daten, keine Code-Konstanten**
+- Jede Änderung erzeugt eine neue, unveränderliche Version. Öffnungen und Battles speichern die Version, mit der sie gespielt wurden.
+- Ein Battle, das auf Spieler wartet, bleibt bei seiner Version, auch wenn der Case inzwischen geändert wurde.
+- Der Preis wird nie eingetippt, sondern ist immer ⌈EV ÷ (1 − 7 %)⌉. Ein Case über dem House Edge lässt sich damit nicht veröffentlichen.
+- Neue Cases starten deaktiviert.
+- Der RTP-Monitor rechnet jede Öffnung gegen ihre Version.
+
+**Promo-Codes**
+- Pro Spieler und Code nur eine Einlösung. Die letzte Nutzung wird mit einem bedingten Update vergeben, das ist race-sicher.
+- Betrag höchstens 10 000 Frags, Budget (Betrag × Nutzungen) höchstens 1 000 000 Frags.
+- Eingelöst werden kann nicht während einer Pause oder Selbstsperre und nicht unter dem Mindestlevel.
+- Gegen Raten: 10 falsche Codes pro Stunde, danach Sperre für eine Stunde.
+- Promo-Codes zählen als Bonus: in den Bonuskosten und im NGR der Crew-Codes.
+
+**Saldo-Korrektur**
+- Aus dem Konto `house:adjustments`, höchstens ±100 000 Frags, mit Pflicht-Begründung, auditiert.
+- Belastungen nie unter null.
+- **Nie auf das eigene Konto.**
+
+**Nachprüfung im Explorer**
+- Jede abgerechnete Runde wird aus ihren Seeds neu gespielt. Geprüft werden:
+  - Commitment (Hash bzw. Kettenglied)
+  - Beacon-Wert
+  - Ergebnis
+  - Auszahlung
+- Blackjack speichert dafür die Aktionsfolge: Deal + Aktionen reproduzieren die Hand exakt.
+- Ein noch aktiver Server-Seed eines Spielers wird für die Prüfung verwendet, aber **nicht angezeigt**. Auch Admins sehen ihn erst nach der Rotation durch den Spieler.
+
+**Audit:** Jede Aktion ist auditiert (`admin_settings`, `admin_game_limits`, `admin_case_version`, `admin_case_state`, `admin_promo_*`, `admin_adjust`, `admin_note`, `admin_logout`, `admin_chain_rotate`).
+
+### 3.2 Datenbank
+
+- Neue Tabellen: `settings`, `cases`, `case_versions`, `promo_codes`, `promo_redemptions`, `player_notes`.
+- `game_flags` bekommt `min_stake`, `max_stake`, `max_win`.
+- Die View `wagers` bekommt die Spalte `ref` für den Explorer.
+- Postgres-Migration v4 legt alles an und übernimmt die vier eingebauten Cases als Version 1.
+- Der Cluster-Smoke-Test hat die Migration auf der bestehenden Datenbank ausgeführt.
+
+### 3.3 Tests
+
+- **Engine:** 75 Tests.
+- **Server:** 59 Tests, auf SQLite und Postgres. Davon 8 für dieses Backoffice:
+  - Einstellungen und Wartung
+  - Limits
+  - Case-Versionen inkl. Battle über eine Änderung hinweg
+  - Promo-Codes inkl. Ratesperre
+  - Spieler-Werkzeuge
+  - Explorer über alle Spiele inkl. Manipulationserkennung
+  - Kettenwechsel
+  - API-Rechte
+- **Browser:** alle sechs Modi gespielt, alle Backoffice-Tabs bedient, keine Konsolenfehler. Kein horizontales Scrollen bei 390 px und 820 px.
+
+## 4. Vor Echtgeld zusätzlich
+
+- **Vier-Augen-Prinzip** für Saldo-Korrekturen über einer Schwelle, für Case-Versionen und für Promo-Budgets über einer Schwelle (zweiter Admin bestätigt).
+- **Case-Werte aus dem Preis-Feed** (Steam-Markt bzw. Händler) statt Platzhalter, mit geplanter Neuberechnung; jede Neuberechnung wird eine neue Version.
+- **Bonusbedingungen** (Umsatzanforderung) für Promo-Guthaben, sobald Guthaben auszahlbar ist; in der Lizenz-Jurisdiktion prüfen.
+- **Blackjack** braucht in manchen Jurisdiktionen eine eigene Spielzulassung (Tischspiel); Jackpot als PvP-Pool ebenfalls prüfen ([05-go-live.md](05-go-live.md)).
+- **Berichte** an das Format der Aufsicht anpassen (z. B. tägliche GGR-Meldung pro Spielkategorie).

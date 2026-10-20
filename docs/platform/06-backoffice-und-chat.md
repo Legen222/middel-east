@@ -2,6 +2,7 @@
 
 Stand: 28.09.2026. Code: `platform/server/src/{admin,chat,flags}.ts`, `platform/web/src/{chatpanel.ts,views/admin.ts}`.
 Die Oberfläche ist englisch, dieses Dokument bleibt deutsch.
+Erweiterungen aus Phase 11 (Reports, Wett-Explorer, Limits pro Spiel, Case-Manager, Promo-Codes, Wartung, Seed-Ketten, Spieler-Werkzeuge): [08-modi-und-admin.md](08-modi-und-admin.md).
 
 ## 1. Rollen
 

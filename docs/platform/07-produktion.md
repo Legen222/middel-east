@@ -115,7 +115,7 @@ Cloudflare (TLS, WAF, CF-IPCountry)
 
 **Lokal geprüft (28.09.2026):**
 
-- Beide Images bauen; im API-Build laufen die 44 Tests.
+- Beide Images bauen; im API-Build laufen die Server-Tests.
 - Der Compose-Stack startet mit Postgres, zwei API-Instanzen und nginx; alle Healthchecks sind grün.
 - Browser-Test gegen `localhost:8080` über nginx:
   - Anmeldung, Wette,
