@@ -297,6 +297,26 @@ async function betDetail(panel: HTMLElement, path: string) {
 
 /* ---------- daily report ---------- */
 
+/**
+ * Offers a generated file. Inside the claude.ai artifact viewer (the demo) a page cannot start downloads
+ * itself, so the save goes through the viewer's `downloads` capability; everywhere else a normal link does.
+ */
+async function saveFile(filename: string, data: string) {
+  const host = (window as unknown as { claude?: { use(name: string): Promise<any> } }).claude;
+  if (host) {
+    const downloads = await host.use('downloads');
+    if (!downloads) { toast('Downloads are not available in this view.', 'err'); return; }
+    try { await downloads.save({ filename, data }); } catch (err: any) { if (err?.code !== 'declined') toast('The file could not be saved here.', 'err'); }
+    return;
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([data], { type: 'text/csv' }));
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+
 let reportDays = 14;
 export async function reportsTab(panel: HTMLElement) {
   const r = await api<any>('GET', `/admin/reports/daily?days=${reportDays}`);
@@ -325,13 +345,9 @@ export async function reportsTab(panel: HTMLElement) {
     row.addEventListener('click', open);
     row.addEventListener('keydown', (e) => { if (e.key === 'Enter') open(); });
   });
-  $('[data-csv]', panel).addEventListener('click', () => {
+  $('[data-csv]', panel).addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {
     const head = ['date', 'bets', 'active_players', 'signups', 'wagered', 'paid', 'ggr', 'bonus_cost', 'adjustments', 'ngr'];
     const lines = [head.join(','), ...r.rows.map((d: any) => [d.date, d.bets, d.activePlayers, d.signups, d.wagered, d.paid, d.ggr, d.bonusCost, d.adjustments, d.ngr].join(','))];
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([lines.join('\n') + '\n'], { type: 'text/csv' }));
-    a.download = `scrapline-daily-${r.rows.at(-1)?.date}-${r.rows[0]?.date}.csv`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  });
+    await saveFile(`scrapline-daily-${r.rows.at(-1)?.date}-${r.rows[0]?.date}.csv`, lines.join('\n') + '\n');
+  }));
 }
