@@ -3,17 +3,23 @@ import { chatPanelHtml, chatView, mountChatPanel } from './chatpanel';
 import { SPRITE, icon } from './icons';
 import { $, errorText, esc, frags, guard, modal, toast } from './ui';
 import { adminView } from './views/admin';
+import { airdropView } from './views/airdrop';
+import { blackjackView } from './views/blackjack';
 import { casesView } from './views/cases';
 import { crashView } from './views/crash';
 import { battleView, coinflipView } from './views/pvp';
 import { diceView } from './views/dice';
 import { fairView } from './views/fair';
 import { historyView } from './views/history';
+import { hiloView } from './views/hilo';
+import { jackpotView } from './views/jackpot';
 import { limitsView } from './views/limits';
 import { lobbyView } from './views/lobby';
 import { minesView } from './views/mines';
 import { plinkoView } from './views/plinko';
 import { raidView } from './views/raid';
+import { towersView } from './views/towers';
+import { wheelView } from './views/wheel';
 import { rewardsView } from './views/rewards';
 import { upgraderView } from './views/upgrader';
 
@@ -29,10 +35,16 @@ export interface View { title: string; html: (c: Ctx) => string; mount?: (root: 
 
 const NAV: { path: string; label: string; icon: string; tag?: string; view: View }[] = [
   { path: '', label: 'Workshop', icon: 'home', view: lobbyView },
-  { path: 'raid', label: 'Raid', icon: 'raid', tag: 'NEW', view: raidView },
+  { path: 'raid', label: 'Raid', icon: 'raid', view: raidView },
   { path: 'cases', label: 'Cases', icon: 'crate', view: casesView },
   { path: 'battle', label: 'Case Battle', icon: 'battle', view: battleView },
   { path: 'scrap-press', label: 'Scrap Press', icon: 'crash', tag: 'LIVE', view: crashView },
+  { path: 'bandit-wheel', label: 'Bandit Wheel', icon: 'wheel', tag: 'LIVE', view: wheelView },
+  { path: 'jackpot', label: 'Jackpot', icon: 'pot', tag: 'LIVE', view: jackpotView },
+  { path: 'monument-run', label: 'Monument Run', icon: 'tower', tag: 'NEW', view: towersView },
+  { path: 'blackjack', label: 'Blackjack', icon: 'cards', tag: 'NEW', view: blackjackView },
+  { path: 'hi-lo', label: 'Hi-Lo', icon: 'cards', tag: 'NEW', view: hiloView },
+  { path: 'airdrop', label: 'Airdrop', icon: 'airdrop', tag: 'NEW', view: airdropView },
   { path: 'coinflip', label: 'Coinflip', icon: 'coin', view: coinflipView },
   { path: 'minefield', label: 'Minefield', icon: 'mine', view: minesView },
   { path: 'dice', label: 'Dice', icon: 'dice', view: diceView },
@@ -59,8 +71,29 @@ let unmount: (() => void) | void;
 let realityTimer = 0;
 let unmountAside: (() => void) | null = null;
 
+/* ---------- site banner (announcement, maintenance) ---------- */
+interface Site { announcement: { text: string; tone: 'info' | 'warn' } | null; maintenance: boolean; registrationOpen: boolean }
+let site: Site = { announcement: null, maintenance: false, registrationOpen: true };
+const bannerHtml = () => site.maintenance
+  ? `<div class="banner maint" role="status">${icon('wrench')}<span><b>Maintenance.</b> New rounds are paused for a moment. Open rounds can still be cashed out.${site.announcement ? ` ${esc(site.announcement.text)}` : ''}</span></div>`
+  : site.announcement ? `<div class="banner ${site.announcement.tone === 'warn' ? 'warn' : ''}" role="status">${icon(site.announcement.tone === 'warn' ? 'gauge' : 'chat')}<span>${esc(site.announcement.text)}</span></div>` : '';
+async function loadSite() {
+  site = await api<Site>('GET', '/site').catch(() => site);
+  const slot = document.getElementById('banner-slot');
+  if (slot) slot.innerHTML = bannerHtml();
+  fitAside();
+}
+let siteEvents: EventSource | null = null;
+function watchSite() {
+  if (siteEvents) return;
+  siteEvents = new EventSource('/api/events');
+  siteEvents.addEventListener('site', () => void loadSite());
+}
+
 async function boot() {
   const cfg = await api<PublicConfig>('GET', '/config').catch((e) => { renderFatal(e); throw e; });
+  await loadSite();
+  watchSite();
   if (!token.get()) return renderGate(cfg);
   try {
     const me = await api<Me>('GET', '/me');
@@ -89,6 +122,8 @@ function renderGate(cfg: PublicConfig) {
       <h1 class="h-display" style="color:var(--hazard)">SCRAP<span style="color:var(--text)">LINE</span></h1>
       <p class="muted">Honest scrap. Fair math. Every round can be verified.</p>
     </div>
+    ${site.registrationOpen ? '' : '<p class="card" style="border-color:var(--lose)">New sign-ups are paused right now. Please try again later.</p>'}
+    ${bannerHtml()}
     <form class="card" id="gate" novalidate>
       <label class="field">Display name<input id="name" autocomplete="nickname" maxlength="24" required placeholder="e.g. Rust Rat"></label>
       <label class="check"><input type="checkbox" id="age"> <span>I am at least 18 years old. I understand that gambling can be addictive.</span></label>
@@ -111,6 +146,7 @@ function renderShell() {
   if (unmountAside) { unmountAside(); unmountAside = null; }
   const link = (n: (typeof ALL)[number] & { tag?: string }) => `<a class="nav" href="#/${n.path}" data-path="${n.path}">${icon(n.icon)}<span>${n.label}</span>${n.tag ? `<em>${n.tag}</em>` : ''}</a>`;
   app.innerHTML = `
+  <div id="banner-slot">${bannerHtml()}</div>
   <div class="shell">
     <header class="topbar">
       <a class="logo" href="#/">${icon('wrench')}SCRAP<span>LINE</span></a>

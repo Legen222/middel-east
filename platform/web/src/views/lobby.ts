@@ -7,6 +7,12 @@ const GAMES = [
   { path: 'raid', name: 'Raid', icon: 'raid', rtp: 0.97, sig: true, line: 'Pick an explosive per wall' },
   { path: 'cases', name: 'Cases', icon: 'crate', rtp: 0.93, line: 'Every drop rate is public' },
   { path: 'scrap-press', name: 'Scrap Press', icon: 'crash', rtp: 0.98, line: 'Live crash, hash chain' },
+  { path: 'bandit-wheel', name: 'Bandit Wheel', icon: 'wheel', rtp: 0.96, line: 'Live, 1 / 3 / 5 / 10 / 20' },
+  { path: 'jackpot', name: 'Jackpot', icon: 'pot', rtp: 0.96, line: 'PvP pot, 4 % fee' },
+  { path: 'monument-run', name: 'Monument Run', icon: 'tower', rtp: 0.97, line: '8 rooms, 4 keycards' },
+  { path: 'blackjack', name: 'Blackjack', icon: 'cards', rtp: 0.9931, line: '3:2, S17, peek' },
+  { path: 'hi-lo', name: 'Hi-Lo', icon: 'cards', rtp: 0.97, line: 'Higher or lower, skip free' },
+  { path: 'airdrop', name: 'Airdrop', icon: 'airdrop', rtp: 0.98, line: 'Limbo, 1.01–10,000×' },
   { path: 'battle', name: 'Case Battle', icon: 'battle', rtp: 0.93, line: 'PvP, 2–4 seats' },
   { path: 'coinflip', name: 'Coinflip', icon: 'coin', rtp: 0.96, line: 'PvP, 4 % of the pot' },
   { path: 'minefield', name: 'Minefield', icon: 'mine', rtp: 0.97, line: '5×5, 1–24 mines' },
@@ -15,7 +21,10 @@ const GAMES = [
   { path: 'workbench', name: 'Workbench', icon: 'upgrade', rtp: 0.95, line: 'Upgrade your stake' },
 ];
 
-const GAME_ID: Record<string, string> = { raid: 'raid', cases: 'cases', 'scrap-press': 'crash', battle: 'battle', coinflip: 'coinflip', minefield: 'mines', dice: 'dice', 'scrap-chute': 'plinko', workbench: 'upgrader' };
+const GAME_ID: Record<string, string> = {
+  raid: 'raid', cases: 'cases', 'scrap-press': 'crash', battle: 'battle', coinflip: 'coinflip', minefield: 'mines', dice: 'dice', 'scrap-chute': 'plinko', workbench: 'upgrader',
+  'bandit-wheel': 'wheel', jackpot: 'jackpot', 'monument-run': 'towers', blackjack: 'blackjack', 'hi-lo': 'hilo', airdrop: 'airdrop',
+};
 
 export const lobbyView: View = {
   title: 'Workshop',
@@ -30,7 +39,7 @@ export const lobbyView: View = {
 
     <section class="card" style="gap:14px">
       <div class="row" style="justify-content:space-between"><h2 class="h-sect">Originals</h2><span class="muted" style="font-size:13px">RTP per game, proven and checked by Monte Carlo</span></div>
-      <div class="tiles">${GAMES.map((g) => `<a class="tile ${g.sig ? 'sig' : ''}" href="#/${g.path}" data-game="${GAME_ID[g.path]}">${icon(g.icon)}<b>${g.name}</b><span class="paused-tag" hidden>PAUSED</span><span class="muted" style="font-size:13px">${g.line}</span><span class="meta"><span>RTP</span><em>${g.path === 'scrap-chute' ? '96.5–97 %' : g.path === 'cases' || g.path === 'battle' ? '≤ 93 %' : pct(g.rtp, 0)}</em></span></a>`).join('')}</div>
+      <div class="tiles">${GAMES.map((g) => `<a class="tile ${g.sig ? 'sig' : ''}" href="#/${g.path}" data-game="${GAME_ID[g.path]}">${icon(g.icon)}<b>${g.name}</b><span class="paused-tag" hidden>PAUSED</span><span class="muted" style="font-size:13px">${g.line}</span><span class="meta"><span>RTP</span><em>${g.path === 'scrap-chute' ? '96.5–97 %' : g.path === 'cases' || g.path === 'battle' ? '≤ 93 %' : g.path === 'blackjack' ? '99.31 % max' : pct(g.rtp, 0)}</em></span></a>`).join('')}</div>
     </section>
 
     <section class="card">
@@ -51,7 +60,10 @@ export const lobbyView: View = {
         if (!g.enabled) tile.title = `Paused for maintenance${g.reason ? `: ${g.reason}` : ''}`;
       }
     }).catch(() => null);
-    const names: Record<string, string> = { raid: 'Raid', cases: 'Cases', mines: 'Minefield', dice: 'Dice', plinko: 'Scrap Chute', upgrader: 'Workbench', crash: 'Scrap Press', coinflip: 'Coinflip', battle: 'Case Battle' };
+    const names: Record<string, string> = {
+      raid: 'Raid', cases: 'Cases', mines: 'Minefield', dice: 'Dice', plinko: 'Scrap Chute', upgrader: 'Workbench', crash: 'Scrap Press', coinflip: 'Coinflip', battle: 'Case Battle',
+      wheel: 'Bandit Wheel', jackpot: 'Jackpot', towers: 'Monument Run', blackjack: 'Blackjack', hilo: 'Hi-Lo', airdrop: 'Airdrop',
+    };
     api<{ games: { game: string; bets: number; wagered: number; paid: number; rtp: number | null }[] }>('GET', '/stats/rtp?days=30').then((s) => {
       const body = $('#rtp', root);
       if (!body) return;

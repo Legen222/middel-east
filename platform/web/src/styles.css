@@ -251,3 +251,65 @@ tr.clickable:hover,tr.clickable:focus-visible{background:var(--surface-2)}
 /* ---------- lobby: paused game ---------- */
 .tile.paused{opacity:.55}
 .tile .paused-tag{font:700 10px/1 var(--mono);letter-spacing:.1em;color:var(--lose)}
+
+/* ---------- playing cards ---------- */
+.pcard{display:inline-flex;flex-direction:column;justify-content:space-between;width:64px;height:90px;padding:7px 8px;border-radius:5px;background:#efe6d4;color:#1b1712;
+  border:1px solid #c9bda6;box-shadow:0 2px 0 rgba(0,0,0,.35);font:700 20px/1 var(--cond);flex:none}
+.pcard i{font-style:normal;font-size:26px;align-self:flex-end;line-height:1}
+.pcard.red{color:#a3301b}
+.pcard.back{background:repeating-linear-gradient(45deg,var(--rust) 0 6px,#8e3716 6px 12px);border-color:var(--line)}
+.pcard.small{width:40px;height:56px;padding:4px 5px;font-size:14px}.pcard.small i{font-size:16px}
+.pcard.big{width:96px;height:134px;font-size:30px;padding:10px 12px}.pcard.big i{font-size:40px}
+.pcard.lose{outline:2px solid var(--lose);outline-offset:2px}
+.pcard.deal{animation:deal .25s var(--ease-out)}
+@keyframes deal{from{transform:translateY(-14px);opacity:0}}
+.cardrow{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;min-height:56px}
+.hand{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);min-width:0}
+.hand.active{border-color:var(--hazard)}
+.hand .total{font:600 13px/1 var(--mono);color:var(--muted)}
+.hands{display:flex;gap:12px;flex-wrap:wrap}
+.felt{border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:16px;
+  background:radial-gradient(80% 90% at 50% 0%,rgba(94,140,122,.16),transparent 70%),var(--bg)}
+
+/* ---------- monument run ---------- */
+.tower{display:flex;flex-direction:column-reverse;gap:6px;max-width:520px;width:100%;align-self:center}
+.floor{display:grid;grid-template-columns:62px minmax(0,1fr);gap:8px;align-items:center}
+.floor .x{font:12px var(--mono);color:var(--muted);text-align:right}
+.floor.cur .x{color:var(--hazard)}
+.doors{display:grid;gap:6px}
+.door{height:44px;border:1px solid var(--line);border-radius:var(--r);background:linear-gradient(180deg,var(--surface-2),var(--surface));display:grid;place-items:center;color:var(--dim)}
+.door:hover:not(:disabled){border-color:var(--hazard)}
+.door:disabled{cursor:default}
+.floor.cur .door:not(:disabled){border-color:rgba(232,178,26,.55)}
+.door.safe{background:rgba(94,140,122,.22);border-color:var(--patina);color:var(--patina-hi)}
+.door.trap{background:rgba(208,86,59,.25);border-color:var(--lose);color:var(--lose)}
+.door.ghost{color:var(--lose);opacity:.5}
+.door .ico{width:18px;height:18px}
+
+/* ---------- bandit wheel ---------- */
+.wheel-reel{position:relative;height:96px;overflow:hidden;border:1px solid var(--line);border-radius:var(--r);background:var(--bg)}
+.wheel-track{display:flex;gap:4px;padding:10px 0;position:absolute;left:0;top:0;will-change:transform}
+.wseg{flex:none;width:64px;height:74px;border-radius:var(--r);display:grid;place-items:center;font:700 22px/1 var(--mono);color:#15120F;background:var(--wc)}
+.wheel-reel::after{content:"";position:absolute;left:50%;top:0;bottom:0;width:3px;background:var(--text);transform:translateX(-1.5px);box-shadow:0 0 10px rgba(0,0,0,.6)}
+.wfields{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.wfield{border:1px solid var(--line);border-top:4px solid var(--wc);border-radius:var(--r);background:var(--surface);padding:10px 8px;display:flex;flex-direction:column;gap:4px;text-align:left;min-width:0}
+.wfield b{font:700 20px/1 var(--mono)}
+.wfield span{font:12px var(--mono);color:var(--muted)}
+.wfield:hover:not(:disabled){border-color:var(--hazard);border-top-color:var(--wc)}
+.wfield.hit{box-shadow:inset 0 0 0 2px var(--wc)}
+@media (max-width: 520px){ .wfields{grid-template-columns:repeat(3,minmax(0,1fr))} }
+
+/* ---------- jackpot ---------- */
+.potbar{display:flex;height:22px;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);background:var(--bg)}
+.potbar i{display:block;height:100%;min-width:2px}
+.entries{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.entries li{display:grid;grid-template-columns:12px minmax(0,1fr) auto auto;gap:10px;align-items:center;font-size:14px;padding:6px 8px;border-radius:var(--r);background:var(--surface)}
+.entries li .sw{width:12px;height:12px;border-radius:2px}
+.entries li.you{box-shadow:inset 3px 0 0 var(--hazard)}
+.entries li.win{background:rgba(94,140,122,.2)}
+
+/* ---------- site banner ---------- */
+.banner{display:flex;gap:10px;align-items:center;padding:9px 16px;font-size:14px;background:var(--surface-2);border-bottom:1px solid var(--line);grid-column:1/-1}
+.banner.warn{background:rgba(232,178,26,.14);border-bottom-color:var(--hazard)}
+.banner.maint{background:rgba(208,86,59,.16);border-bottom-color:var(--lose)}
+.banner .ico{flex:none;color:var(--hazard)}

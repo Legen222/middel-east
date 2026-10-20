@@ -47,11 +47,13 @@ export interface Me {
   role: 'player' | 'moderator' | 'admin';
   mfa: { enrolled: boolean; fresh: boolean; required: boolean };
 }
-export interface CaseInfo { id: string; name: string; price: number; rtp: number; items: { name: string; value: number; chance: number }[] }
+export interface CaseInfo { id: string; name: string; version: number; price: number; rtp: number; items: { name: string; value: number; chance: number }[] }
 export interface PublicConfig {
   demo: boolean; currency: string; fragsPerDollar: number; minStake: number; maxStake: number; maxWin: number;
   games: string[]; houseEdge: Record<string, number>; operatorMfa: boolean;
   plinko: Record<string, Record<string, { multipliers: number[]; rtp: number }>>;
   cases: CaseInfo[];
+  /** Stake range and max win per game after per-game limits (Frags). */
+  limits: Record<string, { minStake: number; maxStake: number; maxWin: number }>;
   responsibleGambling: { realityCheckOptions: number[]; limitIncreaseDelayHours: number };
 }

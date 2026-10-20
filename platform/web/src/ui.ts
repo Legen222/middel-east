@@ -62,3 +62,14 @@ export const readNum = (s: string) => Number(String(s).replace(',', '.'));
 export function fairBox(f: { serverSeedHash?: string; clientSeed?: string; nonce: number; serverSeed?: string | null }) {
   return `<dl class="fairbox"><dt>Seed hash</dt><dd>${esc(f.serverSeedHash ?? '–')}</dd><dt>Client seed</dt><dd>${esc(f.clientSeed ?? '–')}</dd><dt>Nonce</dt><dd>${f.nonce}</dd>${f.serverSeed ? `<dt>Server seed</dt><dd>${esc(f.serverSeed)}</dd>` : ''}</dl>`;
 }
+
+/* ---------- playing cards (Hi-Lo, Blackjack) ---------- */
+const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+const SUITS = ['♠', '♥', '♦', '♣'];
+/** rank 1–13 and suit 0–3; red suits are hearts and diamonds. */
+export function playingCard(rank: number, suit: number, extra = '') {
+  return `<span class="pcard ${suit === 1 || suit === 2 ? 'red' : ''} ${extra}" role="img" aria-label="${RANKS[rank - 1]} of ${['spades', 'hearts', 'diamonds', 'clubs'][suit]}"><b>${RANKS[rank - 1]}</b><i>${SUITS[suit]}</i></span>`;
+}
+/** Blackjack cards are 0–51: rank = c mod 13 + 1, suit = ⌊c / 13⌋. */
+export const deckCard = (c: number, extra = '') => playingCard((c % 13) + 1, Math.floor(c / 13), extra);
+export const hiddenCard = () => '<span class="pcard back" role="img" aria-label="Hidden card"></span>';

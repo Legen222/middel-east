@@ -30,8 +30,22 @@ export const rewardsView: View = {
     <section class="card" id="daily"></section>
     <section class="card" id="rain"></section>
     <section class="card" id="crew"></section>
+    <section class="card">
+      <h2 class="h-sect">${icon('crate')} Promo code</h2>
+      <p class="muted" style="font-size:13px">Codes from streams, wipe days and socials. One use per player; not available during a break.</p>
+      <form class="row" id="promo"><input id="promo-code" class="num input" maxlength="20" autocomplete="off" placeholder="e.g. WIPEDAY" aria-label="Promo code" style="flex:1;min-width:140px"><button class="btn ghost" type="submit">Redeem</button></form>
+    </section>
   </div>`,
   mount: (root, c) => {
+    $('#promo', root).addEventListener('submit', (e) => {
+      e.preventDefault();
+      void guard($<HTMLButtonElement>('#promo button', root), async () => {
+        const r = await api<{ code: string; amount: number }>('POST', '/promo/redeem', { code: $<HTMLInputElement>('#promo-code', root).value });
+        toast(`${r.code}: +${frags(r.amount)} Frags`);
+        $<HTMLInputElement>('#promo-code', root).value = '';
+        await c.refresh();
+      });
+    });
     let r: Rewards | null = null;
     let lastDaily = '';
     const load = async () => { r = await api<Rewards>('GET', '/rewards'); paint(); };

@@ -1,17 +1,19 @@
 import { api } from '../api';
 import type { View } from '../main';
 import { $, $$, esc, frags, guard, modal, pct, toast } from '../ui';
+import { kpi, signed, when } from './admin-shared';
+import { betsTab, bindLimits, casesTab, limitsSection, promosTab, reportsTab, settingsTab } from './admin-ops';
 
-type Tab = 'overview' | 'rtp' | 'players' | 'games' | 'rg' | 'audit';
-const TABS: [Tab, string][] = [['overview', 'Overview'], ['rtp', 'RTP monitor'], ['players', 'Players'], ['games', 'Games'], ['rg', 'RG cases'], ['audit', 'Audit log']];
+type Tab = 'overview' | 'reports' | 'rtp' | 'bets' | 'players' | 'games' | 'cases' | 'promos' | 'settings' | 'rg' | 'audit';
+const TABS: [Tab, string][] = [
+  ['overview', 'Overview'], ['reports', 'Reports'], ['rtp', 'RTP monitor'], ['bets', 'Bets'], ['players', 'Players'], ['games', 'Games'],
+  ['cases', 'Cases'], ['promos', 'Promo codes'], ['settings', 'Settings'], ['rg', 'RG cases'], ['audit', 'Audit log'],
+];
 const TAB_KEY = 'scrapline.admin.tab';
 
-const when = (t: number | null) => (t ? new Date(t).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short', hour12: false }) : '–');
-const signed = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : '±'}${frags(Math.abs(n))}`;
 const REASONS: Record<string, string> = { net_loss_24h: 'Net loss 24 h', limit_raises_30d: 'Repeated limit raises', long_session: 'Long session' };
-const STATUS_CHIP: Record<string, string> = { ok: 'win', watch: '', alarm: 'lose', low_sample: '' };
+const STATUS_CHIP: Record<string, string> = { ok: 'win', watch: '', alarm: 'lose', low_sample: '', skill: '' };
 const blockLabel = (b: { kind: string; until: number | null } | null) => (b ? `${b.kind === 'operator' ? 'Hold' : b.kind === 'cooldown' ? 'Break' : 'Self-excluded'} ${b.until ? `until ${when(b.until)}` : '(open-ended)'}` : '');
-const kpi = (label: string, value: string, sub = '') => `<div class="kpi"><span class="eyebrow">${label}</span><b class="num">${value}</b>${sub ? `<span class="muted">${sub}</span>` : ''}</div>`;
 const loadTab = (): Tab => { try { return (localStorage.getItem(TAB_KEY) as Tab) || 'overview'; } catch { return 'overview'; } };
 
 /* ---------- operator two-factor (TOTP) ---------- */
@@ -50,7 +52,7 @@ export const adminView: View = {
   <section class="card" style="max-width:720px">
     <p class="eyebrow">Operations</p>
     <h1 class="h-display">Backoffice</h1>
-    <p class="muted">The backoffice is for operators: KPIs, a live RTP monitor, player accounts, a kill switch per game, the responsible-gambling case queue and the audit log. ${c.me.role === 'moderator' ? 'As a moderator you can delete messages and mute players directly in the chat.' : ''}</p>
+    <p class="muted">The backoffice is for operators: KPIs and daily reports, a live RTP monitor, a bet explorer that replays any round from its seeds, player accounts with notes and adjustments, a kill switch and limits per game, the case manager, promo codes, site settings and seed chains, the responsible-gambling case queue and the audit log. ${c.me.role === 'moderator' ? 'As a moderator you can delete messages and mute players directly in the chat.' : ''}</p>
     ${c.cfg.demo ? `<p>In this demo you can give your own account an operator role to look around. In production, only an admin can grant roles, and every action is audited.</p>
     <div class="row"><button class="btn" type="button" data-role="admin">Become admin (demo)</button>${c.me.role === 'player' ? '<button class="btn ghost" type="button" data-role="moderator">Become moderator (demo)</button>' : ''}</div>` : '<p class="status lose">You do not have access to this area.</p>'}
   </section>` : `
@@ -94,7 +96,7 @@ export const adminView: View = {
           ${kpi('Bets', frags(o.last24h.bets, 0))}
           ${kpi('Wagered', frags(o.last24h.wagered), 'Frags')}
           ${kpi('GGR', signed(o.last24h.ggr), 'stakes − payouts, settled')}
-          ${kpi('Bonus cost', frags(o.last24h.promoCost), 'rakeback, crates, rain')}
+          ${kpi('Bonus cost', frags(o.last24h.promoCost), 'rakeback, crates, rain, codes')}
           ${kpi('NGR', signed(o.last24h.ngr), 'GGR − bonus cost')}
         </div>
       </section>
@@ -132,7 +134,7 @@ export const adminView: View = {
         <div class="tablewrap"><table><thead><tr><th>Game</th><th class="r">Bets</th><th class="r">Wagered</th><th class="r">Paid</th><th class="r">RTP</th><th class="r">Theory</th><th class="r">z</th><th>Status</th></tr></thead><tbody>
           ${r.games.map((g: any) => `<tr><td>${esc(g.name)}</td><td class="r num">${frags(g.n, 0)}</td><td class="r num">${frags(g.wagered)}</td><td class="r num">${frags(g.paid)}</td>
             <td class="r num">${g.rtp === null ? '–' : pct(g.rtp)}</td><td class="r num">${g.theory === null ? '–' : pct(g.theory)}</td><td class="r num">${g.z === null ? '–' : g.z.toFixed(2)}</td>
-            <td><span class="chip ${STATUS_CHIP[g.status]}">${g.status === 'low_sample' ? 'low sample' : g.status}</span></td></tr>`).join('')}
+            <td><span class="chip ${STATUS_CHIP[g.status]}" ${g.status === 'skill' ? 'title="Skill game: the return depends on how players play, so there is no single theory value to test against."' : ''}>${g.status === 'low_sample' ? 'low sample' : g.status === 'skill' ? 'skill game' : g.status}</span></td></tr>`).join('')}
         </tbody></table></div>
       </section>`;
       $$<HTMLButtonElement>('[data-days]', panel).forEach((b) => b.addEventListener('click', () => { days = Number(b.dataset.days); void rtp(); }));
@@ -180,6 +182,8 @@ export const adminView: View = {
           <button class="btn small" type="button" data-hold>Put on hold</button>
           ${p.block?.kind === 'operator' ? '<button class="btn ghost small" type="button" data-release>Lift hold</button>' : ''}
           ${p.mute ? '<button class="btn ghost small" type="button" data-unmute>Unmute</button>' : ''}
+          <button class="btn ghost small" type="button" data-adjust>Adjust balance</button>
+          <button class="btn ghost small" type="button" data-logout ${p.sessions ? '' : 'disabled'}>End sessions (${p.sessions})</button>
           <label class="field" style="flex-direction:row;align-items:center;gap:8px">Role <select data-rolesel>${['player', 'moderator', 'admin'].map((r) => `<option ${r === p.role ? 'selected' : ''}>${r}</option>`).join('')}</select></label>
         </div>
         <p class="muted" style="font-size:12px">A hold stops betting until lifted; open rounds can still be cashed out. Operators cannot shorten a break or a self-exclusion.</p>
@@ -190,6 +194,9 @@ export const adminView: View = {
             <p style="font-size:13px">${p.limits.length ? p.limits.map((l: any) => `${esc(l.kind)}/${esc(l.period)}: <span class="num">${l.amount === null ? 'none' : frags(l.amount, 0)}</span> (used ${frags(l.used, 0)})${l.pending ? ' · change pending' : ''}`).join('<br>') : '<span class="muted">No limits set.</span>'}</p>
             <p style="font-size:13px">${p.rewards.map((r: any) => `${esc(r.kind)}: ${r.count}× · <span class="num">${frags(r.total)}</span>`).join('<br>') || '<span class="muted">No rewards claimed.</span>'}</p>
             <p style="font-size:13px">${p.cases.map((k: any) => `${esc(REASONS[k.reason] ?? k.reason)} · ${esc(k.status)}`).join('<br>') || '<span class="muted">No RG cases.</span>'}</p></div>
+          <div><h3 class="h-sect" style="font-size:15px">Notes</h3>
+            <form class="row" data-noteform><input class="input" data-note maxlength="1000" placeholder="Visible to operators only" aria-label="New note"><button class="btn ghost small" type="submit">Add</button></form>
+            <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">${p.notes.map((n: any) => `<p style="font-size:13px"><span class="muted num" style="font-size:11px">${when(n.createdAt)} · ${esc(n.author)}</span><br>${esc(n.body)}</p>`).join('') || '<span class="muted" style="font-size:13px">No notes.</span>'}</div></div>
           <div><h3 class="h-sect" style="font-size:15px">Audit</h3><div class="tablewrap"><table><tbody>${p.audit.map((a: any) => `<tr><td class="num" style="font-size:12px">${when(a.createdAt)}</td><td>${esc(a.event)}</td><td class="num" style="font-size:11px;word-break:break-all">${esc(JSON.stringify(a.data))}</td></tr>`).join('')}</tbody></table></div></div>
         </div>
       </section>`;
@@ -206,6 +213,30 @@ export const adminView: View = {
           await api('POST', `/admin/players/${p.id}/hold`, { hours: h === 'null' ? null : Number(h), reason: (m.root.querySelector('[data-r]') as HTMLInputElement).value });
           m.close(); toast('Hold set.'); await showPlayer(p.id);
         }));
+      });
+      $('[data-adjust]', box).addEventListener('click', () => {
+        const m = modal(`<h2 class="h-sect">Adjust ${esc(p.name)}'s balance</h2>
+          <p class="muted" style="font-size:13px">Positive credits, negative debits (never below zero). At most ±100,000 Frags; audited with your name. You cannot adjust your own account.</p>
+          <label class="field">Amount (Frags)<input data-a inputmode="decimal" placeholder="e.g. 50 or -20"></label>
+          <label class="field">Reason (audited)<input data-r maxlength="200" placeholder="e.g. goodwill after the outage on 12 Oct"></label>
+          <div class="row"><button class="btn" data-ok type="button">Book adjustment</button><button class="btn ghost" data-no type="button">Cancel</button></div>`);
+        m.root.querySelector('[data-no]')!.addEventListener('click', m.close);
+        m.root.querySelector('[data-ok]')!.addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {
+          const r = await api<{ balance: number }>('POST', `/admin/players/${p.id}/adjust`, { amount: Number((m.root.querySelector('[data-a]') as HTMLInputElement).value.replace(',', '.')), reason: (m.root.querySelector('[data-r]') as HTMLInputElement).value });
+          m.close(); toast(`Booked. New balance ${frags(r.balance)} Frags.`); await showPlayer(p.id);
+        }));
+      });
+      $('[data-logout]', box).addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {
+        const r = await api<{ ended: number }>('POST', `/admin/players/${p.id}/logout`, {});
+        toast(`${r.ended} session${r.ended === 1 ? '' : 's'} ended.`);
+        if (p.id === c.me.id) location.reload(); else await showPlayer(p.id);
+      }));
+      $('[data-noteform]', box).addEventListener('submit', (e) => {
+        e.preventDefault();
+        void guard($<HTMLButtonElement>('[data-noteform] button', box), async () => {
+          await api('POST', `/admin/players/${p.id}/notes`, { body: $<HTMLInputElement>('[data-note]', box).value });
+          await showPlayer(p.id);
+        });
       });
       $('[data-release]', box)?.addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => { await api('DELETE', `/admin/players/${p.id}/hold`); toast('Hold lifted.'); await showPlayer(p.id); }));
       $('[data-unmute]', box)?.addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => { await api('DELETE', `/mod/mute/${p.id}`); toast('Unmuted.'); await showPlayer(p.id); }));
@@ -229,7 +260,9 @@ export const adminView: View = {
             <td class="num" style="font-size:12px">${when(g.updatedAt)}</td>
             <td><button class="btn small ${g.enabled ? '' : 'win'}" type="button" data-toggle="${g.game}" data-enabled="${g.enabled}">${g.enabled ? 'Pause' : 'Resume'}</button></td></tr>`).join('')}
         </tbody></table></div>
-      </section>`;
+      </section>
+      ${limitsSection(list, { minStake: c.cfg.minStake, maxStake: c.cfg.maxStake, maxWin: c.cfg.maxWin })}`;
+      bindLimits(panel, games);
       $$<HTMLButtonElement>('[data-toggle]', panel).forEach((b) => b.addEventListener('click', () => guard(b, async () => {
         const enable = b.dataset.enabled !== 'true';
         await api('PUT', `/admin/games/${b.dataset.toggle}`, { enabled: enable, reason: enable ? null : $<HTMLInputElement>(`[data-reason="${b.dataset.toggle}"]`, panel).value });
@@ -282,7 +315,10 @@ export const adminView: View = {
       $$<HTMLButtonElement>('[data-ev]', panel).forEach((b) => b.addEventListener('click', () => { ev = b.dataset.ev!; void auditLog(); }));
     };
 
-    const RENDER: Record<Tab, () => Promise<void>> = { overview, rtp, players, games, rg, audit: auditLog };
+    const RENDER: Record<Tab, () => Promise<void>> = {
+      overview, rtp, players, games, rg, audit: auditLog,
+      reports: () => reportsTab(panel), bets: () => betsTab(panel), cases: () => casesTab(panel), promos: () => promosTab(panel), settings: () => settingsTab(panel),
+    };
     select(TABS.some(([t]) => t === tab) ? tab : 'overview');
     return () => clearInterval(timer);
   },

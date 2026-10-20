@@ -12,6 +12,10 @@ export const SPRITE = `<svg width="0" height="0" style="position:absolute" aria-
 <symbol id="i-raid" viewBox="0 0 24 24"><rect x="4" y="9" width="16" height="10" rx="1"/><path d="M8 9V6h8v3M9 14h6M12 12v4"/><path d="M17 6l2-3"/></symbol>
 <symbol id="i-airdrop" viewBox="0 0 24 24"><path d="M3 10a9 7 0 0118 0"/><path d="M3 10l6 7M21 10l-6 7M12 10v7M3 10c2-1.5 4-1.5 6 0 2-1.5 4-1.5 6 0 2-1.5 4-1.5 6 0"/><rect x="8.5" y="17" width="7" height="4.5" rx=".5"/></symbol>
 <symbol id="i-keycard" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="1.5"/><path d="M3 10h18M7 14h4"/><path d="M16 14h2"/></symbol>
+<symbol id="i-wheel" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.6"/><path d="M12 3.5v6.9M12 13.6v6.9M3.5 12h6.9M13.6 12h6.9M6 6l4.9 4.9M13.1 13.1 18 18M18 6l-4.9 4.9M10.9 13.1 6 18"/><path d="M12 1.5l-1.5 2h3z"/></symbol>
+<symbol id="i-pot" viewBox="0 0 24 24"><path d="M5 10h14l-1.5 9.5h-11z"/><path d="M4 10h16M8 10c0-2.5 1.5-4 4-4s4 1.5 4 4"/><path d="M10 14.5h4"/></symbol>
+<symbol id="i-cards" viewBox="0 0 24 24"><rect x="3" y="6" width="11" height="15" rx="1.5" transform="rotate(-8 8.5 13.5)"/><rect x="10" y="3" width="11" height="15" rx="1.5"/><path d="M15.5 8.5l1.5 2-1.5 2-1.5-2z"/></symbol>
+<symbol id="i-tower" viewBox="0 0 24 24"><path d="M6 21V5l6-2 6 2v16"/><path d="M6 9h12M6 13h12M6 17h12M10 21v-3h4v3"/></symbol>
 <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.2-3 7.5-7 9-4-1.5-7-4.8-7-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></symbol>
 <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></symbol>
 <symbol id="i-rain" viewBox="0 0 24 24"><path d="M7 15a4 4 0 01-.5-8 5.5 5.5 0 0110.6 1.5A3.3 3.3 0 0117 15z"/><path d="M8 18l-1 2M12 18l-1 2M16 18l-1 2"/></symbol>
