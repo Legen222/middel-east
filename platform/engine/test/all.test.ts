@@ -3,7 +3,7 @@ import { createHash, createHmac, randomBytes } from 'node:crypto';
 import { describe, it } from 'node:test';
 
 import {
-  CRASH_MIN_TARGET, EDGE, FairStream, PLINKO_TABLES, RAID_TOOLS, SAMPLE_CASES, TILES,
+  BONUS, CRASH_MIN_TARGET, EDGE, FairStream, PLINKO_TABLES, RAID_TOOLS, SAMPLE_CASES, TILES, spinSeat,
   binom, buildChain, caseEv, caseRtp, caseWeight, crashFromH, crashPoint, diceMultiplier, hmacHex,
   layMines, minesMultiplier, newServerSeed, openCase, playBattle, playCoinflip, playDice, playMines,
   playPlinko, playRaid, playUpgrader, plinkoTheoreticalRtp, priceCase, raidMultiplier, settleCrash,
@@ -299,6 +299,89 @@ describe('cases', () => {
     const lone = playBattle(fixed([0.9, 0.9, 0.1, 0.9, 0.9, 0.9, 0.1, 0.1]), [c, c], 4, 'team');
     assert.deepEqual(lone.winners, [0, 1]);
     assert.throws(() => playBattle(fixed([0.1]), [c], 2, 'team'), RangeError);
+  });
+  it('twenty crates from 1 € to 1 500 €, every one at 93.00 % RTP', () => {
+    assert.equal(SAMPLE_CASES.length, 20);
+    assert.equal(new Set(SAMPLE_CASES.map((c) => c.id)).size, 20);
+    const prices = SAMPLE_CASES.map((c) => priceCase(c));
+    assert.deepEqual(prices, [100, 200, 350, 500, 750, 1000, 1500, 2000, 3000, 4500, 6000, 8000, 10000, 15000, 20000, 30000, 45000, 65000, 100000, 150000]);
+    for (const c of SAMPLE_CASES) assert.ok(caseRtp(c) > 0.9299 && caseRtp(c) <= 0.93, `${c.name} RTP ${caseRtp(c)}`);
+  });
+});
+
+describe('case battle bonus mode', () => {
+  const c: typeof SAMPLE_CASES[number] = { id: 't', name: 't', items: [{ name: 'lo', value: 10, weight: 1 }, { name: 'hi', value: 100, weight: 1 }] };
+  it('one golden round: jackpot drop to its opener, the spin hands out the rest, scrap back to the other seat', () => {
+    // power float 0 → ×1, last round → ×2; seat 1 lo, seat 2 hi (the top item: jackpot); spin 0.05
+    const o = playBattle(fixed([0, 0.1, 0.9, 0.05]), [c], 2, 'bonus');
+    const b = o.bonus!;
+    assert.deepEqual(b.powers, [2]);
+    assert.deepEqual(b.jackpots, [[false, true]]);
+    assert.deepEqual(b.jackpotPaid, [0, 100]);
+    assert.equal(b.rest, 10);
+    assert.deepEqual(b.points, [20, 200]);
+    close(b.shares[0], 20 / 220);
+    // 0.05 < 20/220: the underdog wins the spin and takes 90 % of the rest, seat 2 keeps its jackpot + 10 %
+    assert.deepEqual(o.winners, [0]);
+    close(o.payouts[0], 9);
+    close(o.payouts[1], 101);
+    // the same draw with spin 0.5 lands on seat 2
+    const o2 = playBattle(fixed([0, 0.1, 0.9, 0.5]), [c], 2, 'bonus');
+    assert.deepEqual(o2.winners, [1]);
+    close(o2.payouts[0], 1);
+    close(o2.payouts[1], 109);
+  });
+  it('power slots: ×1 50 %, ×2 30 %, ×3 15 %, ×5 5 %; only the last round is golden', () => {
+    const count = (x: number) => BONUS.POWER_SLOTS.filter((p) => p === x).length;
+    assert.deepEqual([count(1), count(2), count(3), count(5)], [10, 6, 3, 1]);
+    const o = playBattle(fixed([0.5, 0.1, 0.1, 0.95, 0.1, 0.1, 0.8, 0.1, 0.1, 0.3]), [c, c, c], 2, 'bonus');
+    assert.deepEqual(o.bonus!.powers, [2, 5, 3 * BONUS.GOLDEN_FACTOR]);
+    assert.deepEqual(o.bonus!.points, [130, 130]);
+    assert.deepEqual(o.bonus!.shares, [0.5, 0.5]);
+  });
+  it('no points at all: equal slices', () => {
+    const zero: typeof c = { id: 'z', name: 'z', items: [{ name: 'a', value: 0, weight: 1 }, { name: 'b', value: 0, weight: 1 }] };
+    const o = playBattle(fixed([0, 0.1, 0.1, 0.1, 0.7]), [zero], 3, 'bonus');
+    assert.deepEqual(o.bonus!.shares, [1 / 3, 1 / 3, 1 / 3]);
+    assert.deepEqual(o.winners, [2]);
+    assert.deepEqual(o.payouts, [0, 0, 0]);
+  });
+  it('spinSeat: slices in seat order, rounding sliver goes to the last seat', () => {
+    assert.equal(spinSeat(0, [0.2, 0.3, 0.5]), 0);
+    assert.equal(spinSeat(0.2, [0.2, 0.3, 0.5]), 1);
+    assert.equal(spinSeat(0.999999, [0.2, 0.3, 0.4999]), 2);
+  });
+  it('payouts always add up to the pool: no value enters or leaves (10 000 real battles)', () => {
+    const cases = [SAMPLE_CASES[0], SAMPLE_CASES[5], SAMPLE_CASES[9]];
+    for (let n = 0; n < 10_000; n++) {
+      const seats = 2 + (n % 3);
+      const o = playBattle(new FairStream('ab'.repeat(32), 'bonus', n), cases, seats, 'bonus');
+      const pool = o.totals.reduce((a, b) => a + b, 0);
+      close(o.payouts.reduce((a, b) => a + b, 0), pool, 1e-6);
+      assert.ok(o.payouts.every((p) => p >= 0));
+      close(o.bonus!.shares.reduce((a, b) => a + b, 0), 1, 1e-9);
+    }
+  });
+  it('exact expectation by enumeration: every seat gets Σ EV of the crates (house edge unchanged)', () => {
+    const A: typeof c = { id: 'a', name: 'a', items: [{ name: 'x', value: 1, weight: 2 }, { name: 'y', value: 4, weight: 1 }, { name: 'z', value: 30, weight: 1 }] };
+    const B: typeof c = { id: 'b', name: 'b', items: [{ name: 'p', value: 2, weight: 1 }, { name: 'q', value: 5, weight: 1 }, { name: 'r', value: 12, weight: 1 }] };
+    const slots: [number, number][] = [[0, 10], [10, 6], [16, 3], [19, 1]]; // first slot of ×1 / ×2 / ×3 / ×5 and how many of the 20 slots it has
+    const tuples = (n: number, base: number): number[][] => (n === 0 ? [[]] : tuples(n - 1, base).flatMap((r) => Array.from({ length: base }, (_, k) => [...r, k])));
+    for (const seats of [2, 3, 4]) {
+      const E = new Array(seats).fill(0);
+      let total = 0;
+      for (const [p0, w0] of slots) for (const [p1, w1] of slots) for (const ta of tuples(seats, 4)) for (const tb of tuples(seats, 3)) {
+        // the spin is integrated out: P(seat wins) = its share (spinSeat test above)
+        const o = playBattle(fixed([at(p0, 20), ...ta.map((t) => at(t, 4)), at(p1, 20), ...tb.map((t) => at(t, 3)), 0]), [A, B], seats, 'bonus').bonus!;
+        o.shares.forEach((sh, s) => { E[s] += w0 * w1 * (o.jackpotPaid[s] + sh * (1 - BONUS.SCRAP_BACK) * o.rest + (1 - sh) * BONUS.SCRAP_BACK * o.rest / (seats - 1)); });
+        total += w0 * w1;
+      }
+      for (const e of E) close(e / total, caseEv(A) + caseEv(B), 1e-9);
+    }
+  });
+  it('the other modes draw exactly seats × rounds floats, as before the bonus mode', () => {
+    for (const mode of ['normal', 'crazy', 'terminal'] as const) assert.doesNotThrow(() => playBattle(fixed([0.1, 0.9, 0.9, 0.1]), [c, c], 2, mode));
+    assert.throws(() => playBattle(fixed([0.1, 0.9, 0.9, 0.1]), [c, c], 2, 'bonus'), /exhausted/);
   });
 });
 

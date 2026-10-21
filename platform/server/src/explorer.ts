@@ -232,6 +232,9 @@ async function pvpDetail(db: DB, beacon: Beacon, ref: string, now: number) {
     for (const [i, id] of (params.caseIds as string[]).entries()) cases.push(await caseVersion(db, id, params.versions?.[i] ?? 1));
     const o = playBattle(src, cases, g!.seats, params.mode as BattleMode);
     checks.push({ name: 'outcome', ok: same(o.totals, r.totals) && same(o.winners, r.winners), detail: `totals ${o.totals.join(' / ')}, winner seat${o.winners.length > 1 ? 's' : ''} ${o.winners.map((w) => w + 1).join(', ')}` });
+    if (o.bonus) checks.push({ name: 'bonus', ok: same(o.bonus.powers, r.bonus?.powers ?? []) && o.bonus.spin === r.bonus?.spin, detail: `powers ×${o.bonus.powers.join(' ×')}, spin ${o.bonus.spin.toFixed(8)} → seat ${o.winners[0] + 1}` });
+    const expected = o.payouts.map((p) => Math.floor(p * MF_PER_FRAG));
+    checks.push({ name: 'payout', ok: same(expected, seats.map((s) => Number(s.payout))), detail: `${expected.map((p) => p / MF_PER_FRAG).join(' / ')} Frags per seat` });
   }
   return { ...base, result: r, fairness: { serverSeed: g!.server_seed, serverSeedHash: g!.server_hash, beaconRound: g!.beacon_round, beaconValue: g!.beacon_value }, verification: verdict(checks) };
 }

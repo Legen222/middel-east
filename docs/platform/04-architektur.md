@@ -211,7 +211,7 @@ Größenlimit (16 KB) und Geo-Prüfung.
 
 ```bash
 cd platform/server && npm install
-npm test     # 62 Tests (Stand Phase 13)
+npm test     # 65 Tests (Stand Phase 14)
 npm start    # http://localhost:8787, Datei data/scrapline-demo.sqlite
 ```
 

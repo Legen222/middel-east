@@ -12,7 +12,7 @@
 
 import pg from 'pg';
 
-import { CASE_SEED, type DB, type RunResult, SCHEMA, type Stmt, runAfterCommit } from './db';
+import { CASE_RETIRE, CASE_SEED, CASE_SYNC, type DB, type RunResult, SCHEMA, type Stmt, runAfterCommit } from './db';
 
 pg.types.setTypeParser(20, (v) => Number(v)); // int8
 pg.types.setTypeParser(1700, (v) => Number(v)); // numeric
@@ -63,6 +63,9 @@ const MIGRATIONS: { version: number; sql: () => string }[] = [
     ${CASE_SEED}` },
   // Six more built-in crates (version 1). The seed is idempotent, existing cases stay as they are.
   { version: 5, sql: () => CASE_SEED },
+  // Twenty-crate line-up (1 to 1 500 $): new crates as version 1, seed-managed crates get the new item
+  // list as their next version, the four crates that left are disabled. Operator versions stay.
+  { version: 6, sql: () => `${CASE_SEED}${CASE_SYNC}${CASE_RETIRE}` },
 ];
 
 type Queryable = pg.Pool | pg.PoolClient;

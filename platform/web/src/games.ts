@@ -38,8 +38,8 @@ export const GAMES: GameMeta[] = [
   { path: 'scrap-press', id: 'crash', name: 'Scrap Press', icon: 'crash', cat: 'live', rtp: '98.00 %', edge: '2 %', line: 'Live crash, cash out in time', tag: 'LIVE' },
   { path: 'bandit-wheel', id: 'wheel', name: 'Bandit Wheel', icon: 'wheel', cat: 'live', rtp: '96.00 %', edge: '4 %', line: 'Bet on 1, 3, 5, 10 or 20', tag: 'LIVE' },
   { path: 'jackpot', id: 'jackpot', name: 'Jackpot', icon: 'pot', cat: 'live', rtp: '96.00 %', edge: '4 % of the pot', line: 'Your share of the pot is your chance', tag: 'LIVE' },
-  { path: 'cases', id: 'cases', name: 'Crate opening', icon: 'crate', cat: 'pvp', rtp: '≤ 93 %', edge: '≥ 7 %', line: 'Ten crates, up to five at once' },
-  { path: 'battle', id: 'battle', name: 'Case Battle', icon: 'battle', cat: 'pvp', rtp: '≤ 93 %', edge: '≥ 7 %', line: '1v1 up to 2v2, live reels', tag: 'NEW' },
+  { path: 'cases', id: 'cases', name: 'Crate opening', icon: 'crate', cat: 'pvp', rtp: '≤ 93 %', edge: '≥ 7 %', line: 'Twenty crates, $1 to $1,500' },
+  { path: 'battle', id: 'battle', name: 'Case Battle', icon: 'battle', cat: 'pvp', rtp: '≤ 93 %', edge: '≥ 7 %', line: 'Bonus mode: power rounds, final spin', tag: 'NEW' },
   { path: 'coinflip', id: 'coinflip', name: 'Coinflip', icon: 'coin', cat: 'pvp', rtp: '96.00 %', edge: '4 % of the pot', line: 'Rust or Scrap, one coin' },
 ];
 

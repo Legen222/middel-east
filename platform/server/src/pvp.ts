@@ -63,7 +63,7 @@ export function createCoinflip(db: DB, cfgIn: Config, userId: string, stake: num
 export function createBattle(db: DB, cfgIn: Config, userId: string, caseIds: string[], seats: number, mode: BattleMode, now: number): Promise<string> {
   if (!Array.isArray(caseIds) || caseIds.length < 1 || caseIds.length > 10) fail('invalid_params', '1 to 10 cases.');
   if (![2, 3, 4].includes(seats)) fail('invalid_params', '2, 3 or 4 seats.');
-  if (!['normal', 'crazy', 'terminal', 'team'].includes(mode)) fail('invalid_params', 'Mode: normal, crazy, terminal or team.');
+  if (!['normal', 'crazy', 'terminal', 'team', 'bonus'].includes(mode)) fail('invalid_params', 'Mode: normal, crazy, terminal, team or bonus.');
   if (mode === 'team' && seats !== 4) fail('invalid_params', 'Team battles are 2 vs 2: pick 4 seats.');
   return tx(db, async (db) => {
     const cfg = await gameConfig(db, cfgIn, 'battle');
@@ -146,7 +146,7 @@ export async function settleDue(db: DB, beacon: Beacon, now: number): Promise<nu
         for (const [i, id] of (params.caseIds as string[]).entries()) cases.push(await caseVersion(db, id, versions[i] ?? 1));
         const o = playBattle(src, cases, g.seats, params.mode as BattleMode);
         payouts = o.payouts.map((p) => Math.floor(p * MF_PER_FRAG));
-        result = { drops: o.drops.map((r) => r.map((i) => ({ name: i.name, value: i.value }))), totals: o.totals, winners: o.winners };
+        result = { drops: o.drops.map((r) => r.map((i) => ({ name: i.name, value: i.value }))), totals: o.totals, winners: o.winners, ...(o.bonus ? { bonus: o.bonus } : {}) };
       }
       // Battles can pay out more than was staked (a lucky pool); the bankroll tops up escrow first,
       // so escrow never goes negative and the per-game balance closes at exactly zero.

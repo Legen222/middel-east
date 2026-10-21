@@ -135,7 +135,7 @@ describe('bets settle correctly and replay exactly from the revealed seed', () =
   it('case price is fixed by the server, the client stake is ignored', async () => {
     const { db, cfg, userId } = await setup();
     const b = await playInstant(db, cfg, userId, 'cases', frags(1), { caseId: 'military-crate' }, T0);
-    assert.equal(b.stake, priceCase(SAMPLE_CASES[1]) * MF_PER_FRAG);
+    assert.equal(b.stake, priceCase(SAMPLE_CASES.find((c) => c.id === 'military-crate')!) * MF_PER_FRAG);
   });
 });
 
@@ -309,7 +309,7 @@ describe('HTTP API (end to end)', () => {
       assert.equal(s.status, 200);
       token = s.json.token;
       const me = await call('GET', '/me');
-      assert.equal(me.json.balance, 100_000);
+      assert.equal(me.json.balance, 250_000);
       assert.equal(me.json.seed.nextNonce, 0);
 
       const dice = await call('POST', '/bets/dice', { stake: 25, params: { chance: 49.5, direction: 'under' } });
@@ -407,7 +407,7 @@ describe('PvP (coinflip, battles)', () => {
   it('battle escrow closes at zero whether the pool is below or above the stakes (60 games)', async () => {
     const { db, cfg, userId, beacon } = await setup2();
     let above = 0, below = 0;
-    for (let i = 0; i < 60; i++) { // P(no game above the stakes) ≈ 0.86⁶⁰ ≈ 0.01 %
+    for (let i = 0; i < 60; i++) { // P(no game above the stakes) ≈ 0.76⁶⁰ ≈ 10⁻⁷
       const id = await createBattle(db, cfg, userId, ['toolbox'], 2, 'normal', T0);
       await joinGame(db, cfg, beacon, id, null, T0);
       await settleDue(db, beacon, (await publicGame(db, beacon, id)).fairness.beacon.resolvesAt!);
@@ -650,7 +650,7 @@ describe('operations: backoffice', () => {
     assert.ok(Math.abs(dice.z!) < 4 && Math.abs(dice.theory! - 0.98) < 1e-12);
     const cases = rows.find((r) => r.game === 'cases')!;
     assert.equal(cases.status, 'low_sample');
-    assert.ok(Math.abs(cases.theory! - 0.927326) < 1e-4, 'per-bet theory comes from the case itself');
+    assert.ok(Math.abs(cases.theory! - 0.93) < 1e-4, 'per-bet theory comes from the case itself');
     await db.exec("UPDATE bets SET payout = CAST(payout * 1.3 AS INTEGER) WHERE game = 'dice'"); // simulated paytable bug
     rows = await rtpMonitor(db, T0 - 1);
     assert.equal(rows.find((r) => r.game === 'dice')!.status, 'alarm');
@@ -822,7 +822,7 @@ describe('new originals (phase 11)', () => {
     const seed = await seedOf(db, bet.id);
     const replay = playAirdrop(new FairStream(seed.server_seed, seed.client_seed, bet.nonce), 2);
     assert.equal(bet.payout, replay.win ? frags(20) : 0);
-    assert.equal(await code(() => playInstant(db, cfg, userId, 'airdrop', frags(1000), { target: 5000 }, T0 + 1)), 'max_win');
+    assert.equal(await code(() => playInstant(db, cfg, userId, 'airdrop', frags(1000), { target: 9000 }, T0 + 1)), 'max_win');
     assert.equal(await code(() => playInstant(db, cfg, userId, 'airdrop', frags(10), { target: 1 }, T0 + 2)), 'RangeError', 'the router maps this to invalid_params');
   });
 
@@ -1386,7 +1386,7 @@ describe('cases, battles and upgrader (phase 13)', () => {
     assert.equal(await code(() => openCases(db, cfg, userId, 'toolbox', 6, T0 + 4)), 'invalid_params');
     assert.equal(await code(() => openCases(db, cfg, userId, 'toolbox', 0, T0 + 4)), 'invalid_params');
     const later = T0 + 25 * HOUR; // limit removal has applied, a new day
-    const cheap = await openCases(db, cfg, userId, 'scrap-box', 5, later);
+    const cheap = await openCases(db, cfg, userId, 'barrel', 5, later);
     assert.equal(cheap.length, 5);
     assert.deepEqual(cheap.map((b) => b.nonce), [4, 5, 6, 7, 8]);
     assert.deepEqual(await ledgerIntegrity(db), { sum: 0, mismatched: [] });
@@ -1396,8 +1396,8 @@ describe('cases, battles and upgrader (phase 13)', () => {
     const { db, cfg, userId } = await setup();
     const beacon = new LocalBeacon(T0 - 60_000, 1000);
     const { userId: mate } = await signUp(db, cfg, { displayName: 'Mate', ageConfirmed: true, country: 'NZ' }, T0);
-    assert.equal(await code(() => createBattle(db, cfg, userId, ['scrap-box'], 2, 'team', T0)), 'invalid_params', 'team needs 4 seats');
-    const id = await createBattle(db, cfg, userId, ['scrap-box', 'road-sign', 'tech-trash'], 4, 'team', T0);
+    assert.equal(await code(() => createBattle(db, cfg, userId, ['barrel'], 2, 'team', T0)), 'invalid_params', 'team needs 4 seats');
+    const id = await createBattle(db, cfg, userId, ['barrel', 'oil-barrel', 'wooden-crate'], 4, 'team', T0);
     await joinGame(db, cfg, beacon, id, mate, T0 + 1);
     await joinGame(db, cfg, beacon, id, null, T0 + 2);
     await joinGame(db, cfg, beacon, id, null, T0 + 3);
@@ -1415,5 +1415,84 @@ describe('cases, battles and upgrader (phase 13)', () => {
     assert.equal(await balanceOf(db, ESCROW), 0);
     assert.equal((await betDetail(db, beacon, 'battle', id, T0)).verification.status, 'verified');
     assert.deepEqual(await ledgerIntegrity(db), { sum: 0, mismatched: [] });
+  });
+});
+
+describe('twenty crates and the bonus battle (phase 14)', () => {
+  it('the lobby lists twenty crates from 1 to 1 500 $, the Gold Egg fits the max stake', async () => {
+    const { db, cfg, userId } = await setup();
+    const list = await listCases(db);
+    assert.equal(list.length, 20);
+    assert.deepEqual([list[0].id, list[0].price, list[19].id, list[19].price], ['barrel', 100, 'gold-egg', 150_000]);
+    assert.ok(list.every((c) => c.rtp > 0.9299 && c.rtp <= 0.93));
+    const bet = await playInstant(db, cfg, userId, 'cases', 0, { caseId: 'gold-egg' }, T0);
+    assert.equal(bet.stake, frags(150_000));
+    assert.equal(await code(() => createBattle(db, cfg, userId, ['gold-egg', 'gold-egg'], 2, 'normal', T0 + 1)), 'invalid_stake', '3 000 $ per seat is above the max stake');
+  });
+
+  it('bonus battle: jackpot drops to their openers, the spin pays the rest, escrow closes, the explorer verifies', async () => {
+    const { db, cfg, userId } = await setup();
+    const beacon = new LocalBeacon(T0 - 60_000, 1000);
+    for (let n = 0; n < 12; n++) {
+      const id = await createBattle(db, cfg, userId, ['barrel', 'oil-barrel', 'wooden-crate', 'toolbox'], 3, 'bonus', T0 + n);
+      await joinGame(db, cfg, beacon, id, null, T0 + n);
+      await joinGame(db, cfg, beacon, id, null, T0 + n);
+      await settleDue(db, beacon, (await publicGame(db, beacon, id)).fairness.beacon.resolvesAt!);
+      const g = await publicGame(db, beacon, id);
+      const b = g.result.bonus;
+      assert.equal(b.powers.length, 4);
+      assert.ok(b.powers[3] % 2 === 0, 'the last round is golden');
+      const pool = (g.result.totals as number[]).reduce((a, x) => a + x, 0);
+      const paid = g.players.reduce((a, p) => a + p.payout, 0);
+      assert.ok(pool - paid > -1e-6 && pool - paid < 0.01, `the whole pool goes back to the seats (pool ${pool}, paid ${paid})`);
+      const w = g.result.winners[0];
+      for (const p of g.players) {
+        const share = p.seat === w ? b.rest * 0.9 : (b.rest * 0.1) / 2;
+        assert.ok(Math.abs(p.payout - (b.jackpotPaid[p.seat] + share)) < 0.01, `seat ${p.seat + 1}`);
+      }
+      assert.equal((await betDetail(db, beacon, 'battle', id, T0)).verification.status, 'verified');
+    }
+    assert.equal(await balanceOf(db, ESCROW), 0);
+    assert.deepEqual(await ledgerIntegrity(db), { sum: 0, mismatched: [] });
+    assert.equal(await code(() => createBattle(db, cfg, userId, ['barrel'], 2, 'bonus', T0 + 50)), 'no-error', '2 seats work too');
+    assert.equal(await code(() => createBattle(db, cfg, userId, ['barrel'], 2, 'jackpot' as never, T0 + 51)), 'invalid_params');
+  });
+
+  it('catalogue sync: seed crates get the new line-up, operator versions stay, retired crates are disabled once', async () => {
+    const { mkdtempSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const dir = mkdtempSync(join(tmpdir(), 'scrapline-'));
+    try {
+      const file = join(dir, 'old.db');
+      const old = openDb(file);
+      const OLD_ITEMS = JSON.stringify([{ name: 'Tape Hoodie', value: 40, weight: 1 }, { name: 'Glory AK', value: 21000, weight: 1 }]);
+      // an older database: Tool Box still on a seed list from before, the Elite Crate edited by an operator, a retired seed crate
+      await old.prepare("INSERT INTO case_versions (case_id, version, name, items, price, rtp, created_by, created_at) VALUES ('toolbox', 2, 'Toolbox', ?, 11291, 0.93, NULL, 0)").run(OLD_ITEMS);
+      await old.prepare("UPDATE cases SET current_version = 2, name = 'Toolbox' WHERE id = 'toolbox'").run();
+      await old.prepare("INSERT INTO case_versions (case_id, version, name, items, price, rtp, created_by, created_at) VALUES ('elite-crate', 2, 'House Elite', ?, 11291, 0.93, 'op', 1)").run(OLD_ITEMS);
+      await old.prepare("UPDATE cases SET current_version = 2, name = 'House Elite' WHERE id = 'elite-crate'").run();
+      await old.prepare("INSERT INTO cases (id, name, enabled, sort, current_version, created_at, updated_at) VALUES ('vault', 'Vault', 1, 3, 1, 0, 0)").run();
+      await old.prepare("INSERT INTO case_versions (case_id, version, name, items, price, rtp, created_by, created_at) VALUES ('vault', 1, 'Vault', ?, 11291, 0.93, NULL, 0)").run(OLD_ITEMS);
+      await old.prepare('PRAGMA user_version = 0').run();
+      await old.close();
+
+      const db = openDb(file);
+      const tool = await caseVersion(db, 'toolbox');
+      assert.deepEqual([tool.version, tool.name, tool.price], [3, 'Tool Box', 1000], 'the seed list from before became version 3');
+      assert.equal((await caseVersion(db, 'toolbox', 2)).items[0].name, 'Tape Hoodie', 'old versions stay verifiable');
+      assert.equal((await caseVersion(db, 'elite-crate')).name, 'House Elite', 'an operator version is never replaced');
+      const ids = (await listCases(db)).map((c) => c.id);
+      assert.ok(!ids.includes('vault') && ids.includes('gold-egg') && ids.length === 20);
+      await setCaseState(db, 'op', 'vault', { enabled: true }, T0);
+      await db.close();
+
+      const again = openDb(file);
+      assert.ok((await listCases(again)).some((c) => c.id === 'vault'), 'retiring runs once: an operator may enable the crate again');
+      assert.equal((await caseVersion(again, 'toolbox')).version, 3, 'idempotent');
+      await again.close();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

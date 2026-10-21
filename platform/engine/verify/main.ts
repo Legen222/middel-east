@@ -114,18 +114,35 @@ const GAMES: Record<string, { label: string; fields: string; run: (s: FloatSourc
   },
   battles: {
     label: 'Case Battle',
-    fields: `<label>Cases (ids, comma-separated)<input id="p-bcases" value="toolbox,military-crate,elite-crate"></label>
+    fields: `<label>Cases (ids, comma-separated)<input id="p-bcases" value="barrel,toolbox,elite-crate"></label>
       <label>Seats<select id="p-seats"><option>2</option><option>3</option><option>4</option></select></label>
-      <label>Mode<select id="p-mode"><option value="normal">Normal</option><option value="crazy">Crazy</option><option value="terminal">Terminal</option><option value="team">Team 2v2 (4 seats: P1+P2 vs P3+P4)</option></select></label>`,
+      <label>Mode<select id="p-mode"><option value="normal">Normal</option><option value="crazy">Crazy</option><option value="terminal">Terminal</option><option value="team">Team 2v2 (4 seats: P1+P2 vs P3+P4)</option><option value="bonus">Bonus (power rounds, jackpot drops, final spin)</option></select></label>
+      <label>Contents of older case versions (JSON, optional)<textarea id="p-bitems" rows="3" placeholder='{"toolbox": [{"name":"Gears","value":30,"weight":22000}, …]}'></textarea></label>
+      <small>A battle stores the case versions it used; the battle page shows their contents. Paste them here for cases that changed since.</small>`,
     run: (s) => {
       const ids = val('p-bcases').split(',').map((x) => x.trim());
-      const cases = ids.map((id) => { const c = SAMPLE_CASES.find((x) => x.id === id); if (!c) throw new Error(`Unknown case: ${id}`); return c; });
-      const o = playBattle(s, cases, Number(val('p-seats')), val('p-mode') as BattleMode);
-      const teamRow: Row[] = val('p-mode') === 'team' ? [['Team totals', `P1+P2: ${o.totals[0] + o.totals[1]} · P3+P4: ${o.totals[2] + o.totals[3]}`]] : [];
-      return { headline: `Winner: seat ${o.winners.map((w) => w + 1).join(' & ')}`, tone: 'neutral', rows: [
+      const custom = val('p-bitems') ? (JSON.parse(val('p-bitems')) as Record<string, CaseDef['items']>) : {};
+      const cases = ids.map((id) => {
+        if (custom[id]) return { id, name: id, items: custom[id] } as CaseDef;
+        const c = SAMPLE_CASES.find((x) => x.id === id);
+        if (!c) throw new Error(`Unknown case: ${id}`);
+        return c;
+      });
+      const mode = val('p-mode') as BattleMode;
+      const o = playBattle(s, cases, Number(val('p-seats')), mode);
+      const teamRow: Row[] = mode === 'team' ? [['Team totals', `P1+P2: ${o.totals[0] + o.totals[1]} · P3+P4: ${o.totals[2] + o.totals[3]}`]] : [];
+      const b = o.bonus;
+      const bonusRows: Row[] = b ? [
+        ['Power per round', b.powers.map((p, i) => `R${i + 1} ×${p}${i === b.powers.length - 1 ? ' (golden)' : ''}`).join(' · ')],
+        ['Jackpot drops', b.jackpotPaid.some((x) => x > 0) ? b.jackpotPaid.map((x, i) => (x > 0 ? `P${i + 1}: ${x}` : '')).filter(Boolean).join(' · ') : 'none'],
+        ['Points', b.points.map((x, i) => `P${i + 1}: ${x}`).join(' · ')],
+        ['Wheel slices', b.shares.map((x, i) => `P${i + 1}: ${fmt(x * 100, 3)} %`).join(' · ')],
+        ['Spin', `f = ${fmt(b.spin, 8)} → seat ${o.winners[0] + 1}; rest of the pool ${fmt(b.rest)} (90 % to the winner, 10 % scrap back)`],
+      ] : [];
+      return { headline: b ? `Spin winner: seat ${o.winners[0] + 1}` : `Winner: seat ${o.winners.map((w) => w + 1).join(' & ')}`, tone: 'neutral', rows: [
         ...teamRow,
-        ...o.drops.map((r, i) => [`Round ${i + 1}`, r.map((it, s2) => `P${s2 + 1}: ${it.name} (${it.value})`).join(' · ')] as Row),
-        ['Totals', o.totals.map((t, i) => `P${i + 1}: ${t}`).join(' · ')], ['Payout', o.payouts.map((p, i) => `P${i + 1}: ${fmt(p)}`).join(' · ')]] };
+        ...o.drops.map((r, i) => [`Round ${i + 1}`, r.map((it, s2) => `P${s2 + 1}: ${it.name} (${it.value})${b?.jackpots[i][s2] ? ' ★' : ''}`).join(' · ')] as Row),
+        ['Totals', o.totals.map((t, i) => `P${i + 1}: ${t}`).join(' · ')], ...bonusRows, ['Payout', o.payouts.map((p, i) => `P${i + 1}: ${fmt(p)}`).join(' · ')]] };
     },
   },
   wheel: {

@@ -509,6 +509,31 @@ export const CASE_SEED = SAMPLE_CASES.map((c, i) => `
 INSERT INTO cases (id, name, enabled, sort, current_version, created_at, updated_at) VALUES (${sq(c.id)}, ${sq(c.name)}, 1, ${i}, 1, 0, 0) ON CONFLICT (id) DO NOTHING;
 INSERT INTO case_versions (case_id, version, name, items, price, rtp, created_by, created_at) VALUES (${sq(c.id)}, 1, ${sq(c.name)}, ${sq(JSON.stringify(c.items))}, ${priceCase(c)}, ${caseRtp(c)}, NULL, 0) ON CONFLICT (case_id, version) DO NOTHING;`).join('');
 
+/**
+ * Keeps seed-managed crates on the current line-up: a crate whose current version came from the seed
+ * (created_by NULL) and whose items differ gets the new list as its next version. Versions an operator
+ * published are never touched, and old versions stay verifiable. Idempotent.
+ */
+export const CASE_SYNC = SAMPLE_CASES.map((c, i) => {
+  const items = sq(JSON.stringify(c.items));
+  return `
+INSERT INTO case_versions (case_id, version, name, items, price, rtp, created_by, created_at)
+  SELECT c.id, c.current_version + 1, ${sq(c.name)}, ${items}, ${priceCase(c)}, ${caseRtp(c)}, NULL, 0
+  FROM cases c JOIN case_versions v ON v.case_id = c.id AND v.version = c.current_version
+  WHERE c.id = ${sq(c.id)} AND v.created_by IS NULL AND v.items <> ${items};
+UPDATE cases SET current_version = (SELECT MAX(version) FROM case_versions WHERE case_id = ${sq(c.id)}), name = ${sq(c.name)}, sort = ${i}
+  WHERE id = ${sq(c.id)} AND current_version < (SELECT MAX(version) FROM case_versions WHERE case_id = ${sq(c.id)} AND created_by IS NULL);`;
+}).join('');
+
+/** Seed crates that left the line-up with the twenty-crate catalogue. Disabled once (still verifiable). */
+export const RETIRED_CASES = ['scrap-box', 'road-sign', 'tech-trash', 'vault'];
+export const CASE_RETIRE = `
+UPDATE cases SET enabled = 0 WHERE id IN (${RETIRED_CASES.map(sq).join(', ')})
+  AND (SELECT created_by FROM case_versions v WHERE v.case_id = cases.id AND v.version = cases.current_version) IS NULL;`;
+
+/** One-shot SQLite steps, tracked in PRAGMA user_version (the schema and seed above are idempotent). */
+const SQLITE_STEPS: string[] = [CASE_RETIRE];
+
 /** Opens (and migrates) a SQLite database. Synchronous so tests and the browser demo can set up in one step. */
 export function openDb(path = ':memory:'): DB {
   const raw = new DatabaseSync(path);
@@ -517,6 +542,10 @@ export function openDb(path = ':memory:'): DB {
   if (legacy) migrateLegacy(raw);
   raw.exec(SCHEMA);
   raw.exec(CASE_SEED);
+  raw.exec(CASE_SYNC);
+  const done = Number((raw.prepare('PRAGMA user_version').get() as { user_version: number }).user_version);
+  for (let v = done; v < SQLITE_STEPS.length; v++) raw.exec(SQLITE_STEPS[v]);
+  if (done < SQLITE_STEPS.length) raw.exec(`PRAGMA user_version = ${SQLITE_STEPS.length}`);
   return new SqliteDb(raw);
 }
 

@@ -1,5 +1,6 @@
 import { type Bet, api } from '../api';
 import { icon } from '../icons';
+import { itemArt } from '../loot-art';
 import type { View } from '../main';
 import { $, $$, bindStake, esc, fairBox, frags, guard, mult, pct, readNum, reducedMotion, stakeField } from '../ui';
 
@@ -142,7 +143,7 @@ export const upgraderView: View = {
         const ok = valid(ch);
         const sel = skin && skin.name === k.name && skin.value === k.value;
         return `<li><button type="button" role="option" aria-selected="${Boolean(sel)}" data-skin="${esc(k.name)}|${k.value}" ${ok ? '' : 'disabled'}>
-          <span>${esc(k.name)}</span><span class="num">${frags(k.value, 0)}</span><span class="num ${ok ? '' : 'muted'}">${ok ? pct(ch) : ch > MAX_CHANCE ? '&gt; 80 %' : '&lt; 1 %'}</span></button></li>`;
+          ${itemArt(k.name)}<span>${esc(k.name)}</span><span class="num">${frags(k.value, 0)}</span><span class="num ${ok ? '' : 'muted'}">${ok ? pct(ch) : ch > MAX_CHANCE ? '&gt; 80 %' : '&lt; 1 %'}</span></button></li>`;
       }).join('') || '<li class="muted" style="padding:8px">No skin matches.</li>';
       $$<HTMLButtonElement>('[data-skin]', root).forEach((b) => b.addEventListener('click', () => {
         const [name, value] = b.dataset.skin!.split('|');

@@ -177,7 +177,7 @@ for (const c of SAMPLE_CASES) {
 const battleCases = [SAMPLE_CASES[0], SAMPLE_CASES[1], SAMPLE_CASES[2]];
 const battleCost = battleCases.reduce((s, c) => s + priceCase(c), 0);
 const battleEv = battleCases.reduce((s, c) => s + caseRtp(c) * priceCase(c), 0) / battleCost;
-for (const [seats, mode] of [[2, 'normal'], [3, 'crazy'], [4, 'terminal'], [4, 'team']] as [number, BattleMode][]) {
+for (const [seats, mode] of [[2, 'normal'], [3, 'crazy'], [4, 'terminal'], [4, 'team'], [2, 'bonus'], [3, 'bonus'], [4, 'bonus']] as [number, BattleMode][]) {
   for (let seat = 0; seat < seats; seat++) {
     run('battles', `${seats} seats / ${mode} / seat ${seat + 1}`, battleEv, N, (r) => ({ stake: battleCost, payout: playBattle(r, battleCases, seats, mode).payouts[seat] }));
   }

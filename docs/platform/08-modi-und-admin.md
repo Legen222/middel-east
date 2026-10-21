@@ -281,3 +281,97 @@ Stand: 20.10.2026. Code:
 | Cargo Ship (20 556 Frags) | 92,9996 % | 92,9863 % | −0,36 |
 
 Engine 83 Tests, Server 62 Tests auf SQLite und Postgres. Ein Server-Test für das gleichzeitige Öffnen hing anfangs vom Glück der ersten Kisten ab; er prüft das „alles oder nichts“ jetzt über ein Einsatzlimit, das nur Einsätze zählt und deshalb deterministisch ist.
+
+## 6. Nachtrag Phase 14 – 20 Rust-Kisten und Bonus-Battle
+
+Stand: 21.10.2026. Code:
+- `platform/engine/src/games/cases.ts` (Kisten, `BONUS`, `playBattle(…, 'bonus')`)
+- `platform/server/src/{db,pg,pvp,explorer,config}.ts`
+- `platform/web/src/loot-art.ts`, `platform/web/src/views/{cases,battle,upgrader}.ts`
+
+### 6.1 Zwanzig Kisten von 1 bis 1 500 $
+
+- Alle Kisten tragen Namen von Rust-Lootcontainern und -Monumenten, die Items heißen wie Rust-Items und -Skins.
+  - Sets (z. B. „Whiteout Set“, „Gold Collection“) sind Bündel echter Skins.
+  - Die Item-Werte sind Platzhalter, bis der Skin-Preisfeed angeschlossen ist.
+- Die Gewichte sind so gelöst, dass jeder Preis genau auf seiner Stufe liegt und der RTP 93,00 % beträgt (Barrel 92,99 %, weil 100 Frags kaum Spielraum zum Runden lassen).
+- 100 Frags = 1 $ Spielgeld, also 100 bis 150 000 Frags:
+
+| Kiste | Preis | Top-Item | Kiste | Preis | Top-Item |
+|---|---:|---|---|---:|---|
+| Barrel | 1 $ | Alien Red (43×) | Locked Crate | 60 $ | Desert Raiders Set |
+| Oil Barrel | 2 $ | AK-47 From Hell | Bradley Crate | 80 $ | Whiteout Set |
+| Wooden Crate | 3,50 $ | No Mercy Jacket | Heli Crate | 100 $ | Tempered Set |
+| Ration Box | 5 $ | Press Vest | Large Oil Rig | 150 $ | Glory Set |
+| Food Box | 7,50 $ | Tempered AK47 | Cargo Ship | 200 $ | Glory Set |
+| Tool Box | 10 $ | Frostbite Facemask | Underwater Lab | 300 $ | Punishment Set |
+| Medical Crate | 15 $ | Whiteout Facemask | Launch Site | 450 $ | Raiders Collection |
+| Military Crate | 20 $ | Glory AK47 | Large Present | 650 $ | Gold Collection |
+| Supply Drop | 30 $ | Big Grin | Missile Silo | 1 000 $ | Gold Collection |
+| Elite Crate | 45 $ | Punishment Mask | Gold Egg | 1 500 $ | Gold Collection (3,2×) |
+
+- **Limits angehoben**, damit die teuren Kisten spielbar sind:
+  - Max. Einsatz 200 000 Frags (2 000 $), max. Gewinn 5 000 000 Frags (50 000 $).
+  - Ein Battle mit 4 Plätzen über zwei Gold Eggs passt unter den Max-Gewinn (Pool-Obergrenze = Top-Items × Plätze).
+  - Demo-Startguthaben und Nachfüllung 250 000 Frags.
+  - Pro Spiel lassen sich die Limits im Backoffice weiter senken.
+- **Bilder:** jede Kiste hat eine eigene Zeichnung im Blueprint-Stil (Fass, Ölfass, Werkzeugkasten, Fallschirm, Bradley, Ölplattform, Containerschiff, Rakete, Ei …).
+  - Items bekommen ein Symbol nach Typ (Gewehr, SMG, Pistole, Maske, Helm, Tür, Sprengstoff, Medizin, Set …), eingefärbt nach Seltenheit.
+  - Das Symbol wird aus dem Namen erkannt, neue Items brauchen also keine eigene Grafik.
+  - Die echten Steam-Itembilder sind nicht eingebunden: Sie sind Bildmaterial von Facepunch und der Steam-CDN ist aus dieser Umgebung nicht erreichbar. Der Preisfeed liefert später die Bild-URLs mit.
+- **Bestehende Datenbanken:**
+  - Kisten, deren aktuelle Version aus dem Seed stammt, bekommen die neue Itemliste als nächste Version. Alte Versionen bleiben prüfbar.
+  - Versionen, die ein Operator veröffentlicht hat, werden nie überschrieben.
+  - Die vier Kisten, die herausfallen (Scrap Box, Road Sign, Tech Trash, Vault), werden einmal deaktiviert. Ein Operator kann sie wieder einschalten.
+  - Postgres: Migration v6. SQLite: einmaliger Schritt über `PRAGMA user_version`.
+
+### 6.2 Bonus-Modus im Case Battle
+
+Für 2 bis 4 Plätze. Zum normalen Öffnen kommen fünf Features:
+
+| Feature | Regel |
+|---|---|
+| Power-Runden | Vor jeder Runde wird ein Punkte-Multiplikator gezogen: ×1 (50 %), ×2 (30 %), ×3 (15 %), ×5 (5 %). |
+| Goldene Runde | Die letzte Runde zählt zusätzlich doppelt, also bis ×10. |
+| Jackpot-Drop | Wer das Top-Item einer Kiste zieht, behält es, egal wer gewinnt. Es zählt trotzdem für die Punkte. |
+| Finaler Spin | Der Rest des Pools geht an einen Platz, der auf einem Rad gezogen wird. Jedes Feld ist so breit wie der Anteil des Platzes an den Punkten. |
+| Scrap Back | 10 % dieses Rests werden auf die Plätze verteilt, die das Rad nicht gewählt hat. |
+
+**Warum der House Edge gleich bleibt:**
+- Das Haus verdient im Battle nur Kistenpreis minus Drops. Kein Feature fügt Wert hinzu oder nimmt welchen weg:
+  - Jackpot-Drops plus Rest ergeben genau den Pool.
+  - Der Spin verteilt genau diesen Rest.
+- Multiplikatoren und Spin behandeln jeden Platz gleich. Die Reihenfolge der Felder auf dem Rad ändert nichts, denn P(Platz gewinnt) = sein Anteil, egal wo sein Feld liegt.
+- Die Plätze sind also austauschbar: E[Auszahlung je Platz] = E[Pool] ÷ Plätze = Σ EV(Kisten). Das ist derselbe RTP wie beim Öffnen der Kisten, 7 % House Edge.
+- Der Unterdog hat damit eine echte Chance, und ein Jackpot-Drop zahlt sich immer aus.
+
+**Prüfung:**
+- Ein Engine-Test rechnet die Erwartung exakt durch Aufzählen aller Power-Felder und aller Tickets jedes Platzes aus (2, 3 und 4 Plätze). Jeder Platz bekommt auf 10⁻⁹ genau Σ EV.
+- Ein zweiter Test prüft an 10 000 echten Battles, dass die Auszahlungen immer genau den Pool ergeben.
+
+**Provably fair:**
+- Reihenfolge der Floats: pro Runde zuerst ein Power-Float, dann ein Float pro Platz; am Ende ein Float für den Spin.
+- Die anderen Modi ziehen weiter genau Plätze × Runden Floats, alte Battles verifizieren unverändert.
+- Explorer und Prüfer-Seite rechnen Power, Jackpots, Punkte, Felder und Spin nach. Der Explorer prüft jetzt bei jedem Battle auch die Auszahlung pro Platz.
+- Für Kisten, die sich seitdem geändert haben, nimmt der Prüfer den Inhalt der alten Version als JSON.
+
+**Battle-Raum:**
+- Power-Badge pro Runde mit kurzem Würfeln; die goldene Runde ist mit ★ markiert.
+- Punkte und Gewinnchance je Platz als Balken, Jackpot-Drops golden hervorgehoben.
+- Am Ende läuft das Rad als horizontale Walze, die Nadel bleibt auf dem Spin-Float stehen.
+
+### 6.3 Monte-Carlo (je 10 000 000 Runden, alle 90 Läufe bestanden)
+
+| Lauf | Theorie | Simuliert | z |
+|---|---:|---:|---:|
+| Barrel (100 Frags) | 92,9921 % | 92,8844 % | −0,84 |
+| Tool Box (1 000 Frags) | 93,0000 % | 92,9740 % | −0,34 |
+| Gold Egg (150 000 Frags) | 92,9999 % | 92,9788 % | −0,93 |
+| Bonus 1v1, Platz 1 / 2 | 92,9972 % | 93,0529 / 93,0464 % | 1,06 / 0,93 |
+| Bonus 1v1v1, Platz 1 / 2 / 3 | 92,9972 % | 93,2026 / 93,0895 / 92,9159 % | 3,59 / 1,61 / −1,42 |
+| Bonus 1v1v1v1, Platz 1 / 2 / 3 / 4 | 92,9972 % | 92,9661 / 92,9168 / 92,9131 / 93,0497 % | −0,51 / −1,32 / −1,38 / 0,86 |
+
+- Der Lauf mit z = 3,59 liegt unter der Grenze von 4. Die Kisten haben schwere Ränder (Barrel bis 43×), da streut ein Lauf stärker.
+- Die exakte Rechnung oben zeigt, dass kein Platz bevorzugt wird. Zusätzlich lief ein gepaarter Test (Auszahlung minus Mittel derselben Battles, Spin herausgerechnet) mit 8 Mio. Battles aus dem Zufall des Betriebssystems: alle |z| < 2.
+
+Engine 101 Tests, Server 65 Tests auf SQLite und Postgres.

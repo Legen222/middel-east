@@ -45,10 +45,10 @@ export interface Config {
 export const DEFAULT_CONFIG: Config = {
   demo: true,
   minStake: frags(1),
-  maxStake: frags(100_000), // 1 000 $
-  maxWin: frags(1_000_000), // 10 000 $
-  demoStartBalance: frags(100_000),
-  demoRefill: frags(100_000),
+  maxStake: frags(200_000), // 2 000 $: the 1 500 $ Gold Egg fits
+  maxWin: frags(5_000_000), // 50 000 $: a 4-seat battle over two Gold Eggs fits (pool cap = top items × seats)
+  demoStartBalance: frags(250_000),
+  demoRefill: frags(250_000),
   sanctioned: ['KP', 'IR', 'SY', 'CU'],
   realMoneyBlocked: ['US', 'GB', 'FR', 'NL', 'DE', 'AU', 'ES', 'IT', 'BE', 'DK', 'SE', 'PT', 'CH', 'AT', 'SG', 'TR', 'IL'],
   countryHeader: 'cf-ipcountry',
