@@ -153,6 +153,22 @@ export async function logoutAll(db: DB, userId: string, now: number): Promise<nu
   return Number(n.n);
 }
 
+/* ---------- live figures for the lobby ---------- */
+
+export const ONLINE_WINDOW_MS = 5 * 60_000;
+
+/** Players seen in the last 5 minutes, rounds and the best win of the last 24 h. Public. */
+export async function liveStats(db: DB, now: number) {
+  const online = (await db.prepare('SELECT COUNT(DISTINCT user_id) AS n FROM sessions WHERE last_seen >= ? AND expires_at > ?').get(now - ONLINE_WINDOW_MS, now)) as { n: number };
+  const day = (await db.prepare('SELECT COUNT(*) AS n, COALESCE(SUM(payout), 0) AS p FROM wagers WHERE settled = 1 AND created_at >= ?').get(now - FEED_WINDOW_MS)) as { n: number; p: number };
+  const top = (await db.prepare(`SELECT w.game, w.stake, w.payout, ${PUBLIC_NAME} AS name FROM wagers w JOIN users u ON u.id = w.user_id
+    WHERE w.settled = 1 AND w.created_at >= ? ORDER BY w.payout DESC LIMIT 1`).get(now - FEED_WINDOW_MS)) as { game: GameId; stake: number; payout: number; name: string } | undefined;
+  return {
+    online: Number(online.n), roundsToday: Number(day.n), paidToday: f(day.p),
+    topWin: top && Number(top.payout) > 0 ? { game: top.game, gameName: GAME_NAME[top.game] ?? top.game, name: top.name, payout: f(top.payout), multiplier: Number(top.stake) ? Number(top.payout) / Number(top.stake) : 0 } : null,
+  };
+}
+
 /* ---------- public live-bets feed ---------- */
 
 export type FeedKind = 'all' | 'high';

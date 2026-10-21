@@ -1,24 +1,73 @@
 import { api } from '../api';
 import { gameArt, heroSheet } from '../art';
+import { crateArt } from '../loot-art';
 import { CATEGORIES, GAMES, type GameMeta, gameName } from '../games';
 import { icon } from '../icons';
 import type { View } from '../main';
 import { $, animateNumber, esc, frags, pct, reducedMotion } from '../ui';
 
+/* Ribbon text on the tall phone tiles (the desktop shows the short tag). */
+const RIBBON: Record<string, string> = { NEW: 'New update!', LIVE: 'Live now', SIGNATURE: 'Top pick' };
+
 const tile = (g: GameMeta, i: number) => `
-  <a class="tile ${g.tag === 'SIGNATURE' ? 'sig' : ''}" href="#/${g.path}" data-game="${g.id}" style="--t:${i}">
+  <a class="tile ${g.tag === 'SIGNATURE' ? 'sig' : ''}" href="#/${g.path}" data-game="${g.id}" data-cat="${g.cat}" style="--t:${i}">
     <div class="art-box">${gameArt(g.id)}</div>
-    ${g.tag ? `<span class="flag ${g.tag}">${g.tag}</span>` : ''}
+    ${g.tag ? `<span class="flag ${g.tag}"><span class="d-only">${g.tag}</span><span class="m-only">${RIBBON[g.tag]}</span></span>` : ''}
     <span class="paused-tag" hidden>PAUSED</span>
     <div class="body"><b>${g.name}</b><span class="line">${g.line}</span><span class="meta"><span>RTP</span><em>${g.rtp}</em></span></div>
   </a>`;
 
 const corners = '<span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>';
 
+/* Phone carousel: our own highlights, each a real page. */
+const SLIDES: { href: string; kicker: string; title: string; text: string; cta: string; art: () => string; tone: string }[] = [
+  { href: '#/cases', kicker: 'Crate opening', title: 'Twenty crates', text: '$1 to $1,500 · 93 % RTP each', cta: 'Open a crate', art: () => crateArt('gold-egg', 150_000), tone: 'brass' },
+  { href: '#/battle', kicker: 'Case Battle', title: 'Bonus battles', text: 'Power rounds, jackpot drops, a final spin', cta: 'Start a battle', art: () => gameArt('battle'), tone: 'bp' },
+  { href: '#/verify', kicker: 'Provably fair', title: 'Check every round', text: 'Replay any bet in your own browser', cta: 'Open the verifier', art: () => gameArt('dice'), tone: 'ok' },
+  { href: '#/chat', kicker: 'Oil Rain', title: 'Rain in the chat', text: 'Free Frags every 30 minutes from level 5', cta: 'Go to the chat', art: () => gameArt('jackpot'), tone: 'violet' },
+];
+
+/* Free Frags: every way to get play money without staking it. */
+const FREE: { href: string; icon: string; title: string; text: string; demoOnly?: boolean }[] = [
+  { href: '#/rewards', icon: 'trophy', title: 'Redeem your level rewards', text: 'Rakeback grows with every level' },
+  { href: '#/rewards', icon: 'crate', title: 'Open your free Scrap Crate', text: 'Once a day from level 2' },
+  { href: '#/chat', icon: 'rain', title: 'Catch the Oil Rain', text: 'In the chat every 30 minutes' },
+  { href: '#/rewards', icon: 'keycard', title: 'Redeem a promo code', text: 'Codes from streams and wipe days' },
+  { href: '#/rewards', icon: 'user', title: 'Bonuses with a crew code', text: 'Bring friends, share the rewards' },
+  { href: '#/wallet', icon: 'upgrade', title: 'Refill your balance', text: 'Once a day in the demo', demoOnly: true },
+];
+
 export const lobbyView: View = {
   title: 'Lobby',
   html: (c) => `
-    <section class="hero">
+    <section class="mhero m-only" aria-label="Welcome">
+      <p class="mh-pre">Welcome to</p>
+      <h1 class="mh-brand">SCRAPLINE</h1>
+      <p class="mh-tag">Rust originals with an open blueprint</p>
+      <p class="mh-online"><span class="live-dot"></span><b class="num" id="mh-online">–</b> online<span class="sep">·</span><b class="num" id="mh-rounds">–</b> rounds today</p>
+      ${c.guest ? `<button class="btn cta block" type="button" data-signup-inline>Sign up · ${frags(c.cfg.demoStartBalance ?? 0, 0)} Frags play money</button>` : ''}
+    </section>
+
+    <section class="wins m-only" aria-label="Live wins">
+      <div class="wins-head"><p class="eyebrow"><span class="live-dot"></span> Live wins</p></div>
+      <div class="wins-track" id="wins"><p class="muted" style="font-size:13px">Loading …</p></div>
+    </section>
+
+    <section class="promo m-only" aria-label="Highlights" aria-roledescription="carousel">
+      <div class="promo-track" id="promo">${SLIDES.map((sl, i) => `<a class="slide tone-${sl.tone}" href="${sl.href}" aria-label="${i + 1} of ${SLIDES.length}: ${sl.title}">
+        <span class="sl-copy"><span class="sl-kicker">${sl.kicker}</span><b>${sl.title}</b><span>${sl.text}</span><span class="sl-cta">${sl.cta} →</span></span>
+        <span class="sl-art">${sl.art()}</span></a>`).join('')}</div>
+      <button class="promo-nav prev" type="button" aria-label="Previous">‹</button><button class="promo-nav next" type="button" aria-label="Next">›</button>
+      <div class="promo-dots">${SLIDES.map((_, i) => `<button type="button" data-dot="${i}" aria-label="Slide ${i + 1}" ${i ? '' : 'aria-current="true"'}></button>`).join('')}</div>
+    </section>
+
+    <section class="mgames m-only" aria-label="Games">
+      <h2 class="h-sect" style="font-size:20px">Our games</h2>
+      <div class="chips mg-filter" role="group" aria-label="Filter games"><button type="button" class="fchip" data-mcat="" aria-pressed="true">All ${GAMES.length}</button>${CATEGORIES.map(([cat, label]) => `<button type="button" class="fchip" data-mcat="${cat}" aria-pressed="false">${label}</button>`).join('')}</div>
+      <div class="tiles" id="mtiles">${GAMES.map((g, i) => tile(g, i)).join('')}</div>
+    </section>
+
+    <section class="hero d-only">
       ${corners}
       <div class="copy">
         <p class="eyebrow">Open blueprint · play money · 18+</p>
@@ -36,7 +85,7 @@ export const lobbyView: View = {
       <a class="live-card" href="#/battle"><span class="lc-head">${icon('battle')}Case Battle<span class="live-dot"></span></span><b class="lc-val num" id="lv-battle">–</b><span class="lc-sub" id="lv-battle-sub">Connecting …</span><span class="hist" id="lv-battle-hist"></span></a>
     </section>
 
-    <section class="stats" aria-label="Key figures">
+    <section class="stats d-only" aria-label="Key figures">
       <div><b>${GAMES.length}</b><span>games, each with a published proof</span></div>
       <div><b>93–99.31 %</b><span>RTP range across all games</span></div>
       <div><b id="st-bets">–</b><span>bets settled in the last 30 days</span></div>
@@ -46,18 +95,23 @@ export const lobbyView: View = {
     ${c.me.block ? `<section class="card" style="border-color:var(--lose)"><p>${c.me.block.kind === 'operator' ? 'Your account is on hold. Please contact support.' : 'Your account is on a break. You cannot play until the break ends.'}</p></section>` : ''}
 
     ${CATEGORIES.map(([cat, label, desc]) => `
-    <section style="display:flex;flex-direction:column;gap:14px">
+    <section class="cat-sect d-only" style="display:flex;flex-direction:column;gap:14px">
       <div class="sect-head"><div><p class="eyebrow">${GAMES.filter((g) => g.cat === cat).length} games</p><h2 class="h-sect" style="font-size:22px">${label}</h2></div><p>${desc}</p></div>
       <div class="tiles">${GAMES.filter((g) => g.cat === cat).map((g, i) => tile(g, i)).join('')}</div>
     </section>`).join('')}
 
-    <section class="card">
+    <section class="free-sect" style="display:flex;flex-direction:column;gap:14px">
+      <div class="sect-head"><div><p class="eyebrow">Free Frags</p><h2 class="h-sect" style="font-size:22px">Get free Frags</h2></div><p>Play money from levels, the daily crate, the rain and codes. No stake needed.</p></div>
+      <div class="free">${FREE.filter((f) => !f.demoOnly || c.cfg.demo).map((f) => `<a class="free-card" href="${f.href}"><span class="fc-ico">${icon(f.icon)}</span><b>${f.title}</b><span>${f.text}</span></a>`).join('')}</div>
+    </section>
+
+    <section class="card feed-card">
       <div class="sect-head"><div><p class="eyebrow"><span class="live-dot"></span> Live</p><h2 class="h-sect">Latest bets</h2></div>
-        <div class="seg" role="group" aria-label="Which bets" style="min-width:min(330px,100%)"><button type="button" data-feed="all" aria-pressed="true">All bets</button><button type="button" data-feed="high" aria-pressed="false">High wins</button><button type="button" data-feed="mine" aria-pressed="false">My bets</button></div></div>
+        <div class="seg" role="group" aria-label="Which bets" style="min-width:min(330px,100%)"><button type="button" data-feed="all" aria-pressed="true">All bets</button><button type="button" data-feed="high" aria-pressed="false">High wins</button>${c.guest ? '' : '<button type="button" data-feed="mine" aria-pressed="false">My bets</button>'}</div></div>
       <div class="tablewrap"><table class="feed"><thead><tr><th>Game</th><th>Player</th><th class="hide-xs">Time</th><th class="r hide-xs">Stake</th><th class="r">Multi</th><th class="r">Payout</th></tr></thead><tbody id="feed"><tr><td colspan="6" class="muted">Loading …</td></tr></tbody></table></div>
     </section>
 
-    <section class="card">
+    <section class="card ledger-card">
       <div class="sect-head"><div><p class="eyebrow">Fair-Ledger</p><h2 class="h-sect">Published vs. actual RTP · last 30 days</h2></div><a href="#/fair" style="font-size:13px">Verify any round →</a></div>
       <div class="tablewrap"><table><thead><tr><th>Game</th><th class="r">Bets</th><th class="r">Wagered</th><th class="r">Paid out</th><th class="r">Actual</th><th class="r">Published</th></tr></thead><tbody id="rtp"><tr><td colspan="6" class="muted">Loading …</td></tr></tbody></table></div>
       <p class="muted" style="font-size:13px">A few bets swing a lot; the actual figure settles towards the published one after a few thousand rounds.</p>
@@ -67,13 +121,22 @@ export const lobbyView: View = {
     drawIn(root);
     const stopLive = mountLive(root);
     const stopFeed = mountFeed(root, c.me.displayName);
+    const stopWins = mountWins(root);
+    const stopPromo = mountPromo(root);
+    root.querySelector('[data-signup-inline]')?.addEventListener('click', () => c.openSignup());
+    // phone: one grid of every game, filtered by category
+    root.querySelectorAll<HTMLButtonElement>('[data-mcat]').forEach((b) => b.addEventListener('click', () => {
+      const cat = b.dataset.mcat;
+      root.querySelectorAll('[data-mcat]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      root.querySelectorAll<HTMLElement>('#mtiles .tile').forEach((t) => { t.hidden = Boolean(cat) && t.dataset.cat !== cat; });
+    }));
     api<{ game: string; enabled: boolean; reason: string | null }[]>('GET', '/games/status').then((list) => {
       for (const g of list) {
-        const t = root.querySelector<HTMLElement>(`.tile[data-game="${g.game}"]`);
-        if (!t) continue;
-        t.classList.toggle('paused', !g.enabled);
-        (t.querySelector('.paused-tag') as HTMLElement).hidden = g.enabled;
-        if (!g.enabled) t.title = `Paused${g.reason ? `: ${g.reason}` : ''}`;
+        root.querySelectorAll<HTMLElement>(`.tile[data-game="${g.game}"]`).forEach((t) => {
+          t.classList.toggle('paused', !g.enabled);
+          (t.querySelector('.paused-tag') as HTMLElement).hidden = g.enabled;
+          if (!g.enabled) t.title = `Paused${g.reason ? `: ${g.reason}` : ''}`;
+        });
       }
     }).catch(() => null);
     api<{ games: { game: string; bets: number; wagered: number; paid: number; rtp: number | null }[] }>('GET', '/stats/rtp?days=30').then((s) => {
@@ -89,7 +152,7 @@ export const lobbyView: View = {
             <td class="r num">${g.rtp === null ? '–' : pct(g.rtp)}</td><td class="r num muted">${esc(GAMES.find((x) => x.id === g.game)?.rtp ?? '–')}</td></tr>`).join('')
         : '<tr><td colspan="6" class="muted">No rounds yet.</td></tr>';
     }).catch(() => null);
-    return () => { stopLive(); stopFeed(); };
+    return () => { stopLive(); stopFeed(); stopWins(); stopPromo(); };
   },
 };
 
@@ -124,10 +187,11 @@ function mountFeed(root: HTMLElement, me: string): () => void {
 /** The hero drawing draws itself: every line runs from its start to its end, labels fade in after. */
 function drawIn(root: HTMLElement) {
   if (reducedMotion()) return;
-  const svg = root.querySelector('.hero .drawing svg');
-  if (!svg) return;
+  const svg = root.querySelector<SVGSVGElement>('.hero .drawing svg');
+  if (!svg || !svg.getClientRects().length) return; // hidden (phone layout): nothing to draw
   svg.querySelectorAll<SVGGeometryElement>('path, rect, circle, ellipse').forEach((el, i) => {
-    const len = el.getTotalLength?.();
+    let len = 0;
+    try { len = el.getTotalLength?.() ?? 0; } catch { return; }
     if (!len) return;
     el.style.strokeDasharray = `${len}`;
     el.animate([{ strokeDashoffset: len }, { strokeDashoffset: 0 }], { duration: 1300, delay: 150 + i * 16, easing: 'cubic-bezier(.2,.7,.2,1)', fill: 'backwards' })
@@ -207,4 +271,48 @@ function mountLive(root: HTMLElement): () => void {
   const slow = setInterval(() => void poll(), 2500);
   const quick = setInterval(fast, 100);
   return () => { clearInterval(slow); clearInterval(quick); };
+}
+
+/* ---------- phone: live wins (cards that scroll sideways) and players online ---------- */
+interface Live { online: number; roundsToday: number }
+function mountWins(root: HTMLElement): () => void {
+  let sig = '';
+  const iconOf = (game: string) => GAMES.find((g) => g.id === game)?.icon ?? 'dice';
+  const load = async () => {
+    const [rows, live] = await Promise.all([api<FeedRow[]>('GET', '/feed?kind=all').catch(() => [] as FeedRow[]), api<Live>('GET', '/stats/live').catch(() => null)]);
+    if (live) {
+      const on = root.querySelector('#mh-online'), rd = root.querySelector('#mh-rounds');
+      if (on) on.textContent = live.online.toLocaleString('en-US');
+      if (rd) rd.textContent = live.roundsToday.toLocaleString('en-US');
+    }
+    const box = root.querySelector('#wins');
+    if (!box) return;
+    const wins = rows.filter((r) => r.payout > r.stake).slice(0, 12);
+    const html = wins.length ? wins.map((r) => `<a class="win-card ${r.multiplier >= 10 ? 'gold' : r.multiplier >= 2 ? 'hot' : ''}" href="#/${GAMES.find((g) => g.id === r.game)?.path ?? ''}">
+        <span class="wc-ico">${icon(iconOf(r.game))}</span><span class="wc-txt"><b class="num">${frags(r.payout)}</b><span>${esc(r.name)}</span><small>${esc(gameName(r.game))} · ${r.multiplier.toFixed(2)}×</small></span></a>`).join('')
+      : '<p class="muted" style="font-size:13px">No wins yet today. The first one shows up here.</p>';
+    if (html !== sig) { sig = html; box.innerHTML = html; }
+  };
+  void load();
+  const t = setInterval(() => void load(), 4000);
+  return () => clearInterval(t);
+}
+
+/* ---------- phone: highlight carousel (swipe, arrows, dots, slow autoplay) ---------- */
+function mountPromo(root: HTMLElement): () => void {
+  const track = root.querySelector<HTMLElement>('#promo');
+  if (!track) return () => undefined;
+  const slides = [...track.children] as HTMLElement[];
+  const dots = [...root.querySelectorAll<HTMLButtonElement>('[data-dot]')];
+  const at = () => Math.round(track.scrollLeft / Math.max(1, track.clientWidth));
+  const go = (i: number) => track.scrollTo({ left: ((i + slides.length) % slides.length) * track.clientWidth, behavior: reducedMotion() ? 'auto' : 'smooth' });
+  let touched = false;
+  const paintDots = () => dots.forEach((d, i) => (i === at() ? d.setAttribute('aria-current', 'true') : d.removeAttribute('aria-current')));
+  track.addEventListener('scroll', paintDots, { passive: true });
+  track.addEventListener('pointerdown', () => { touched = true; });
+  root.querySelector('.promo-nav.prev')?.addEventListener('click', () => { touched = true; go(at() - 1); });
+  root.querySelector('.promo-nav.next')?.addEventListener('click', () => { touched = true; go(at() + 1); });
+  dots.forEach((d, i) => d.addEventListener('click', () => { touched = true; go(i); }));
+  const t = setInterval(() => { if (!touched && !reducedMotion() && track.offsetParent) go(at() + 1); }, 6000);
+  return () => clearInterval(t);
 }

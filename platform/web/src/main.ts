@@ -1,5 +1,5 @@
 import { type Me, type PublicConfig, RequestError, api, token } from './api';
-import { LOGO_MARK, heroSheet } from './art';
+import { LOGO_MARK } from './art';
 import { chatPanelHtml, chatView, mountChatPanel } from './chatpanel';
 import { CATEGORIES, GAMES, gameByPath } from './games';
 import { SPRITE, icon } from './icons';
@@ -37,8 +37,12 @@ export interface Ctx {
   refresh: () => Promise<void>;
   /** Rebuilds the shell (navigation depends on the role) and the current view. */
   rerender: () => void;
-  /** Ends the local session and returns to the sign-up page, with a message. */
+  /** Ends the local session and returns to the guest lobby, with a message. */
   signOut: (message?: string) => void;
+  /** Visitor without an account: the lobby and public pages work, everything else asks to sign up. */
+  guest: boolean;
+  /** Opens the sign-up sheet (18+ confirmation, display name). */
+  openSignup: () => void;
 }
 export interface View { title: string; html: (c: Ctx) => string; mount?: (root: HTMLElement, c: Ctx) => void | (() => void) }
 
@@ -52,7 +56,8 @@ const VIEWS: Record<string, View> = {
   wallet: walletView, profile: profileView, verify: verifyView, terms: termsView, privacy: privacyView, help: helpView,
 };
 const MAIN_NAV: [string, string][] = [['', 'Lobby'], ['rewards', 'Rewards'], ['fair', 'Provably fair'], ['limits', 'Responsible play']];
-const BOTTOM_NAV: [string, string, string][] = [['', 'Lobby', 'home'], ['rewards', 'Rewards', 'trophy'], ['chat', 'Chat', 'chat'], ['limits', 'Limits', 'gauge'], ['fair', 'Fair', 'shield']];
+/** What a visitor without an account can open; every other route asks to sign up first. */
+const GUEST_ROUTES = new Set(['', 'help', 'terms', 'privacy', 'verify', 'chat']);
 const FOOT_NAV: [string, string][] = [['fair', 'Provably fair'], ['verify', 'Verifier'], ['limits', 'Responsible play'], ['help', 'Help'], ['terms', 'Terms'], ['privacy', 'Privacy']];
 const WIDE = matchMedia('(min-width: 1280px)');
 const CHAT_KEY = 'scrapline.chat';
@@ -63,6 +68,15 @@ let ctx: Ctx | null = null;
 let unmount: (() => void) | void;
 let realityTimer = 0;
 let unmountAside: (() => void) | null = null;
+let shownPath: string | null = null;
+
+/** Context values for a visitor: nothing personal, nothing that could be spent. */
+const GUEST_ME: Me = {
+  id: '', displayName: 'Guest', steamLinked: false, kycLevel: 0, balance: 0, level: 0,
+  seed: { serverSeedHash: '', clientSeed: '', nextNonce: 0 },
+  session: { startedAt: Date.now(), elapsedMs: 0, bets: 0, wagered: 0, net: 0, realityCheckMinutes: 0, nextRealityCheckAt: Number.MAX_SAFE_INTEGER },
+  block: null, promoEligible: false, role: 'player', mfa: { enrolled: false, fresh: false, required: false },
+};
 
 /* ---------- site banner (announcement, maintenance) ---------- */
 interface Site { announcement: { text: string; tone: 'info' | 'warn' } | null; maintenance: boolean; registrationOpen: boolean }
@@ -92,7 +106,7 @@ async function finishSteamLogin() {
   if (r) token.set(r.token);
 }
 
-/** Ends the local session (server session already gone or ended) and shows the sign-up page. */
+/** Ends the local session (server session already gone or ended) and shows the guest lobby. */
 function signOut(message?: string) {
   if (unmountAside) { unmountAside(); unmountAside = null; }
   if (typeof unmount === 'function') unmount();
@@ -110,16 +124,22 @@ async function boot() {
   await loadSite();
   watchSite();
   await finishSteamLogin();
-  if (!token.get()) return renderGate(cfg);
+  if (!token.get()) return startGuest(cfg);
   try {
     const me = await api<Me>('GET', '/me');
-    ctx = { cfg, me, refresh, rerender: () => { renderShell(); route(); }, signOut };
+    ctx = { cfg, me, refresh, rerender: () => { renderShell(); route(); }, signOut, guest: false, openSignup };
     renderShell();
     route();
   } catch (e) {
-    if (e instanceof RequestError && e.status === 401) return renderGate(cfg);
+    if (e instanceof RequestError && e.status === 401) return startGuest(cfg);
     renderFatal(e);
   }
+}
+
+function startGuest(cfg: PublicConfig) {
+  ctx = { cfg, me: { ...GUEST_ME, session: { ...GUEST_ME.session, startedAt: Date.now() } }, refresh: async () => undefined, rerender: () => { renderShell(); route(); }, signOut, guest: true, openSignup };
+  renderShell();
+  route();
 }
 
 function renderFatal(e: unknown) {
@@ -131,42 +151,40 @@ function renderFatal(e: unknown) {
   $('#retry').addEventListener('click', () => boot());
 }
 
-/* ---------- sign-up gate (18+) ---------- */
-function renderGate(cfg: PublicConfig) {
-  app.innerHTML = `
-  <div class="gate">
-    <section class="brand">
-      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
-      <a class="logo" href="#/">${LOGO_MARK}<span>SCRAPLINE</span></a>
-      <div style="display:flex;flex-direction:column;gap:12px">
-        <p class="eyebrow">Play-money demo · 18+</p>
-        <h1>Every round with an <em>open blueprint.</em></h1>
-        <p class="muted" style="max-width:48ch">Rust originals with published maths. Every outcome can be recomputed from its seeds, and the limits are yours to set.</p>
-      </div>
-      <div class="drawing">${heroSheet()}</div>
-      <ul class="facts"><li><b>${GAMES.length}</b>games with a proof</li><li><b>100 %</b>of rounds verifiable</li><li><b>${cfg.responsibleGambling.limitIncreaseDelayHours} h</b>before a higher limit applies</li></ul>
-    </section>
-    <form class="card" id="gate" novalidate>
-      <div><p class="eyebrow">Demo account</p><h2 class="h-sect" style="font-size:22px">Start playing</h2></div>
+/* ---------- sign-up sheet (18+) ---------- */
+function openSignup() {
+  const cfg = ctx?.cfg;
+  if (!cfg || document.getElementById('gate')) return;
+  const m = modal(`<form class="signup" id="gate" novalidate>
+      <div class="su-head"><a class="logo" href="#/">${LOGO_MARK}<span>SCRAPLINE</span></a><button class="iconbtn" type="button" data-close aria-label="Close">✕</button></div>
+      <div><p class="eyebrow">${cfg.demo ? 'Play-money demo' : 'Account'} · 18+</p><h2 class="su-title">Every round with an <em>open blueprint.</em></h2></div>
+      <ul class="su-facts"><li><b>${GAMES.length}</b>games with a proof</li><li><b>${frags(cfg.demoStartBalance ?? 0, 0)}</b>Frags to start</li><li><b>100 %</b>rounds verifiable</li></ul>
       ${site.registrationOpen ? '' : '<p class="status lose">New sign-ups are paused right now. Please try again later.</p>'}
-      ${bannerHtml()}
       <label class="field">Display name<input id="name" autocomplete="nickname" maxlength="24" required placeholder="e.g. Rust Rat"></label>
       <label class="check"><input type="checkbox" id="age"> <span>I am at least 18 years old. I understand that gambling can be addictive.</span></label>
-      <button class="btn block" type="submit">Create account · ${frags(cfg.demoStartBalance ?? 0, 0)} Frags play money</button>
-      ${cfg.demo ? '' : `<button class="btn ghost block" type="button" id="steam">Sign in with Steam</button>`}
-      <p class="muted" style="font-size:13px">Play money has no cash value and cannot be withdrawn.${cfg.demo ? ' Real money only comes with a licence.' : ''}</p>
-    </form>
-    <p class="help">Help with gambling problems: ${HELP_LINES}</p>
-  </div>`;
+      <button class="btn block" type="submit" data-create>Create account · ${frags(cfg.demoStartBalance ?? 0, 0)} Frags ${cfg.demo ? 'play money' : ''}</button>
+      ${cfg.demo ? '' : '<button class="btn ghost block" type="button" id="steam">Sign in with Steam</button>'}
+      <p class="muted" style="font-size:12px">${cfg.demo ? 'Play money has no cash value and cannot be withdrawn. ' : ''}Help with gambling problems: ${HELP_LINES}</p>
+    </form>`);
+  m.root.classList.add('sheet');
+  m.root.querySelector('[data-close]')?.addEventListener('click', m.close);
+  ($('#name', m.root) as HTMLInputElement).focus();
   document.getElementById('steam')?.addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {
     if (!$<HTMLInputElement>('#age').checked) { toast('Please confirm that you are at least 18 years old.', 'err'); return; }
     location.href = (await api<{ url: string }>('GET', '/auth/steam')).url;
   }));
   $('#gate').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const btn = $<HTMLButtonElement>('#gate button');
+    const btn = $<HTMLButtonElement>('#gate [data-create]');
     const res = await guard(btn, () => api<{ token: string }>('POST', '/auth/demo', { displayName: $<HTMLInputElement>('#name').value, ageConfirmed: $<HTMLInputElement>('#age').checked }));
-    if (res) { token.set(res.token); boot(); }
+    if (!res) return;
+    m.close();
+    token.set(res.token);
+    if (typeof unmount === 'function') unmount();
+    unmount = undefined;
+    if (unmountAside) { unmountAside(); unmountAside = null; }
+    await boot();
+    toast(`Welcome, ${$<HTMLElement>('#acct-menu .who b')?.textContent ?? 'player'}. Your play money is ready.`);
   });
 }
 
@@ -177,18 +195,13 @@ const setChatPref = (on: boolean) => { try { localStorage.setItem(CHAT_KEY, on ?
 function renderShell() {
   const c = ctx!;
   if (unmountAside) { unmountAside(); unmountAside = null; }
-  const showAdmin = c.cfg.demo || c.me.role !== 'player';
-  app.innerHTML = `
-  <div id="banner-slot">${bannerHtml()}</div>
-  <div class="shell">
-    <header class="topbar">
-      <a class="logo" href="#/">${LOGO_MARK}<span>SCRAPLINE</span></a>
-      <nav class="mainnav" aria-label="Main">${MAIN_NAV.map(([p, l]) => `<a href="#/${p}" data-path="${p}">${l}</a>`).join('')}</nav>
-      <div class="spacer"></div>
-      <div class="sessionbar" title="Play time and result of this session">${icon('clock')}<span class="lbl">Session</span><b id="s-time">00:00</b><span class="lbl">Net</span><b id="s-net">±0.00</b></div>
-      <div class="wallet"><span class="bal"><span class="tag-demo">DEMO</span><span id="balance">${frags(c.me.balance)}</span><small>Frags</small></span>${c.cfg.demo ? '<button type="button" class="hide-s" data-refill>Refill</button>' : ''}</div>
+  shownPath = null;
+  const showAdmin = !c.guest && (c.cfg.demo || c.me.role !== 'player');
+  const account = c.guest
+    ? `<button class="btn cta" type="button" data-signup>${icon('user')}<span>Sign up<span class="hide-xs"> · play free</span></span></button>`
+    : `<div class="wallet"><span class="bal"><span class="tag-demo">DEMO</span><span id="balance">${frags(c.me.balance)}</span><small>Frags</small></span>${c.cfg.demo ? '<button type="button" class="hide-s" data-refill>Refill</button>' : ''}<a class="wallet-plus" href="#/wallet" aria-label="Wallet">+</a></div>
       <button class="iconbtn hide-s" id="chat-toggle" type="button" aria-pressed="false" aria-label="Show chat">${icon('chat')}</button>
-      <div class="menuwrap">
+      <div class="menuwrap hide-s">
         <button class="iconbtn" id="acct" type="button" aria-expanded="false" aria-haspopup="menu" aria-label="Account">${icon('user')}</button>
         <div class="menu" id="acct-menu" role="menu" hidden>
           <div class="who"><b>${esc(c.me.displayName)}</b><span id="level">Level ${c.me.level}</span><span> · ${esc(c.me.role)}</span></div>
@@ -203,9 +216,23 @@ function renderShell() {
           ${showAdmin ? `<a role="menuitem" href="#/admin">${icon('wrench')}Backoffice</a>` : ''}
           <hr>
           ${c.cfg.demo ? `<button role="menuitem" type="button" data-refill>${icon('upgrade')}Refill demo balance</button>` : ''}
-          <button role="menuitem" type="button" id="logout">${icon('user')}Sign out</button>
+          <button role="menuitem" type="button" data-logout>${icon('user')}Sign out</button>
         </div>
-      </div>
+      </div>`;
+  const bottom: [string, string, string, string][] = [
+    ['games', 'Games', 'dice', ''], ['chat', 'Chat', 'chat', '#/chat'],
+    ['free', 'Free Frags', 'trophy', '#/rewards'], ['me', c.guest ? 'Sign up' : 'Account', 'user', '#/profile'],
+  ];
+  app.innerHTML = `
+  <div id="banner-slot">${bannerHtml()}</div>
+  <div class="shell ${c.guest ? 'guest' : ''}">
+    <header class="topbar">
+      <a class="logo" href="#/">${LOGO_MARK}<span>SCRAPLINE</span></a>
+      <button class="iconbtn burger" type="button" id="burger" aria-expanded="false" aria-controls="drawer" aria-label="Menu"><span></span><span></span><span></span></button>
+      <nav class="mainnav" aria-label="Main">${MAIN_NAV.map(([p, l]) => `<a href="#/${p}" data-path="${p}">${l}</a>`).join('')}</nav>
+      <div class="spacer"></div>
+      ${c.guest ? '' : `<div class="sessionbar" title="Play time and result of this session">${icon('clock')}<span class="lbl">Session</span><b id="s-time">00:00</b><span class="lbl">Net</span><b id="s-net">±0.00</b></div>`}
+      ${account}
     </header>
     <nav class="gamebar" aria-label="Games">${CATEGORIES.map(([cat, label], i) => `${i ? '<span class="sep" aria-hidden="true"></span>' : ''}<span class="cat">${label}</span>${GAMES.filter((g) => g.cat === cat)
       .map((g) => `<a class="gchip" href="#/${g.path}" data-path="${g.path}" data-game="${g.id}">${icon(g.icon)}${g.name}${g.tag === 'LIVE' ? '<em>LIVE</em>' : ''}</a>`).join('')}`).join('')}</nav>
@@ -217,30 +244,82 @@ function renderShell() {
       <div class="sf-top"><a class="logo" href="#/">${LOGO_MARK}<span>SCRAPLINE</span></a>
         <nav aria-label="Footer">${FOOT_NAV.map(([p, l]) => `<a href="#/${p}">${l}</a>`).join('')}</nav></div>
       <p><span class="age">18+</span> ${c.cfg.demo ? 'Play-money demo: Frags have no cash value and cannot be withdrawn.' : 'Licensed real-money play.'} Gambling can be addictive. Help: ${HELP_LINES}</p>
+      <p class="sf-legal">SCRAPLINE is not affiliated with, endorsed by or in any way associated with Rust, Facepunch Studios, Steam or Valve. Rust item and skin names identify the items only; all brands belong to their owners. The drawings on this site are our own.</p>
     </footer>
-    <nav class="bottomnav" aria-label="Navigation">${BOTTOM_NAV.map(([p, l, ic]) => `<a href="#/${p}" data-path="${p}">${icon(ic)}${l}</a>`).join('')}</nav>
-  </div>`;
+    <nav class="bottomnav" aria-label="Navigation">${bottom.map(([k, l, ic, href]) => k === 'games'
+      ? `<button type="button" data-drawer="games">${icon(ic)}${l}</button>`
+      : `<a href="${href}" data-bottom="${k}" ${k === 'chat' ? 'data-path="chat"' : k === 'free' ? 'data-path="rewards"' : 'data-path="profile"'}>${icon(ic)}${l}</a>`).join('')}</nav>
+  </div>
+  <div class="drawer-back" id="drawer-back" hidden></div>
+  <aside class="drawer" id="drawer" aria-label="Menu" hidden>${drawerHtml(c, showAdmin)}</aside>`;
 
-  $$<HTMLButtonElement>('[data-refill]').forEach((b) => b.addEventListener('click', () => guard(b, async () => { closeMenu(); await api('POST', '/demo/refill'); await refresh(); toast('Demo balance refilled.'); })));
-  $('#logout').addEventListener('click', async () => {
+  $$<HTMLButtonElement>('[data-refill]').forEach((b) => b.addEventListener('click', () => guard(b, async () => { closeMenu(); closeDrawer(); await api('POST', '/demo/refill'); await refresh(); toast('Demo balance refilled.'); })));
+  $$<HTMLButtonElement>('[data-logout]').forEach((b) => b.addEventListener('click', async () => {
+    closeDrawer();
     await api('POST', '/auth/logout').catch(() => null);
-    signOut();
-  });
-  const acct = $<HTMLButtonElement>('#acct');
-  acct.addEventListener('click', (e) => { e.stopPropagation(); $('#acct-menu').hidden ? openMenu() : closeMenu(); });
-  $('#chat-toggle').addEventListener('click', () => {
+    signOut('Signed out.');
+  }));
+  $$<HTMLElement>('[data-signup]').forEach((b) => b.addEventListener('click', (e) => { e.preventDefault(); closeDrawer(); openSignup(); }));
+  document.getElementById('acct')?.addEventListener('click', (e) => { e.stopPropagation(); $('#acct-menu').hidden ? openMenu() : closeMenu(); });
+  document.getElementById('chat-toggle')?.addEventListener('click', () => {
     if (!WIDE.matches) { location.hash = '#/chat'; return; } // no room for a side panel: open the chat page
     setChatPref(!chatPref()); syncAside();
   });
+  $('#burger').addEventListener('click', () => ($('#drawer').hidden ? openDrawer() : closeDrawer()));
+  $$<HTMLButtonElement>('[data-drawer]').forEach((b) => b.addEventListener('click', () => openDrawer(b.dataset.drawer)));
+  $('#drawer-back').addEventListener('click', closeDrawer);
+  $$<HTMLAnchorElement>('#drawer a').forEach((a) => a.addEventListener('click', closeDrawer));
+  $('#drawer [data-close]')?.addEventListener('click', closeDrawer);
+  if (c.guest) $$<HTMLAnchorElement>('[data-bottom="me"], [data-bottom="free"]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); openSignup(); }));
   api<{ game: string; enabled: boolean }[]>('GET', '/games/status').then((list) => {
-    for (const g of list) document.querySelector(`.gchip[data-game="${g.game}"]`)?.classList.toggle('paused', !g.enabled);
+    for (const g of list) document.querySelectorAll(`.gchip[data-game="${g.game}"], .dgame[data-game="${g.game}"]`).forEach((el) => el.classList.toggle('paused', !g.enabled));
   }).catch(() => null);
   paintSession();
   scheduleRealityCheck();
   syncAside();
 }
 
+/* ---------- drawer (phone menu): every game, the account and the fair-play pages ---------- */
+function drawerHtml(c: Ctx, showAdmin: boolean) {
+  const link = (href: string, ic: string, label: string, extra = '') => `<a href="${href}">${icon(ic)}<span>${label}</span>${extra}</a>`;
+  return `
+    <div class="dr-head"><a class="logo" href="#/">${LOGO_MARK}<span>SCRAPLINE</span></a><button class="iconbtn" type="button" data-close aria-label="Close menu">✕</button></div>
+    ${c.guest
+      ? `<div class="dr-card"><p class="muted">Sign up in ten seconds: ${frags(c.cfg.demoStartBalance ?? 0, 0)} Frags of play money, every round verifiable.</p><button class="btn block" type="button" data-signup>Sign up · play free</button></div>`
+      : `<div class="dr-card"><div class="dr-me"><span>${icon('user')}</span><div><b>${esc(c.me.displayName)}</b><small class="muted">Level ${c.me.level}</small></div></div>
+          <div class="dr-bal"><span class="muted">Balance</span><b class="num" id="dr-balance">${frags(c.me.balance)}</b>${c.cfg.demo ? '<button class="btn small" type="button" data-refill>Refill</button>' : ''}</div></div>`}
+    <nav class="dr-sect" id="dr-games" aria-label="Games">${CATEGORIES.map(([cat, label]) => `<p class="dr-cat">${label}</p>${GAMES.filter((g) => g.cat === cat)
+      .map((g) => `<a class="dgame" href="#/${g.path}" data-game="${g.id}">${icon(g.icon)}<span>${g.name}</span>${g.tag ? `<em class="${g.tag}">${g.tag === 'SIGNATURE' ? 'TOP' : g.tag}</em>` : ''}</a>`).join('')}`).join('')}</nav>
+    ${c.guest ? '' : `<nav class="dr-sect" aria-label="Account"><p class="dr-cat">Account</p>
+      ${link('#/profile', 'user', 'Profile')}${link('#/wallet', 'pot', 'Wallet')}${link('#/history', 'clock', 'History')}${link('#/rewards', 'trophy', 'Rewards')}
+      ${showAdmin ? link('#/admin', 'wrench', 'Backoffice') : ''}</nav>`}
+    <nav class="dr-sect" aria-label="Fair play"><p class="dr-cat">Fair play</p>
+      ${c.guest ? '' : link('#/fair', 'shield', 'Provably fair')}${link('#/verify', 'target', 'Verifier')}${c.guest ? '' : link('#/limits', 'gauge', 'Limits &amp; breaks')}
+      ${link('#/help', 'chat', 'Help')}${link('#/terms', 'keycard', 'Terms')}${link('#/privacy', 'shield', 'Privacy')}</nav>
+    ${c.guest ? '' : `<div class="dr-sect"><button class="btn ghost block" type="button" data-logout>Sign out</button></div>`}`;
+}
+function openDrawer(focus?: string) {
+  const d = document.getElementById('drawer');
+  if (!d) return;
+  d.hidden = false;
+  $('#drawer-back').hidden = false;
+  document.body.classList.add('drawer-open');
+  $('#burger').setAttribute('aria-expanded', 'true');
+  if (focus === 'games') document.getElementById('dr-games')?.scrollIntoView({ block: 'start' });
+  (d.querySelector('[data-close]') as HTMLElement | null)?.focus();
+}
+function closeDrawer() {
+  const d = document.getElementById('drawer');
+  if (!d || d.hidden) return;
+  d.hidden = true;
+  $('#drawer-back').hidden = true;
+  document.body.classList.remove('drawer-open');
+  $('#burger').setAttribute('aria-expanded', 'false');
+}
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
+
 function openMenu() {
+  if (!document.getElementById('acct-menu')) return;
   $('#acct-menu').hidden = false;
   $('#acct').setAttribute('aria-expanded', 'true');
   ($('#acct-menu a, #acct-menu button') as HTMLElement | null)?.focus();
@@ -249,7 +328,7 @@ function closeMenu() {
   const m = document.getElementById('acct-menu');
   if (!m || m.hidden) return;
   m.hidden = true;
-  $('#acct').setAttribute('aria-expanded', 'false');
+  document.getElementById('acct')?.setAttribute('aria-expanded', 'false');
 }
 document.addEventListener('click', (e) => { if (!(e.target as HTMLElement).closest?.('#acct-menu')) closeMenu(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
@@ -285,11 +364,12 @@ addEventListener('scroll', fitAside, { passive: true });
 addEventListener('resize', fitAside);
 
 async function refresh() {
-  if (!ctx) return;
+  if (!ctx || ctx.guest) return;
   const before = ctx.me.balance;
   ctx.me = await api<Me>('GET', '/me');
   paintBalance(before, ctx.me.balance);
-  $('#level').textContent = `Level ${ctx.me.level}`;
+  const lv = document.getElementById('level');
+  if (lv) lv.textContent = `Level ${ctx.me.level}`;
   paintSession();
   scheduleRealityCheck();
 }
@@ -301,6 +381,8 @@ function paintBalance(from: number, to: number) {
   const wallet = el?.closest('.wallet');
   if (!el || !wallet) return;
   animateNumber(el, from, to, (n) => frags(n));
+  const dr = document.getElementById('dr-balance');
+  if (dr) dr.textContent = frags(to);
   if (to === from) return;
   wallet.classList.remove('up', 'down');
   void (wallet as HTMLElement).offsetWidth;
@@ -310,7 +392,7 @@ function paintBalance(from: number, to: number) {
 }
 
 /* Spotlight: cards light up where the pointer is (CSS reads --mx / --my). */
-const SPOT = '.tile, .case, .bcase, .bcard, .live-card';
+const SPOT = '.tile, .case, .bcase, .bcard, .live-card, .free-card, .win-card';
 let spotFrame = 0;
 document.addEventListener('pointermove', (e) => {
   if (e.pointerType !== 'mouse' || spotFrame) return;
@@ -327,8 +409,9 @@ document.addEventListener('pointermove', (e) => {
 let tick = 0;
 function paintSession() {
   clearInterval(tick);
+  if (!ctx || ctx.guest) return;
   const draw = () => {
-    if (!ctx) return;
+    if (!ctx || !document.getElementById('s-time')) return;
     const s = ctx.me.session;
     const secs = Math.floor((Date.now() - s.startedAt) / 1000);
     $('#s-time').textContent = `${String(Math.floor(secs / 3600)).padStart(2, '0')}:${String(Math.floor(secs / 60) % 60).padStart(2, '0')}`;
@@ -343,7 +426,7 @@ function paintSession() {
 /* Reality check: pops at the server-computed time with the session summary. */
 function scheduleRealityCheck() {
   clearTimeout(realityTimer);
-  if (!ctx) return;
+  if (!ctx || ctx.guest) return;
   const wait = Math.max(1000, ctx.me.session.nextRealityCheckAt - Date.now());
   realityTimer = window.setTimeout(async () => {
     await refresh().catch(() => null);
@@ -371,7 +454,21 @@ function decorateGame(root: HTMLElement, path: string) {
 function route() {
   if (!ctx) return;
   closeMenu();
+  closeDrawer();
   const raw = location.hash.replace(/^#\/?/, '').split('?')[0];
+  // a visitor opening a game or an account page: ask to sign up, stay where they are
+  if (ctx.guest && raw in VIEWS && !GUEST_ROUTES.has(raw)) {
+    openSignup();
+    history.replaceState(null, '', `#/${shownPath ?? ''}`);
+    if (shownPath !== null) return;
+    return renderView('');
+  }
+  renderView(raw);
+}
+
+function renderView(raw: string) {
+  if (!ctx) return;
+  shownPath = raw in VIEWS ? raw : null;
   const path = raw in VIEWS ? raw : '';
   const view = raw in VIEWS ? VIEWS[raw] : notFoundView;
   $$<HTMLAnchorElement>('[data-path]').forEach((a) => {
@@ -389,7 +486,12 @@ function route() {
   void root.offsetWidth;
   root.classList.add('enter');
   document.title = `${view.title} · SCRAPLINE`;
-  unmount = view.mount?.(root, ctx);
+  try {
+    unmount = view.mount?.(root, ctx);
+  } catch (e) {
+    console.error(e); // a broken view must not take the shell down
+    unmount = undefined;
+  }
   syncAside();
   root.focus({ preventScroll: true });
   window.scrollTo({ top: 0 });

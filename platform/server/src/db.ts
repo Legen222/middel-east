@@ -136,7 +136,8 @@ CREATE TABLE IF NOT EXISTS sessions (
   started_at INTEGER NOT NULL,
   expires_at INTEGER NOT NULL,
   mfa_at INTEGER,                 -- last successful TOTP step-up in this session
-  mfa_step INTEGER                -- TOTP time step used last (a code works once per session)
+  mfa_step INTEGER,               -- TOTP time step used last (a code works once per session)
+  last_seen INTEGER               -- last request, written at most once a minute ("players online")
 );
 CREATE INDEX IF NOT EXISTS sessions_user ON sessions(user_id);
 
@@ -565,6 +566,7 @@ function migrateLegacy(raw: Raw): void {
   if (!u.includes('totp_pending_at')) raw.exec('ALTER TABLE users ADD COLUMN totp_pending_at INTEGER');
   if (!u.includes('name_changed_at')) raw.exec('ALTER TABLE users ADD COLUMN name_changed_at INTEGER');
   if (!u.includes('hide_public')) raw.exec('ALTER TABLE users ADD COLUMN hide_public INTEGER NOT NULL DEFAULT 0');
+  if (!cols('sessions').includes('last_seen')) raw.exec('ALTER TABLE sessions ADD COLUMN last_seen INTEGER');
   const sc = cols('sessions');
   if (!sc.includes('mfa_at')) raw.exec('ALTER TABLE sessions ADD COLUMN mfa_at INTEGER');
   if (!sc.includes('mfa_step')) raw.exec('ALTER TABLE sessions ADD COLUMN mfa_step INTEGER');

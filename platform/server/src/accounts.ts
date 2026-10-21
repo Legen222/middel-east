@@ -66,8 +66,10 @@ export async function createSession(db: DB, cfg: Config, userId: string, now: nu
 export async function resolveSession(db: DB, token: string | undefined, now: number): Promise<Session | null> {
   if (!token) return null;
   const tokenHash = hashToken(token);
-  const s = (await db.prepare('SELECT user_id, started_at, mfa_at, mfa_step FROM sessions WHERE token_hash = ? AND expires_at > ?').get(tokenHash, now)) as { user_id: string; started_at: number; mfa_at: number | null; mfa_step: number | null } | undefined;
+  const s = (await db.prepare('SELECT user_id, started_at, mfa_at, mfa_step, last_seen FROM sessions WHERE token_hash = ? AND expires_at > ?').get(tokenHash, now)) as { user_id: string; started_at: number; mfa_at: number | null; mfa_step: number | null; last_seen: number | null } | undefined;
   if (!s) return null;
+  // presence for "players online": one write per session and minute at most
+  if (s.last_seen === null || now - Number(s.last_seen) >= 60_000) await db.prepare('UPDATE sessions SET last_seen = ? WHERE token_hash = ?').run(now, tokenHash);
   const user = await getUser(db, s.user_id);
   return user ? { user, startedAt: s.started_at, mfaAt: s.mfa_at ?? null, mfaStep: s.mfa_step ?? null, tokenHash } : null;
 }

@@ -26,7 +26,7 @@ import type { CrashService } from './crash';
 import type { DB } from './db';
 import { AppError, fail } from './errors';
 import { betDetail, exploreBets } from './explorer';
-import { type FeedKind, logoutAll, playerBetDetail, playerHistory, playerStats, profile, publicFeed, revealedSeeds, transactions, updateProfile } from './player';
+import { type FeedKind, liveStats, logoutAll, playerBetDetail, playerHistory, playerStats, profile, publicFeed, revealedSeeds, transactions, updateProfile } from './player';
 import { GAME_IDS, type GameLimits, gameConfig, gameFlags, setGameFlag, setGameLimits } from './flags';
 import { confirm as mfaConfirm, enroll as mfaEnroll, verify as mfaVerify } from './mfa';
 import { JackpotService } from './jackpot';
@@ -171,6 +171,7 @@ export function createRouter(deps: AppDeps) {
   });
   route('GET', '/history/:game/:ref', async (c, p) => playerBetDetail(db, deps.beacon, await uid(c), p.game, p.ref, clock()));
   route('GET', '/feed', async (c) => publicFeed(db, (c.url.searchParams.get('kind') ?? 'all') as FeedKind, clock()));
+  route('GET', '/stats/live', async (c) => { await resolveSession(db, c.token, clock()); return liveStats(db, clock()); });
 
   /* ---------- seeds ---------- */
   route('GET', '/seed', async (c) => activeSeedPublic(db, await uid(c)));

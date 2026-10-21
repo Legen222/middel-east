@@ -55,7 +55,7 @@ import { ADJUSTMENTS } from '../src/wallet';
 import { resolveSession } from '../src/accounts';
 import { dailyReport } from '../src/reports';
 import { betDetail, exploreBets } from '../src/explorer';
-import { NAME_CHANGE_COOLDOWN_MS, logoutAll, playerBetDetail, playerHistory, playerStats, publicFeed, revealedSeeds, transactions, updateProfile } from '../src/player';
+import { NAME_CHANGE_COOLDOWN_MS, liveStats, logoutAll, playerBetDetail, playerHistory, playerStats, publicFeed, revealedSeeds, transactions, updateProfile } from '../src/player';
 import { sha256Hex } from '../../engine/src/index';
 import { listChains } from '../src/chains';
 import { EDGE, buildChain } from '../../engine/src/index';
@@ -1201,7 +1201,8 @@ describe('admin (phase 11)', () => {
     const hl = (await hiloStart(db, cfg, userId, frags(1), ++t)) as any;
     await hiloMove(db, cfg, userId, hl.id, 'skip', ++t);
     const card = ((await hiloMove(db, cfg, userId, hl.id, 'skip', ++t)) as any).cards.at(-1).rank;
-    await hiloMove(db, cfg, userId, hl.id, card <= 7 ? 'hi' : 'lo', ++t);
+    // a king only allows "hi" (same), an ace only "lo" (same): a sure guess is refused
+    await hiloMove(db, cfg, userId, hl.id, card === 13 ? 'hi' : card === 1 ? 'lo' : card <= 7 ? 'hi' : 'lo', ++t);
     if ((await getBet(db, hl.id))!.status === 'open') await hiloCashout(db, userId, hl.id, ++t);
     ids.push(['hilo', hl.id]);
     const rd = await raidStart(db, cfg, userId, frags(1), ++t);
@@ -1603,12 +1604,30 @@ describe('player account: history, detail, seeds, wallet, profile, feed (phase 1
     assert.equal(await code(() => publicFeed(db, 'big' as never, T0)), 'invalid_params');
   });
 
+  it('live stats: players seen in the last 5 minutes, rounds and the top win of the day', async () => {
+    const { db, cfg, userId } = await setup();
+    const { userId: other } = await signUp(db, cfg, { displayName: 'Other', ageConfirmed: true, country: 'NZ' }, T0);
+    const t1 = await createSession(db, cfg, userId, T0);
+    const t2 = await createSession(db, cfg, other, T0);
+    await resolveSession(db, t1, T0 + 1000);
+    await resolveSession(db, t2, T0 + 2000);
+    await resolveSession(db, t1, T0 + 3000); // within the minute: no second write needed
+    await playInstant(db, cfg, userId, 'dice', frags(10), { chance: 90, direction: 'under' }, T0 + 4000);
+    let live = await liveStats(db, T0 + 10_000);
+    assert.equal(live.online, 2);
+    assert.equal(live.roundsToday, 1);
+    assert.ok(live.topWin === null || live.topWin.name === 'Tester');
+    await resolveSession(db, t1, T0 + 6 * 60_000);
+    live = await liveStats(db, T0 + 6 * 60_000 + 1000);
+    assert.equal(live.online, 1, 'the other player was last seen over 5 minutes ago');
+  });
+
   it('the HTTP routes answer for a signed-in player', async () => {
     const { db, cfg } = await setup();
     const router = createRouter({ db, cfg, clock: () => T0 + 1000, fetch: async () => ({ ok: false, text: async () => '' }) as never, publicUrl: 'http://x', beacon: new LocalBeacon(T0 - 60_000, 1000) } as never);
     const s = await router.dispatch({ method: 'POST', url: '/auth/demo', headers: {}, body: { displayName: 'Http', ageConfirmed: true }, ip: '1.1.1.1' });
     const auth = { authorization: `Bearer ${(s.payload as { token: string }).token}` };
-    for (const url of ['/history', '/seeds', '/wallet/transactions', '/me/stats', '/me/profile', '/feed?kind=high']) {
+    for (const url of ['/history', '/seeds', '/wallet/transactions', '/me/stats', '/me/profile', '/feed?kind=high', '/stats/live']) {
       const r = await router.dispatch({ method: 'GET', url, headers: auth, body: null, ip: '1.1.1.1' });
       assert.equal(r.status, 200, url);
     }

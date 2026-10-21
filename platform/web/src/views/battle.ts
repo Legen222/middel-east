@@ -27,8 +27,9 @@ const BONUS_FEATURES: [string, string, string][] = [
   ['10', 'Scrap back', '10 % of that rest is split between the seats the wheel did not pick.'],
 ];
 const SEAT_COLORS = ['var(--bp)', 'var(--brass)', 'var(--ok)', 'var(--lose)'];
-const ITEM_H = 56;
-const STOP = 24;
+/** Slot reel: the drop sits at symbol STOP of the strip; the strip is longer so symbols show below it too. */
+const STOP = 42;
+const STRIP = STOP + 3;
 const rarity = (value: number, price: number) => (value >= price * 20 ? '#C9A45C' : value >= price * 5 ? '#E5534B' : value >= price * 2 ? '#4C8DF6' : value >= price ? '#3FB950' : '#6B747D');
 const format = (b: Battle) => (b.params.mode === 'team' ? '2v2' : Array.from({ length: b.seats }, () => '1').join('v'));
 const ruleName = (m: Mode) => (m === 'team' ? 'Team' : RULES.find(([k]) => k === m)![1]);
@@ -160,7 +161,8 @@ function mountRoom(root: HTMLElement, c: Parameters<NonNullable<View['mount']>>[
       return `${b.params.mode === 'team' && s === 2 ? '<div class="vs" aria-hidden="true">VS</div>' : ''}<div class="seat ${teamCls}" data-seat="${s}">
         <div class="seat-head"><span class="who">${bonus ? `<i class="sw" style="background:${SEAT_COLORS[s]}"></i>` : ''}${p ? `${p.bot ? icon('wrench') : icon('user')}<b>${esc(seatName(p))}${p.you ? ' (you)' : ''}</b>` : '<span class="muted">Open seat</span>'}</span><span class="num total" data-total="${s}">0</span></div>
         ${bonus ? `<div class="chance" data-chance="${s}"><span><i style="width:${100 / b.seats}%;background:${SEAT_COLORS[s]}"></i></span><small class="num"><b data-pts="${s}">0</b> pts · <b data-pct="${s}">${pctTxt(1 / b.seats)}</b></small></div>` : ''}
-        <div class="vreel"><div class="vtrack" data-vtrack="${s}"></div></div>
+        <div class="slot" data-slot="${s}"><div class="vtrack" data-vtrack="${s}"></div><i class="payline" aria-hidden="true"></i></div>
+        <p class="slot-label" data-label="${s}"><span class="muted">–</span></p>
         <ol class="seat-drops" data-drops="${s}"></ol>
         <div class="seat-foot" data-foot="${s}"></div>
       </div>`;
@@ -210,9 +212,11 @@ function mountRoom(root: HTMLElement, c: Parameters<NonNullable<View['mount']>>[
     for (let s = 0; s < b.seats; s++) {
       $(`[data-drops="${s}"]`, room).innerHTML = r.drops.map((round, i) => dropRow(round[s], b.params.caseIds[i])).join('');
       $(`[data-total="${s}"]`, room).textContent = frags(r.totals[s], 0);
-      $(`[data-vtrack="${s}"]`, room).innerHTML = itemHtml(r.drops[r.drops.length - 1][s], b.params.caseIds[r.drops.length - 1], Boolean(r.bonus?.jackpots[r.drops.length - 1][s]));
+      const li = r.drops.length - 1;
       const tr = $(`[data-vtrack="${s}"]`, room);
-      tr.style.transform = `translateY(${(tr.parentElement!.clientHeight - ITEM_H) / 2}px)`;
+      tr.innerHTML = symHtml(r.drops[li][s], b.params.caseIds[li], true);
+      tr.style.transform = `translateY(${(tr.parentElement!.clientHeight - symH(tr)) / 2}px)`;
+      landLabel(s, r.drops[li][s], b.params.caseIds[li], Boolean(r.bonus?.jackpots[li][s]));
     }
     $$('.rnd', room).forEach((x) => x.classList.add('done'));
     if (r.bonus) {
@@ -268,7 +272,14 @@ function mountRoom(root: HTMLElement, c: Parameters<NonNullable<View['mount']>>[
     strip.style.transform = `translateX(${target}px)`;
     await sleep(ms + 150);
   };
-  const itemHtml = (d: Drop, cid: string, jp = false) => `<div class="vitem ${jp ? 'jackpot' : ''}" style="--rc:${rarity(d.value, priceOf(cid))}">${itemArt(d.name)}<span class="vt"><b>${esc(d.name)}</b><span class="num">${jp ? 'JACKPOT · kept · ' : ''}${frags(d.value, 0)}</span></span></div>`;
+  /** One slot symbol: the item's icon, tinted with its rarity colour. */
+  const symHtml = (d: Drop, cid: string, win = false) => `<div class="sym ${win ? 'win' : ''}" style="--rc:${rarity(d.value, priceOf(cid))}">${itemArt(d.name)}</div>`;
+  const symH = (track: HTMLElement) => (track.firstElementChild as HTMLElement | null)?.offsetHeight || 64;
+  /** The name and value under a reel once it stands still. */
+  const landLabel = (s: number, d: Drop, cid: string, jp: boolean) => {
+    const el = room.querySelector<HTMLElement>(`[data-label="${s}"]`);
+    if (el) el.innerHTML = `<b style="color:${rarity(d.value, priceOf(cid))}">${esc(d.name)}</b><span class="num">${jp ? '<em>JACKPOT · kept</em> ' : ''}${frags(d.value, 0)}</span>`;
+  };
   const dropRow = (d: Drop, cid: string) => `<li style="--rc:${rarity(d.value, priceOf(cid))}"><span>${esc(d.name)}</span><span class="num">${frags(d.value, 0)}</span></li>`;
   const nameOf = (b: Battle, s: number) => { const p = b.players.find((x) => x.seat === s); return p ? seatName(p) : `Seat ${s + 1}`; };
   const finish = (b: Battle) => {
@@ -296,12 +307,34 @@ function mountRoom(root: HTMLElement, c: Parameters<NonNullable<View['mount']>>[
     msg.className = `status ${me ? (r.winners.includes(me.seat) ? 'win' : 'lose') : ''}`;
   };
 
+  /**
+   * One slot reel: the strip races up with motion blur, slows down, runs a little past the drop and
+   * settles back onto it, so the drop ends exactly on the payline.
+   */
+  const spinReel = async (track: HTMLElement, ms: number) => {
+    const h = symH(track);
+    const end = -(STOP * h) + (track.parentElement!.clientHeight - h) / 2;
+    if (!ms) { track.style.transform = `translateY(${end}px)`; return; }
+    const over = end - h * 0.22;
+    const a = track.animate([
+      { transform: 'translateY(0)', filter: 'blur(0)' },
+      { filter: 'blur(2.5px)', offset: 0.1 },
+      { filter: 'blur(2.5px)', offset: 0.5 },
+      { filter: 'blur(0)', offset: 0.78 },
+      { transform: `translateY(${over}px)`, offset: 0.9 },
+      { transform: `translateY(${end}px)`, filter: 'blur(0)' },
+    ], { duration: ms, easing: 'cubic-bezier(.1,.6,.15,1)', fill: 'forwards' });
+    await a.finished.catch(() => null);
+    track.style.transform = `translateY(${end}px)`;
+    a.cancel();
+  };
+
   /** Plays the rounds one by one: every seat's reel spins to its drop, then the totals move. */
   const play = async (b: Battle) => {
     if (playing || !b.result) return;
     playing = true;
     const fast = Boolean(($('#fast', room) as HTMLInputElement | null)?.checked);
-    const spin = reducedMotion() ? 0 : fast ? 700 : 2300;
+    const spin = reducedMotion() ? 0 : fast ? 1100 : 3600;
     const r = b.result;
     const bonus = r.bonus;
     const totals = new Array(b.seats).fill(0);
@@ -322,20 +355,26 @@ function mountRoom(root: HTMLElement, c: Parameters<NonNullable<View['mount']>>[
       $$('.rnd', room).forEach((x) => { x.classList.toggle('cur', Number(x.dataset.round) === i); x.classList.toggle('done', Number(x.dataset.round) < i); });
       room.querySelector(`.rnd[data-round="${i}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center' });
       if (bonus) await powerRoll(i, bonus.powers[i], i === r.drops.length - 1, fast);
+      // every seat's reel: a strip of symbols drawn by their real chances, the drop at STOP; all start and stop together
+      const tracks: HTMLElement[] = [];
       for (let s = 0; s < b.seats; s++) {
         const track = $(`[data-vtrack="${s}"]`, room);
         const filler = (): Drop => { if (!k) return r.drops[i][s]; let x = Math.random(); for (const it of k.items) { x -= it.chance; if (x < 0) return it; } return k.items[0]; };
-        track.innerHTML = Array.from({ length: STOP + 4 }, (_, j) => (j === STOP ? itemHtml(r.drops[i][s], cid, Boolean(bonus?.jackpots[i][s])) : itemHtml(filler(), cid))).join('');
-        track.style.transition = 'none';
+        track.getAnimations().forEach((a) => a.cancel());
+        track.innerHTML = Array.from({ length: STRIP }, (_, j) => symHtml(j === STOP ? r.drops[i][s] : filler(), cid)).join('');
         track.style.transform = 'translateY(0)';
+        const lbl = room.querySelector<HTMLElement>(`[data-label="${s}"]`);
+        if (lbl) lbl.innerHTML = '<span class="muted">spinning …</span>';
+        room.querySelector(`[data-slot="${s}"]`)?.classList.add('spinning');
+        tracks.push(track);
       }
-      void room.offsetWidth;
+      await Promise.all(tracks.map((track) => spinReel(track, spin)));
       for (let s = 0; s < b.seats; s++) {
-        const track = $(`[data-vtrack="${s}"]`, room);
-        track.style.transition = `transform ${spin + s * 90}ms cubic-bezier(.15,.8,.25,1)`;
-        track.style.transform = `translateY(${-(STOP * ITEM_H) + (track.parentElement!.clientHeight - ITEM_H) / 2}px)`; // drop centred, whatever the reel height
+        room.querySelector(`[data-slot="${s}"]`)?.classList.remove('spinning');
+        tracks[s].children[STOP]?.classList.add('win');
+        landLabel(s, r.drops[i][s], cid, Boolean(bonus?.jackpots[i][s]));
       }
-      await sleep(spin + (b.seats - 1) * 90 + 120);
+      await sleep(fast ? 120 : 280);
       for (let s = 0; s < b.seats; s++) {
         totals[s] += r.drops[i][s].value;
         $(`[data-total="${s}"]`, room).textContent = frags(totals[s], 0);

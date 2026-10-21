@@ -69,6 +69,8 @@ const MIGRATIONS: { version: number; sql: () => string }[] = [
   // Player profile: display-name cooldown and "hide my name in public lists".
   { version: 7, sql: () => `ALTER TABLE users ADD COLUMN IF NOT EXISTS name_changed_at BIGINT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS hide_public BIGINT NOT NULL DEFAULT 0;` },
+  // "Players online": last request per session, touched at most once a minute.
+  { version: 8, sql: () => 'ALTER TABLE sessions ADD COLUMN IF NOT EXISTS last_seen BIGINT;' },
 ];
 
 type Queryable = pg.Pool | pg.PoolClient;

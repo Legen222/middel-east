@@ -66,3 +66,47 @@ Die Migration lief auf der bestehenden Entwicklungsdatenbank.
 | Support-Desk und Live-Hilfe | Betriebsfrage für den Echtgeldstart. Die FAQ deckt die häufigsten Fragen ab. |
 | Deutsche Oberfläche | Die Oberfläche ist auf Englisch (Vorgabe aus Phase 6). Texte liegen in den Views, eine Übersetzung wäre der nächste Schritt. |
 | Rennen und Bestenlisten (Wager Races) | Produktentscheidung: Sie fördern viel Einsatz in kurzer Zeit und brauchen deshalb eine eigene RG-Bewertung, bevor man sie baut. |
+
+## 5. Nachtrag Phase 17 – Handy-Version und Slot-Walzen im Case Battle
+
+Vorbild war der Aufbau von bandit.camp auf dem Handy. Übernommen wurde die Struktur, nicht deren Grafiken, Farben oder Marke.
+
+**Ursache für „unübersichtlich“:** Der Demo-Seite fehlte das Viewport-Tag. Handys zeigten sie deshalb als verkleinerte 980-px-Desktopseite. Das Tag ist jetzt drin.
+
+**Handy (bis 860 px):**
+- **Kopfzeile:** Logo, Menü-Button, dann ein großer CTA. Für Gäste ist das „Sign up“, für Spieler das Guthaben mit „+“ zur Wallet. Die Spieleleiste entfällt.
+- **Menü (Drawer):** alle Spiele nach Kategorie, Konto, Fair Play, Hilfe und Abmelden.
+- **Untere Leiste:** Games (öffnet das Menü), Chat, Free Frags, Account.
+- **Lobby, von oben nach unten:**
+  1. „Welcome to SCRAPLINE“ mit Spielern online und Runden heute (neu: `GET /stats/live`).
+  2. Live-Wins-Karten zum Wischen.
+  3. Slider mit vier echten Highlights (Kisten, Bonus-Battles, Prüfer, Oil Rain).
+  4. Ein Spiele-Raster mit Filter-Chips und hohen Kacheln mit Banderole („New update!“, „Live now“, „Top pick“).
+  5. „Get free Frags“.
+
+  Live-Tabellen, Fair-Ledger und Kennzahlen bleiben auf dem Desktop und der Fairness-Seite.
+- **Spielseiten:** Der Kopf ist kompakt (Titel, zwei Zeilen Regeln, Kennzahlen in einer Zeile), das Spiel und der Einsatz-Button stehen weiter oben.
+- **Footer:** Hinweis, dass SCRAPLINE nicht mit Rust, Facepunch, Steam oder Valve verbunden ist.
+
+**Gastmodus:**
+- Ohne Konto sind Lobby, Hilfe, AGB, Datenschutz, Prüfer und Chat (nur lesen) offen.
+- Spiele und Kontoseiten öffnen das Anmelde-Fenster. Auf dem Handy ist das ein Bottom-Sheet mit 18+-Bestätigung. Die alte Vollbild-Anmeldeseite entfällt.
+
+**Online-Zähler:**
+- `sessions.last_seen` wird höchstens einmal pro Minute geschrieben.
+- „Online“ zählt Konten mit einer Anfrage in den letzten 5 Minuten.
+- Migration: Postgres v8, SQLite über die Legacy-Migration.
+
+**Slot-Walzen im Case Battle:**
+- Jeder Platz hat ein Fenster mit drei großen Item-Symbolen und einer Gewinnlinie.
+- Die Streifen sind nach den echten Chancen der Kiste gefüllt.
+- Ablauf einer Runde:
+  - Alle Walzen starten und stoppen gleichzeitig, bei 2v2 also vier.
+  - Sie rasen mit Bewegungsunschärfe los, werden langsamer, laufen ein Stück über und rasten auf dem gezogenen Item ein.
+  - Danach leuchtet das Symbol in seiner Seltenheitsfarbe auf, Name und Wert erscheinen darunter.
+- Dauer 3,6 s, im Schnell-Modus 1,1 s. Mit „Bewegung reduzieren“ springen die Walzen direkt.
+- Im Browser gemessen: bei 1v1v1v1 und 2v2 alle Walzen exakt mittig auf der Linie.
+
+**Robustheit:** Ein Fehler in einer Ansicht kippt nicht mehr die ganze Seite. Die Zeichen-Animation der auf dem Handy ausgeblendeten Hero-Zeichnung hatte nach der Anmeldung die Fehlerseite ausgelöst.
+
+**Tests:** Server 72 Tests auf SQLite und Postgres. Ein bestehender Explorer-Test hing vom Zufall ab (Hi-Lo-Tipp bei König oder Ass) und ist jetzt deterministisch.

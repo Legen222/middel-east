@@ -16,10 +16,11 @@
 | 14 | [08-modi-und-admin.md § 6](08-modi-und-admin.md#6-nachtrag-phase-14--20-rust-kisten-und-bonus-battle) | 20 Kisten mit Rust-Namen und eigenen Zeichnungen von 1 bis 1 500 $ (je 93 % RTP), Item-Symbole, Bonus-Modus im Case Battle (Power-Runden, goldene Runde, Jackpot-Drop, finaler Spin, Scrap Back) bei gleichem House Edge |
 | 15 | [02-konzept.md](02-konzept.md) (Clean Neon) | Oberfläche clean und dynamisch mit leichten Neon-Akzenten: Glas-Topbar, Glow nur an Aktionen und Gewinnen, Ansichten gleiten herein, Spotlight über Karten, Guthaben zählt hoch, Live-Leiste in der Lobby |
 | 16 | [09-lueckenanalyse.md](09-lueckenanalyse.md) | Lückenanalyse der Seitenlogik und alles Fehlende gebaut: komplette Historie über alle Spiele mit Detail und Prüfung im Browser, Prüfer in der App, Wallet mit Kontoauszug, Profil mit Statistik und Privatsphäre, Live-Wettfeed, Footer, AGB/Datenschutz/Hilfe, 404, Sitzungsende, Steam-Login |
+| 17 | [09-lueckenanalyse.md § 5](09-lueckenanalyse.md#5-nachtrag-phase-17--handy-version-und-slot-walzen-im-case-battle) | Handy-Version im Aufbau von bandit.camp (Menü, CTA, Live-Wins, Slider, Spiele-Raster mit Filter, Free Frags), Gastmodus mit Anmelde-Sheet, Spieler online, Slot-Walzen im Case Battle (alle Plätze gleichzeitig) |
 
 ```bash
 cd platform/engine && npm install && npm test && npm run sim      # 101 Tests, Monte-Carlo (90 × 10 Mio. Runden)
-cd platform/server && npm install && npm test && npm start        # 71 Tests, API auf :8787 (SQLite)
+cd platform/server && npm install && npm test && npm start        # 72 Tests, API auf :8787 (SQLite)
 cd platform/server && npm run test:pg                           # dieselben Tests gegen Postgres
 docker compose -f deploy/docker-compose.yml --env-file deploy/.env up --build   # kompletter Stack auf :8080
 cd platform/web    && npm install && npm run dev                  # App auf :5174

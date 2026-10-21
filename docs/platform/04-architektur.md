@@ -209,6 +209,7 @@ Der gültige Fall und fünf Angriffsfälle sind getestet.
 | GET/PUT | `/me/profile` | Anzeigename (einmal pro 24 h), Name in öffentlichen Listen verbergen |
 | POST | `/auth/logout-all` | alle Sitzungen des Kontos beenden |
 | GET | `/feed?kind=all\|high` | öffentlich: letzte Runden aller Spieler (verborgene Namen als „Hidden player“), 2 s gecacht |
+| GET | `/stats/live` | öffentlich: Spieler online (letzte 5 min), Runden und bester Gewinn der letzten 24 h (Phase 17) |
 
 Einsätze gibt die API in Frags an, gespeichert werden Milli-Frags. Fehler haben immer die Form
 `{ error, message, details }` mit deutscher Meldung. Jede Anfrage durchläuft Rate-Limit (20/s, Burst 40 je IP),
@@ -216,7 +217,7 @@ Größenlimit (16 KB) und Geo-Prüfung.
 
 ```bash
 cd platform/server && npm install
-npm test     # 71 Tests (Stand Phase 16)
+npm test     # 72 Tests (Stand Phase 17)
 npm start    # http://localhost:8787, Datei data/scrapline-demo.sqlite
 ```
 

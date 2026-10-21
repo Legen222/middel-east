@@ -67,8 +67,8 @@ export function mountChatPanel(el: HTMLElement, c: Ctx): () => void {
     lastId = newest;
     const muted = state.mute;
     const input = $<HTMLInputElement>('[data-input]', el);
-    input.disabled = Boolean(muted) || !c.me.promoEligible;
-    input.placeholder = muted ? (muted.until ? `Muted until ${clock(muted.until)}` : 'You are muted') : !c.me.promoEligible ? 'Chat is read-only during a break' : 'Write a message…';
+    input.disabled = c.guest || Boolean(muted) || !c.me.promoEligible;
+    input.placeholder = c.guest ? 'Sign up to chat' : muted ? (muted.until ? `Muted until ${clock(muted.until)}` : 'You are muted') : !c.me.promoEligible ? 'Chat is read-only during a break' : 'Write a message…';
   };
 
   const load = async () => {
@@ -97,8 +97,10 @@ export function mountChatPanel(el: HTMLElement, c: Ctx): () => void {
     }
   });
 
+  if (c.guest) $<HTMLButtonElement>('[data-form] button', el).textContent = 'Sign up';
   $('[data-form]', el).addEventListener('submit', (e) => {
     e.preventDefault();
+    if (c.guest) { c.openSignup(); return; }
     const input = $<HTMLInputElement>('[data-input]', el);
     const body = input.value.trim();
     if (!body) return;
