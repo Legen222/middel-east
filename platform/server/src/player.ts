@@ -103,6 +103,8 @@ export async function playerStats(db: DB, userId: string, now: number) {
   const top = (await db.prepare('SELECT ref, game, stake, payout FROM wagers WHERE user_id = ? AND settled = 1 ORDER BY payout DESC LIMIT 1').get(userId)) as
     { ref: string; game: GameId; stake: number; payout: number } | undefined;
   const sessions = (await db.prepare('SELECT COUNT(*) AS n FROM sessions WHERE user_id = ? AND expires_at > ?').get(userId, now)) as { n: number };
+  const t = (await db.prepare('SELECT * FROM player_stats WHERE user_id = ?').get(userId)) as Record<string, number | null> | undefined;
+  const bal = (await db.prepare('SELECT amount FROM balances WHERE account = ?').get(`user:${userId}`)) as { amount: number } | undefined;
   const sum = (k: 'n' | 's' | 'p') => per.reduce((a, g) => a + Number(g[k]), 0);
   const pick = (r?: { ref: string; game: GameId; stake: number; payout: number }) => (r ? { ref: String(r.ref), game: r.game, gameName: GAME_NAME[r.game], stake: f(r.stake), payout: f(r.payout), multiplier: Number(r.stake) ? Number(r.payout) / Number(r.stake) : 0 } : null);
   return {
@@ -110,6 +112,11 @@ export async function playerStats(db: DB, userId: string, now: number) {
     bets: sum('n'), wagered: f(sum('s')), paid: f(sum('p')), net: f(sum('p') - sum('s')),
     bestMultiplier: pick(best), biggestWin: pick(top), activeSessions: Number(sessions.n),
     games: per.map((g) => ({ game: g.game, gameName: GAME_NAME[g.game] ?? g.game, bets: Number(g.n), wagered: f(g.s), paid: f(g.p) })),
+    // money totals kept live by the database (player_stats, one trigger on the ledger)
+    totals: {
+      balance: f(bal?.amount ?? 0), wagered: f(t?.wagered ?? 0), paid: f(t?.paid ?? 0), stakes: Number(t?.stakes ?? 0), deposited: f(t?.deposited ?? 0), withdrawn: f(t?.withdrawn ?? 0),
+      bonuses: f(t?.bonuses ?? 0), playMoney: f(t?.grants ?? 0), adjustments: f(t?.adjustments ?? 0), lastActivity: t?.last_activity == null ? null : Number(t.last_activity),
+    },
   };
 }
 
@@ -117,9 +124,13 @@ export const NAME_CHANGE_COOLDOWN_MS = 24 * 3_600_000;
 
 /** Display name (once per 24 h) and whether the name shows in public lists. */
 export async function updateProfile(db: DB, userId: string, input: { displayName?: unknown; hidePublic?: unknown }, now: number) {
-  const u = (await db.prepare('SELECT display_name, name_changed_at, hide_public FROM users WHERE id = ?').get(userId)) as { display_name: string; name_changed_at: number | null; hide_public: number } | undefined;
+  const u = (await db.prepare('SELECT display_name, name_changed_at, hide_public, steam_name FROM users WHERE id = ?').get(userId)) as
+    { display_name: string; name_changed_at: number | null; hide_public: number; steam_name: string | null } | undefined;
   if (!u) fail('not_found', 'Account not found.', 404);
   const changes: Record<string, unknown> = {};
+  if (input.displayName !== undefined && u!.steam_name !== null && String(input.displayName).trim() !== u!.display_name) {
+    fail('steam_name', 'Your name comes from Steam. Change it on Steam and sign in again.', 409);
+  }
   if (input.displayName !== undefined) {
     const n = String(input.displayName ?? '').trim();
     if (n.length < 2 || n.length > 24 || /[<>]/.test(n)) fail('invalid_name', 'Name: 2 to 24 characters.');
@@ -140,9 +151,10 @@ export async function updateProfile(db: DB, userId: string, input: { displayName
 }
 
 export async function profile(db: DB, userId: string) {
-  const u = (await db.prepare('SELECT display_name, name_changed_at, hide_public FROM users WHERE id = ?').get(userId)) as { display_name: string; name_changed_at: number | null; hide_public: number };
+  const u = (await db.prepare('SELECT display_name, name_changed_at, hide_public, steam_name FROM users WHERE id = ?').get(userId)) as
+    { display_name: string; name_changed_at: number | null; hide_public: number; steam_name: string | null };
   const last = u.name_changed_at === null ? null : Number(u.name_changed_at);
-  return { displayName: u.display_name, hidePublic: Number(u.hide_public) === 1, nameChangeAt: last === null ? null : last + NAME_CHANGE_COOLDOWN_MS };
+  return { displayName: u.display_name, hidePublic: Number(u.hide_public) === 1, nameChangeAt: last === null ? null : last + NAME_CHANGE_COOLDOWN_MS, nameFromSteam: u.steam_name !== null };
 }
 
 /** Signs the player out on every device, this one included. */

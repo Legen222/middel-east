@@ -40,6 +40,32 @@ export interface Config {
   operatorIpAllowlist: string[];
   /** Take the client IP from X-Forwarded-For (only behind a proxy that overwrites it). */
   trustProxy: boolean;
+  /** Steam sign-in (OpenID) offered on the site; the Web API key adds name, avatar and profile link. */
+  steamLogin: boolean;
+  steamApiKey: string | null;
+  /** Skin rail: deposits through the trade bot, withdrawals queued for an operator (beta: sent by hand). */
+  skins: SkinConfig;
+}
+
+export interface SkinConfig {
+  enabled: boolean;
+  /** Share of the market price credited on a deposit (1 = full price). */
+  depositRate: number;
+  /** Price factor for items taken out of the site's stock (1 = market price). */
+  withdrawRate: number;
+  /** Items below this price (Frags) are not accepted. */
+  minItemFrags: number;
+  /** Items with fewer market listings than this are too illiquid to price. */
+  minVolume: number;
+  maxItems: number;
+  /** A deposit offer the player has not accepted by then is cancelled. */
+  offerTtlMs: number;
+  /** KYC level 1 before the first skin deposit (compliance.ts); the licence decides whether it may be later. */
+  kycBeforeDeposit: boolean;
+  /** Player inventory source, {steamid} is replaced (Steam community endpoint or a paid mirror such as steamapis). */
+  inventoryUrl: string;
+  /** Price list: Skinport's public item list or any array of { market_hash_name, suggested_price | price (USD), quantity | volume }. */
+  priceUrl: string;
 }
 
 export const DEFAULT_CONFIG: Config = {
@@ -62,6 +88,13 @@ export const DEFAULT_CONFIG: Config = {
   operatorMfaMaxAgeMinutes: 12 * 60,
   operatorIpAllowlist: [],
   trustProxy: false,
+  steamLogin: false,
+  steamApiKey: null,
+  skins: {
+    enabled: false, depositRate: 1, withdrawRate: 1, minItemFrags: 10, minVolume: 3, maxItems: 20, offerTtlMs: 10 * 60_000, kycBeforeDeposit: true,
+    inventoryUrl: 'https://steamcommunity.com/inventory/{steamid}/252490/2?l=english&count=2000',
+    priceUrl: 'https://api.skinport.com/v1/items?app_id=252490&currency=USD&tradable=0',
+  },
 };
 
 /** IPv4 CIDR or exact-address match (IPv6 exact only; IPv4-mapped IPv6 is unwrapped). */

@@ -45,7 +45,7 @@ export const lobbyView: View = {
       <h1 class="mh-brand">SCRAPLINE</h1>
       <p class="mh-tag">Rust originals with an open blueprint</p>
       <p class="mh-online"><span class="live-dot"></span><b class="num" id="mh-online">–</b> online<span class="sep">·</span><b class="num" id="mh-rounds">–</b> rounds today</p>
-      ${c.guest ? `<button class="btn cta block" type="button" data-signup-inline>Sign up · ${frags(c.cfg.demoStartBalance ?? 0, 0)} Frags play money</button>` : ''}
+      ${c.guest ? `<button class="btn cta block" type="button" data-signup-inline>${c.cfg.demo ? `Sign up · ${frags(c.cfg.demoStartBalance ?? 0, 0)} Frags play money` : 'Sign in with Steam'}</button>` : ''}
     </section>
 
     <section class="wins m-only" aria-label="Live wins">
@@ -70,7 +70,7 @@ export const lobbyView: View = {
     <section class="hero d-only">
       ${corners}
       <div class="copy">
-        <p class="eyebrow">Open blueprint · play money · 18+</p>
+        <p class="eyebrow">Open blueprint · ${c.cfg.demo ? 'play money' : 'Rust skins'} · 18+</p>
         <h1>Every round with an <em>open blueprint.</em></h1>
         <p>Fifteen games with published maths, a proof on every round and limits you set yourself. Start with Monument Run: eight rooms, one door each, 97 % RTP however far you climb.</p>
         <div class="row"><a class="btn" href="#/monument-run">${icon('tower')} Play Monument Run</a><a class="btn ghost" href="#/fair">${icon('shield')} How verification works</a></div>
@@ -101,7 +101,7 @@ export const lobbyView: View = {
     </section>`).join('')}
 
     <section class="free-sect" style="display:flex;flex-direction:column;gap:14px">
-      <div class="sect-head"><div><p class="eyebrow">Free Frags</p><h2 class="h-sect" style="font-size:22px">Get free Frags</h2></div><p>Play money from levels, the daily crate, the rain and codes. No stake needed.</p></div>
+      <div class="sect-head"><div><p class="eyebrow">Free Frags</p><h2 class="h-sect" style="font-size:22px">Get free Frags</h2></div><p>${c.cfg.demo ? 'Play money' : 'Frags'} from levels, the daily crate, the rain and codes. No stake needed.</p></div>
       <div class="free">${FREE.filter((f) => !f.demoOnly || c.cfg.demo).map((f) => `<a class="free-card" href="${f.href}"><span class="fc-ico">${icon(f.icon)}</span><b>${f.title}</b><span>${f.text}</span></a>`).join('')}</div>
     </section>
 

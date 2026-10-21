@@ -41,6 +41,20 @@ export async function setRole(db: DB, actorId: string, userId: string, role: Rol
   return { userId, role };
 }
 
+/**
+ * Identity check recorded by an operator (beta: documents checked by hand or in the KYC provider's dashboard).
+ * The note says what was checked; it lands in the audit log, never on the player's record.
+ */
+export async function setKyc(db: DB, actorId: string, userId: string, level: unknown, note: unknown, now: number) {
+  if (level !== 0 && level !== 1 && level !== 2) fail('invalid_params', 'KYC level: 0, 1 or 2.');
+  const n = String(note ?? '').trim();
+  if (n.length < 3) fail('reason_required', 'Note what was checked (document type, provider reference).');
+  if (!(await db.prepare('SELECT 1 FROM users WHERE id = ?').get(userId))) fail('not_found', 'Player not found.', 404);
+  await db.prepare('UPDATE users SET kyc_level = ? WHERE id = ?').run(level, userId);
+  await audit(db, actorId, 'admin_kyc', { user: userId, level, note: n.slice(0, 300) }, now);
+  return { userId, kycLevel: level };
+}
+
 /* ---------- RTP monitor ---------- */
 
 type CaseInfo = Map<string, { rtp: number; price: number }>;

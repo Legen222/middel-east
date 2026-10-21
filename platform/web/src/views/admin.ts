@@ -2,12 +2,12 @@ import { api } from '../api';
 import type { View } from '../main';
 import { $, $$, esc, frags, guard, modal, pct, toast } from '../ui';
 import { kpi, signed, when } from './admin-shared';
-import { betsTab, bindLimits, casesTab, limitsSection, promosTab, reportsTab, settingsTab } from './admin-ops';
+import { betsTab, bindLimits, casesTab, limitsSection, promosTab, reportsTab, settingsTab, skinsTab } from './admin-ops';
 
-type Tab = 'overview' | 'reports' | 'rtp' | 'bets' | 'players' | 'games' | 'cases' | 'promos' | 'settings' | 'rg' | 'audit';
+type Tab = 'overview' | 'reports' | 'rtp' | 'bets' | 'players' | 'games' | 'cases' | 'promos' | 'skins' | 'settings' | 'rg' | 'audit';
 const TABS: [Tab, string][] = [
   ['overview', 'Overview'], ['reports', 'Reports'], ['rtp', 'RTP monitor'], ['bets', 'Bets'], ['players', 'Players'], ['games', 'Games'],
-  ['cases', 'Cases'], ['promos', 'Promo codes'], ['settings', 'Settings'], ['rg', 'RG cases'], ['audit', 'Audit log'],
+  ['cases', 'Cases'], ['promos', 'Promo codes'], ['skins', 'Skins'], ['settings', 'Settings'], ['rg', 'RG cases'], ['audit', 'Audit log'],
 ];
 const TAB_KEY = 'scrapline.admin.tab';
 
@@ -183,6 +183,7 @@ export const adminView: View = {
           ${p.block?.kind === 'operator' ? '<button class="btn ghost small" type="button" data-release>Lift hold</button>' : ''}
           ${p.mute ? '<button class="btn ghost small" type="button" data-unmute>Unmute</button>' : ''}
           <button class="btn ghost small" type="button" data-adjust>Adjust balance</button>
+          <button class="btn ghost small" type="button" data-kyc>Identity check</button>
           <button class="btn ghost small" type="button" data-logout ${p.sessions ? '' : 'disabled'}>End sessions (${p.sessions})</button>
           <label class="field" style="flex-direction:row;align-items:center;gap:8px">Role <select data-rolesel>${['player', 'moderator', 'admin'].map((r) => `<option ${r === p.role ? 'selected' : ''}>${r}</option>`).join('')}</select></label>
         </div>
@@ -224,6 +225,18 @@ export const adminView: View = {
         m.root.querySelector('[data-ok]')!.addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {
           const r = await api<{ balance: number }>('POST', `/admin/players/${p.id}/adjust`, { amount: Number((m.root.querySelector('[data-a]') as HTMLInputElement).value.replace(',', '.')), reason: (m.root.querySelector('[data-r]') as HTMLInputElement).value });
           m.close(); toast(`Booked. New balance ${frags(r.balance)} Frags.`); await showPlayer(p.id);
+        }));
+      });
+      $('[data-kyc]', box).addEventListener('click', () => {
+        const m = modal(`<h2 class="h-sect">Identity check for ${esc(p.name)}</h2>
+          <p class="muted" style="font-size:13px">Level 1: ID document, selfie and address checked. Level 2: also the source of funds. Record what you checked; it goes to the audit log.</p>
+          <label class="field">Level<select data-l>${[0, 1, 2].map((l) => `<option value="${l}" ${l === p.kycLevel ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+          <label class="field">What was checked (audited)<input data-n maxlength="300" placeholder="e.g. passport + selfie, provider ref 8F2K"></label>
+          <div class="row"><button class="btn" data-ok type="button">Save</button><button class="btn ghost" data-no type="button">Cancel</button></div>`);
+        m.root.querySelector('[data-no]')!.addEventListener('click', m.close);
+        m.root.querySelector('[data-ok]')!.addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {
+          await api('PUT', `/admin/players/${p.id}/kyc`, { level: Number((m.root.querySelector('[data-l]') as HTMLSelectElement).value), note: (m.root.querySelector('[data-n]') as HTMLInputElement).value });
+          m.close(); toast('Identity level saved.'); await showPlayer(p.id);
         }));
       });
       $('[data-logout]', box).addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {
@@ -317,7 +330,7 @@ export const adminView: View = {
 
     const RENDER: Record<Tab, () => Promise<void>> = {
       overview, rtp, players, games, rg, audit: auditLog,
-      reports: () => reportsTab(panel), bets: () => betsTab(panel), cases: () => casesTab(panel), promos: () => promosTab(panel), settings: () => settingsTab(panel),
+      reports: () => reportsTab(panel), bets: () => betsTab(panel), cases: () => casesTab(panel), promos: () => promosTab(panel), settings: () => settingsTab(panel), skins: () => skinsTab(panel),
     };
     select(TABS.some(([t]) => t === tab) ? tab : 'overview');
     return () => clearInterval(timer);

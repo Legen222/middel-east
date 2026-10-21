@@ -1,4 +1,4 @@
-# SCRAPLINE API. Build context: the platform/ directory (the server imports the engine sources).
+# SCRAPLINE API and trade bot (same image; the bot runs bot-main.mjs). Build context: the platform/ directory.
 #   docker build -f server/Dockerfile -t scrapline-api platform
 FROM node:22-slim AS build
 WORKDIR /src
@@ -13,6 +13,7 @@ FROM node:22-slim
 ENV NODE_ENV=production LOG=json PORT=8787
 WORKDIR /app
 COPY --from=build /src/server/dist/main.mjs ./main.mjs
+COPY --from=build /src/server/dist/bot-main.mjs ./bot-main.mjs
 COPY --from=build /src/server/node_modules ./node_modules
 COPY --from=build /src/server/package.json ./package.json
 USER node

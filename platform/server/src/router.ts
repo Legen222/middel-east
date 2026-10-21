@@ -8,9 +8,9 @@
  */
 
 import { PLINKO_TABLES, plinkoTheoreticalRtp, EDGE, type RaidTool } from '../../engine/src/index';
-import { type Role, type Session, createSession, demoRefill, endSession, resolveSession, signUp } from './accounts';
+import { type Role, type Session, createSession, demoRefill, endSession, resolveSession, setTradeUrl, signUp, syncSteamProfile } from './accounts';
 import {
-  addNote, adjustBalance, auditLog, forceLogout, holdPlayer, listPlayers, overview, playerDetail, releaseHold, requireRole, rgCases, rgScan, rtpMonitor, setRole, updateCase,
+  addNote, adjustBalance, auditLog, forceLogout, holdPlayer, listPlayers, overview, playerDetail, releaseHold, requireRole, rgCases, rgScan, rtpMonitor, setKyc, setRole, updateCase,
 } from './admin';
 import {
   GAMES, activeSeedPublic, balance, getBet, liveRtp, minesCashout, minesReveal, minesStart, openCases, playInstant,
@@ -42,7 +42,8 @@ import {
 import { REALITY_CHECK_OPTIONS, activeBlock, getLimits, promoEligible, selfExclude, sessionSummary, setLimit, setRealityCheck, startCooldown, type LimitKind, type LimitPeriod } from './rg';
 import { rotateSeed } from './seeds';
 import { getSettings, publicSite, setSettings } from './site';
-import { type Fetch, loginUrl, verifyAssertion } from './steam';
+import { SkinService, operatorWithdrawal, skinsAdmin } from './skins';
+import { type Fetch, fetchSteamProfile, loginUrl, steamName, verifyAssertion } from './steam';
 
 export interface AppDeps {
   db: DB; cfg: Config; clock: Clock; fetch: Fetch; publicUrl: string; beacon: Beacon; crash: CrashService;
@@ -81,6 +82,7 @@ export function createRouter(deps: AppDeps) {
     return out;
   };
   const viewer = async (c: Ctx) => (await resolveSession(db, c.token, clock()))?.user.id ?? null;
+  const skins = new SkinService(db, cfg, deps.fetch);
 
   /* ---------- public ---------- */
   route('GET', '/health', () => ({ ok: true, demo: cfg.demo }));
@@ -90,7 +92,8 @@ export function createRouter(deps: AppDeps) {
   });
   route('GET', '/config', async () => ({
     demo: cfg.demo, currency: 'Frags', fragsPerDollar: 100, minStake: cfg.minStake / MF_PER_FRAG, maxStake: cfg.maxStake / MF_PER_FRAG, maxWin: cfg.maxWin / MF_PER_FRAG,
-    demoStartBalance: cfg.demoStartBalance / MF_PER_FRAG,
+    demoStartBalance: cfg.demoStartBalance / MF_PER_FRAG, steamLogin: cfg.steamLogin,
+    skins: { enabled: cfg.skins.enabled && !cfg.demo, depositRate: cfg.skins.depositRate, withdrawRate: cfg.skins.withdrawRate, minItem: cfg.skins.minItemFrags, maxItems: cfg.skins.maxItems, kycBeforeDeposit: cfg.skins.kycBeforeDeposit },
     games: GAMES, houseEdge: EDGE, operatorMfa: cfg.requireOperatorMfa,
     plinko: Object.fromEntries(Object.entries(PLINKO_TABLES).map(([r, t]) => [r, Object.fromEntries(Object.entries(t).map(([k, v]) => [k, { multipliers: v, rtp: plinkoTheoreticalRtp(Number(r) as 8, k as 'low') }]))])),
     cases: await listCases(db),
@@ -124,11 +127,16 @@ export function createRouter(deps: AppDeps) {
     const { userId } = await signUp(db, cfg, { displayName: String(c.body?.displayName ?? ''), ageConfirmed: c.body?.ageConfirmed === true, country: c.country }, clock());
     return { token: await createSession(db, cfg, userId, clock()), userId };
   });
-  route('GET', '/auth/steam', () => ({ url: loginUrl(`${deps.publicUrl}/auth/steam/return?age=1`, deps.publicUrl) }));
+  const steamOn = () => { if (!cfg.steamLogin) fail('steam_off', 'Steam sign-in is not enabled on this site.', 404); };
+  route('GET', '/auth/steam', () => { steamOn(); return { url: loginUrl(`${deps.publicUrl}/auth/steam/return?age=1`, deps.publicUrl) }; });
   route('GET', '/auth/steam/return', async (c) => {
+    steamOn();
     const { steamId } = await verifyAssertion(db, c.url.searchParams, `${deps.publicUrl}/auth/steam/return`, deps.fetch, clock())
       .catch((e: Error) => fail('steam_login_failed', 'Steam login failed. Please try again.', 401, { reason: e.message }));
-    const { userId } = await signUp(db, cfg, { displayName: `Steam ${steamId.slice(-4)}`, ageConfirmed: c.url.searchParams.get('age') === '1', steamId, country: c.country }, clock());
+    // name, avatar and profile link from the player's Steam account; sign-in still works if the Web API does not answer
+    const profile = await fetchSteamProfile(steamId, cfg.steamApiKey, deps.fetch);
+    const { userId } = await signUp(db, cfg, { displayName: profile?.name ?? steamName('', steamId), ageConfirmed: c.url.searchParams.get('age') === '1', steamId, country: c.country }, clock());
+    if (profile) await syncSteamProfile(db, userId, profile, clock());
     return { token: await createSession(db, cfg, userId, clock()), userId };
   });
   route('POST', '/auth/logout', async (c) => { await c.auth(); await endSession(db, c.token!); return { ok: true }; });
@@ -143,6 +151,7 @@ export function createRouter(deps: AppDeps) {
     const { user, startedAt, mfaAt } = await c.auth();
     return {
       id: user.id, displayName: user.display_name, role: user.role, steamLinked: Boolean(user.steam_id), kycLevel: user.kyc_level,
+      steam: user.steam_id ? { id: user.steam_id, name: user.steam_name, avatarUrl: user.avatar_url, profileUrl: user.profile_url, tradeUrl: user.trade_url } : null,
       balance: (await balance(db, user.id)) / MF_PER_FRAG, seed: await activeSeedPublic(db, user.id), level: (await progress(db, user.id)).level,
       session: fmtSession(await sessionSummary(db, user.id, startedAt, clock())), block: await activeBlock(db, user.id, clock()), promoEligible: await promoEligible(db, user.id, clock()),
       mfa: { enrolled: Boolean(user.totp_secret), fresh: mfaFresh(mfaAt), required: cfg.requireOperatorMfa },
@@ -161,6 +170,16 @@ export function createRouter(deps: AppDeps) {
   route('GET', '/me/profile', async (c) => profile(db, await uid(c)));
   route('PUT', '/me/profile', async (c) => updateProfile(db, await uid(c), { displayName: c.body?.displayName, hidePublic: c.body?.hidePublic }, clock()));
   route('POST', '/auth/logout-all', async (c) => ({ sessions: await logoutAll(db, await uid(c), clock()) }));
+  route('PUT', '/me/trade-url', async (c) => ({ tradeUrl: await setTradeUrl(db, await uid(c), c.body?.tradeUrl, clock()) }));
+
+  /* ---------- skins (real-money mode) ---------- */
+  route('GET', '/skins/inventory', async (c) => skins.inventory((await c.auth()).user, c.url.searchParams.get('refresh') === '1', clock()));
+  route('POST', '/deposits', async (c) => skins.createDeposit((await c.auth()).user, c.body?.assetIds, clock()));
+  route('GET', '/deposits', async (c) => skins.deposits(await uid(c)));
+  route('GET', '/skins/shop', async (c) => { await c.auth(); return skins.shop(c.url.searchParams.get('q') ?? '', clock()); });
+  route('POST', '/withdrawals', async (c) => skins.createWithdrawal((await c.auth()).user, c.body?.assetIds, clock()));
+  route('GET', '/withdrawals', async (c) => skins.withdrawals(await uid(c)));
+  route('POST', '/withdrawals/:id/cancel', async (c, p) => skins.cancelWithdrawal(await uid(c), p.id, clock()));
   route('GET', '/wallet/transactions', async (c) => {
     const q = c.url.searchParams;
     return transactions(db, await uid(c), { kind: q.get('kind'), before: q.get('before') ? Number(q.get('before')) : null, limit: q.get('limit') ? Number(q.get('limit')) : undefined });
@@ -311,6 +330,9 @@ export function createRouter(deps: AppDeps) {
   route('POST', '/admin/players/:id/hold', async (c, p) => holdPlayer(db, (await admin(c)).id, p.id, c.body?.hours === null ? null : num(c.body?.hours, 'hours'), String(c.body?.reason ?? ''), clock()));
   route('DELETE', '/admin/players/:id/hold', async (c, p) => releaseHold(db, (await admin(c)).id, p.id, clock()));
   route('PUT', '/admin/players/:id/role', async (c, p) => setRole(db, (await admin(c)).id, p.id, String(c.body?.role) as Role, clock()));
+  route('PUT', '/admin/players/:id/kyc', async (c, p) => setKyc(db, (await admin(c)).id, p.id, c.body?.level, c.body?.note, clock()));
+  route('GET', '/admin/skins', async (c) => { await admin(c); return skinsAdmin(db, clock()); });
+  route('PUT', '/admin/withdrawals/:id', async (c, p) => operatorWithdrawal(db, (await admin(c)).id, p.id, c.body?.action, c.body?.offerId, c.body?.note, clock()));
   route('GET', '/admin/games', async (c) => { await admin(c); return (await gameFlags(db)).map((g) => ({ ...g, limits: limitsInFrags(g.limits) })); });
   route('PUT', '/admin/games/:game/limits', async (c, p) => {
     const a = await admin(c);

@@ -46,7 +46,10 @@ export interface Me {
   session: Session; block: { kind: string; until: number | null } | null; promoEligible: boolean;
   role: 'player' | 'moderator' | 'admin';
   mfa: { enrolled: boolean; fresh: boolean; required: boolean };
+  /** Steam accounts: persona and links from Steam, refreshed at every Steam sign-in. */
+  steam?: { id: string; name: string | null; avatarUrl: string | null; profileUrl: string | null; tradeUrl: string | null } | null;
 }
+export interface SkinRail { enabled: boolean; depositRate: number; withdrawRate: number; minItem: number; maxItems: number; kycBeforeDeposit: boolean }
 export interface CaseInfo { id: string; name: string; version: number; price: number; rtp: number; items: { name: string; value: number; chance: number }[] }
 export interface PublicConfig {
   demo: boolean; currency: string; fragsPerDollar: number; minStake: number; maxStake: number; maxWin: number; demoStartBalance: number;
@@ -56,4 +59,6 @@ export interface PublicConfig {
   /** Stake range and max win per game after per-game limits (Frags). */
   limits: Record<string, { minStake: number; maxStake: number; maxWin: number }>;
   responsibleGambling: { realityCheckOptions: number[]; limitIncreaseDelayHours: number };
+  steamLogin?: boolean;
+  skins?: SkinRail;
 }

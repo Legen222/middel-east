@@ -48,7 +48,9 @@ export async function withdrawalCheck(db: DB, cfg: Config, user: UserRow, amount
   const reasons: WithdrawalCheck['reasons'] = [];
   if (cfg.demo) reasons.push({ code: 'demo', message: 'There are no withdrawals in demo mode. Demo balance has no value.' });
   const account = `user:${user.id}`;
-  const lastW = ((await db.prepare("SELECT COALESCE(MAX(created_at), 0) AS t FROM ledger WHERE account = ? AND kind = 'withdrawal'").get(account)) as { t: number }).t;
+  // last withdrawal that went out (a cancelled one is booked back with the same ref and does not count)
+  const lastW = Number(((await db.prepare(`SELECT COALESCE(MAX(l.created_at), 0) AS t FROM ledger l WHERE l.account = ? AND l.kind = 'withdrawal' AND l.amount < 0
+    AND NOT EXISTS (SELECT 1 FROM ledger r WHERE r.account = l.account AND r.kind = 'withdrawal' AND r.amount > 0 AND r.ref = l.ref)`).get(account)) as { t: number }).t);
   const deposits = ((await db.prepare("SELECT COALESCE(SUM(amount), 0) AS s FROM ledger WHERE account = ? AND kind = 'deposit' AND amount > 0 AND created_at > ?").get(account, lastW)) as { s: number }).s;
   const allDeposits = ((await db.prepare("SELECT COALESCE(SUM(amount), 0) AS s FROM ledger WHERE account = ? AND kind = 'deposit' AND amount > 0").get(account)) as { s: number }).s;
   const wagered = ((await db.prepare('SELECT COALESCE(SUM(stake), 0) AS s FROM wagers WHERE user_id = ? AND created_at > ?').get(user.id, lastW)) as { s: number }).s;

@@ -1,4 +1,4 @@
-/** Browser stand-in for the parts of node:crypto the server uses (randomBytes, createHash('sha256')). */
+/** Browser stand-in for the parts of node:crypto the server uses (randomBytes, randomInt, createHash('sha256')). */
 import { sha256, toHex } from '../../../engine/src/pf/sha256';
 
 class Bytes extends Uint8Array {
@@ -23,4 +23,12 @@ export function createHash(algo: string) {
       return toHex(sha256(new TextEncoder().encode(data)));
     },
   };
+}
+
+/** Uniform integer in [0, max) without modulo bias. */
+export function randomInt(max: number): number {
+  const limit = Math.floor(0x100000000 / max) * max;
+  const v = new Uint32Array(1);
+  do crypto.getRandomValues(v); while (v[0] >= limit);
+  return v[0] % max;
 }

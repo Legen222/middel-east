@@ -1639,3 +1639,290 @@ describe('player account: history, detail, seeds, wallet, profile, feed (phase 1
     assert.equal((await router.dispatch({ method: 'GET', url: '/me', headers: auth, body: null, ip: '1.1.1.1' })).status, 401);
   });
 });
+
+/* ---------- phase 18: Steam profile, trade URL, live player stats, skin rail ---------- */
+import { PLAYER_STATS_BACKFILL } from '../src/db';
+import { setKyc } from '../src/admin';
+import { fetchSteamProfile, parseTradeUrl, steamName } from '../src/steam';
+import { setTradeUrl } from '../src/accounts';
+import { type BotItem, type OfferState, type TradeBot, SKINS, SkinService, botOnline, botTick, operatorWithdrawal, parsePriceFeed, skinsAdmin, syncPrices } from '../src/skins';
+
+const STEAM_ID = '76561198000000001';
+const TRADE_URL = 'https://steamcommunity.com/tradeoffer/new/?partner=39734273&token=Ab12_-Cd';
+
+describe('Steam profile and trade URL', () => {
+  it('cleans persona names and only keeps Steam CDN avatars and profile links', async () => {
+    assert.equal(steamName('  <b>Rust\u0007 King</b>  ', STEAM_ID), 'bRust King/b');
+    assert.equal(steamName('x', STEAM_ID), 'Steam 0001');
+    assert.equal(steamName('A'.repeat(40), STEAM_ID).length, 24);
+    const reply = (players: unknown[]): Fetch => async (url) => {
+      assert.match(url, /GetPlayerSummaries\/v2\/\?key=K%26EY&steamids=76561198000000001$/);
+      return { ok: true, text: async () => JSON.stringify({ response: { players } }) };
+    };
+    assert.deepEqual(await fetchSteamProfile(STEAM_ID, 'K&EY', reply([{ steamid: STEAM_ID, personaname: 'Scrap Baron', avatarfull: 'https://avatars.steamstatic.com/abc_full.jpg', profileurl: 'https://steamcommunity.com/id/baron/' }])),
+      { name: 'Scrap Baron', avatarUrl: 'https://avatars.steamstatic.com/abc_full.jpg', profileUrl: 'https://steamcommunity.com/id/baron/' });
+    const evil = await fetchSteamProfile(STEAM_ID, 'K&EY', reply([{ steamid: STEAM_ID, personaname: 'Baron', avatarfull: 'https://evil.example/a.jpg', profileurl: 'javascript:alert(1)' }]));
+    assert.deepEqual(evil, { name: 'Baron', avatarUrl: null, profileUrl: null });
+    assert.equal(await fetchSteamProfile(STEAM_ID, 'K&EY', reply([{ steamid: '76561198000000002', personaname: 'Other' }])), null);
+    assert.equal(await fetchSteamProfile(STEAM_ID, null, reply([])), null, 'no key, no call');
+    assert.equal(await fetchSteamProfile(STEAM_ID, 'k', async () => { throw new Error('down'); }), null);
+  });
+  it('accepts only trade URLs of the account itself, in canonical form', () => {
+    assert.equal(parseTradeUrl(' https://steamcommunity.com/tradeoffer/new/?token=Ab12_-Cd&partner=39734273 ', STEAM_ID), TRADE_URL);
+    assert.equal(parseTradeUrl(TRADE_URL.replace('39734273', '39734274'), STEAM_ID), null, 'someone else');
+    assert.equal(parseTradeUrl(TRADE_URL.replace('steamcommunity.com', 'steamcommunlty.com'), STEAM_ID), null);
+    assert.equal(parseTradeUrl(TRADE_URL.replace('Ab12_-Cd', 'short'), STEAM_ID), null);
+    assert.equal(parseTradeUrl(TRADE_URL.replace('https', 'http'), STEAM_ID), null);
+    assert.equal(parseTradeUrl('not a url', STEAM_ID), null);
+  });
+  it('Steam sign-in takes name and avatar from Steam, keeps them in sync and locks the name', async () => {
+    const db = await newDb();
+    const cfg: Config = { ...DEFAULT_CONFIG, steamLogin: true, steamApiKey: 'key' };
+    let persona = 'Scrap Baron';
+    let now = T0;
+    const fetchFn: Fetch = async (url, init) => {
+      if (url.includes('GetPlayerSummaries')) return { ok: true, text: async () => JSON.stringify({ response: { players: [{ steamid: STEAM_ID, personaname: persona, avatarfull: 'https://avatars.steamstatic.com/a_full.jpg', profileurl: 'https://steamcommunity.com/profiles/76561198000000001/' }] } }) };
+      assert.ok(init.body?.includes('openid.mode=check_authentication'));
+      return { ok: true, text: async () => 'ns:http://specs.openid.net/auth/2.0\nis_valid:true\n' };
+    };
+    const router = createRouter({ db, cfg, clock: () => now, fetch: fetchFn, publicUrl: 'https://scrapline.example', beacon: new LocalBeacon(T0 - 60_000, 1000) } as never);
+    const ret = (t: number) => `/auth/steam/return?age=1&${new URLSearchParams({
+      'openid.ns': 'http://specs.openid.net/auth/2.0', 'openid.mode': 'id_res', 'openid.op_endpoint': STEAM_OPENID,
+      'openid.claimed_id': `https://steamcommunity.com/openid/id/${STEAM_ID}`, 'openid.identity': `https://steamcommunity.com/openid/id/${STEAM_ID}`,
+      'openid.return_to': 'https://scrapline.example/auth/steam/return?age=1', 'openid.response_nonce': new Date(t).toISOString().slice(0, 19) + 'Z' + t, 'openid.assoc_handle': '1', 'openid.signed': 'x', 'openid.sig': 'y',
+    })}`;
+    const call = async (method: string, url: string, token?: string, body?: unknown) => {
+      const r = await router.dispatch({ method, url, headers: { 'cf-ipcountry': 'NZ', ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: body ?? null, ip: '1.1.1.1' });
+      return { status: r.status, json: r.payload as any };
+    };
+    assert.equal((await call('GET', '/config')).json.steamLogin, true);
+    const first = await call('GET', ret(now));
+    assert.equal(first.status, 200);
+    let me = (await call('GET', '/me', first.json.token)).json;
+    assert.equal(me.displayName, 'Scrap Baron');
+    assert.deepEqual(me.steam, { id: STEAM_ID, name: 'Scrap Baron', avatarUrl: 'https://avatars.steamstatic.com/a_full.jpg', profileUrl: 'https://steamcommunity.com/profiles/76561198000000001/', tradeUrl: null });
+    assert.equal((await call('PUT', '/me/profile', first.json.token, { displayName: 'Other name' })).json.error, 'steam_name');
+    assert.equal((await call('PUT', '/me/profile', first.json.token, { displayName: 'Scrap Baron', hidePublic: true })).status, 200, 'same name plus another field is fine');
+    assert.equal((await call('PUT', '/me/trade-url', first.json.token, { tradeUrl: TRADE_URL.replace('39734273', '1') })).json.error, 'invalid_trade_url');
+    assert.equal((await call('PUT', '/me/trade-url', first.json.token, { tradeUrl: TRADE_URL })).json.tradeUrl, TRADE_URL);
+
+    persona = 'Baron of Scrap';
+    now += 60_000;
+    const second = await call('GET', ret(now));
+    assert.equal(second.json.userId, first.json.userId, 'same account');
+    me = (await call('GET', '/me', second.json.token)).json;
+    assert.equal(me.displayName, 'Baron of Scrap');
+    assert.equal(me.steam.tradeUrl, TRADE_URL);
+    assert.ok((await auditLog(db, { event: 'steam_profile' })).length === 1);
+
+    const off = createRouter({ db, cfg: DEFAULT_CONFIG, clock: () => now, fetch: fetchFn, publicUrl: 'https://scrapline.example', beacon: new LocalBeacon(T0 - 60_000, 1000) } as never);
+    assert.equal((await off.dispatch({ method: 'GET', url: '/auth/steam', headers: {}, body: null, ip: '2.2.2.2' })).status, 404, 'off unless configured');
+  });
+  it('trade URLs need a Steam account', async () => {
+    const { db, userId } = await setup();
+    assert.equal(await code(() => setTradeUrl(db, userId, TRADE_URL, T0)), 'steam_required');
+  });
+});
+
+describe('live player stats (database trigger)', () => {
+  it('every ledger entry updates player_stats in the same transaction; a rebuild from the ledger matches', async () => {
+    const { db, cfg, userId } = await setup();
+    for (let i = 0; i < 25; i++) await playInstant(db, cfg, userId, 'dice', frags(3 + i), { chance: 40, direction: 'under' }, T0 + i);
+    await openCases(db, cfg, userId, 'toolbox', 3, T0 + 100);
+    const flip = await createCoinflip(db, cfg, userId, frags(50), 'scrap', T0 + 200);
+    await cancelGame(db, flip, userId, T0 + 300); // stake and refund
+    await adjustBalance(db, 'op', userId, 12.5, 'goodwill', T0 + 400);
+    await claimRakeback(db, userId, T0 + 500).catch(() => null);
+    const live = (await db.prepare('SELECT * FROM player_stats WHERE user_id = ?').get(userId)) as Record<string, number>;
+    const n = (k: string) => Number(live[k]);
+    assert.equal(n('stakes'), 28, '25 dice + 3 crates; the cancelled flip nets out');
+    assert.equal(n('grants'), cfg.demoStartBalance);
+    assert.equal(n('adjustments'), frags(12.5));
+    assert.equal(n('grants') - n('wagered') + n('paid') + n('bonuses') + n('adjustments') + n('deposited') - n('withdrawn'), await bal(db, userId), 'the totals explain the balance');
+    const stats = await playerStats(db, userId, T0 + 600);
+    assert.equal(stats.totals.balance, (await bal(db, userId)) / MF_PER_FRAG);
+    assert.equal(stats.totals.stakes, 28);
+    const before = JSON.stringify(await db.prepare('SELECT * FROM player_stats ORDER BY user_id').all());
+    await db.exec(PLAYER_STATS_BACKFILL);
+    assert.equal(JSON.stringify(await db.prepare('SELECT * FROM player_stats ORDER BY user_id').all()), before);
+  });
+});
+
+/** Steam's inventory format and Skinport's price list, as the fakes behind the skin rail tests. */
+const PRICE_LIST = [
+  { market_hash_name: 'Tempered AK47', suggested_price: 12.34, median_price: 13.1, quantity: 50 },
+  { market_hash_name: 'Big Grin', suggested_price: 0.05, quantity: 100 },
+  { market_hash_name: 'Glory AK47', suggested_price: 50, quantity: 10 },
+  { market_hash_name: 'Blackout Hoodie', suggested_price: 5, quantity: 2 },
+  { market_hash_name: 'Thin Listing', suggested_price: 10, median_price: 1, quantity: 30 },
+  { market_hash_name: 'No Price', suggested_price: null, quantity: 3 },
+  { nonsense: true },
+];
+const INVENTORY = {
+  success: 1, total_inventory_count: 6,
+  assets: [['1001', 'Tempered AK47', 1], ['1002', 'Big Grin', 1], ['1003', 'Glory AK47', 0], ['1004', 'Blackout Hoodie', 1], ['1005', 'Alien Red', 1], ['1006', 'Thin Listing', 1]]
+    .map(([assetid], i) => ({ appid: 252490, contextid: '2', assetid, classid: String(500 + i), instanceid: '0', amount: '1' })),
+  descriptions: [['Tempered AK47', 1], ['Big Grin', 1], ['Glory AK47', 0], ['Blackout Hoodie', 1], ['Alien Red', 1], ['Thin Listing', 1]]
+    .map(([name, tradable], i) => ({ appid: 252490, classid: String(500 + i), instanceid: '0', market_hash_name: name, name, icon_url: `icon${i}`, name_color: 'ff0000', tradable })),
+};
+
+class FakeBot implements TradeBot {
+  on = true; escrow = 0; seq = 7000;
+  offers = new Map<string, { state: OfferState; assets: string[]; message: string }>();
+  canceled: string[] = [];
+  inv: BotItem[] = [];
+  steamId() { return '76561198000000099'; }
+  online() { return this.on; }
+  async partnerEscrowDays() { return this.escrow; }
+  async requestItems(_url: string, assets: string[], message: string) { const id = String(++this.seq); this.offers.set(id, { state: 'active', assets, message }); return id; }
+  async findOffer(tag: string) { for (const [id, o] of this.offers) if (o.message.includes(tag)) return id; return null; }
+  async offer(id: string) {
+    const o = this.offers.get(id)!;
+    const names: Record<string, string> = { 1001: 'Tempered AK47', 1006: 'Thin Listing' };
+    return { state: o.state, received: o.state === 'accepted' ? o.assets.map((a) => ({ assetId: `n${a}`, name: names[a] ?? 'Item', icon: 'ic', tradable: true })) : null };
+  }
+  async cancel(id: string) { this.canceled.push(id); this.offers.get(id)!.state = 'canceled'; }
+  async inventory() { return this.inv; }
+}
+
+describe('skin rail: Steam deposits through the bot, withdrawals for operators', () => {
+  it('prices: lower of suggested and median, junk ignored', () => {
+    const rows = parsePriceFeed(PRICE_LIST);
+    assert.deepEqual(rows.map((r) => [r.name, r.price, r.volume]), [['Tempered AK47', 1234, 50], ['Big Grin', 5, 100], ['Glory AK47', 5000, 10], ['Blackout Hoodie', 500, 2], ['Thin Listing', 100, 30]]);
+    assert.throws(() => parsePriceFeed({}), /array/);
+  });
+
+  it('deposit → offer with code → accepted → credited once; decline, trade hold, timeout, crash recovery; withdrawals with refund', async () => {
+    const db = await newDb();
+    let priv = false;
+    const fetchFn: Fetch = async (url) => {
+      if (url.includes('skinport')) return { ok: true, status: 200, text: async () => JSON.stringify(PRICE_LIST) };
+      assert.ok(url.includes(`/inventory/${STEAM_ID}/252490/2`));
+      return priv ? { ok: false, status: 403, text: async () => 'null' } : { ok: true, status: 200, text: async () => JSON.stringify(INVENTORY) };
+    };
+    const cfg: Config = { ...DEFAULT_CONFIG, demo: false, skins: { ...DEFAULT_CONFIG.skins, enabled: true } };
+    let now = T0;
+    assert.equal(await syncPrices(db, cfg, fetchFn, now), 5);
+    const { userId } = await signUp(db, cfg, { displayName: 'Skinner', ageConfirmed: true, steamId: STEAM_ID, country: 'NZ' }, now);
+    assert.equal(await bal(db, userId), 0, 'no play money outside the demo');
+    const user = async () => (await getUser(db, userId))!;
+    const skins = new SkinService(db, cfg, fetchFn);
+    const bot = new FakeBot();
+
+    assert.equal(await code(async () => skins.createDeposit(await user(), ['1001'], now)), 'trade_url_required');
+    await setTradeUrl(db, userId, TRADE_URL, now);
+    assert.equal(await code(async () => skins.createDeposit(await user(), ['1001'], now)), 'kyc_required');
+    await setKyc(db, 'op', userId, 1, 'passport checked by hand', now);
+    assert.equal(await code(async () => skins.createDeposit(await user(), ['1001'], now)), 'bot_offline');
+    bot.on = false;
+    await botTick(db, cfg, bot, now);
+    assert.equal(await botOnline(db, now), false);
+    bot.on = true;
+    await botTick(db, cfg, bot, now);
+    assert.equal(await botOnline(db, now), true);
+
+    const inv = await skins.inventory(await user(), false, now);
+    const why = Object.fromEntries(inv.items.map((i) => [i.assetId, i.reason]));
+    assert.deepEqual(why, { 1001: null, 1006: null, 1002: 'Below the minimum', 1003: 'Not tradable yet', 1004: 'Too rare to price', 1005: 'No price' });
+    assert.equal(inv.items[0].assetId, '1001', 'depositable first, by price');
+    assert.equal(await code(async () => skins.createDeposit(await user(), ['1001', '1002'], now)), 'invalid_items');
+    assert.equal(await code(async () => skins.createDeposit(await user(), ['1001', '1001'], now)), 'invalid_items');
+
+    const dep = await skins.createDeposit(await user(), ['1001', '1006'], now);
+    assert.equal(dep.status, 'requested');
+    assert.equal(dep.value, 1334);
+    assert.match(dep.securityCode, /^[A-Z2-9]{6}$/);
+    assert.equal(await code(async () => skins.createDeposit(await user(), ['1001'], now)), 'deposit_open');
+    assert.equal((await skins.inventory(await user(), false, now)).items.find((i) => i.assetId === '1001')!.reason, 'In an open deposit');
+
+    await botTick(db, cfg, bot, now += 5000);
+    const [offerId, offer] = [...bot.offers][0];
+    assert.ok(offer.message.includes(dep.securityCode) && offer.message.includes(`#${dep.id}`));
+    assert.deepEqual(offer.assets.sort(), ['1001', '1006']);
+    let mine = (await skins.deposits(userId))[0];
+    assert.equal(mine.status, 'sent');
+    assert.equal(mine.offerUrl, `https://steamcommunity.com/tradeoffer/${offerId}/`);
+    await botTick(db, cfg, bot, now += 5000);
+    assert.equal(await bal(db, userId), 0, 'nothing before the player accepts');
+
+    offer.state = 'accepted';
+    await botTick(db, cfg, bot, now += 5000);
+    await botTick(db, cfg, bot, now += 5000);
+    assert.equal(await bal(db, userId), frags(1334), 'credited exactly once');
+    assert.equal((await skins.deposits(userId))[0].status, 'accepted');
+    assert.equal(Number(((await db.prepare('SELECT deposited FROM player_stats WHERE user_id = ?').get(userId)) as { deposited: number }).deposited), frags(1334));
+    assert.deepEqual((await skins.shop('', now)).map((i) => [i.assetId, i.price]), [['n1001', 1234], ['n1006', 100]]);
+
+    // declined, trade hold, timeout, and a bot that crashed after sending
+    const next = async () => (await skins.createDeposit(await user(), ['1006'], now)).id;
+    let id = await next();
+    await botTick(db, cfg, bot, now += 1000);
+    bot.offers.get(String(bot.seq))!.state = 'declined';
+    await botTick(db, cfg, bot, now += 1000);
+    assert.equal((await skins.deposits(userId)).find((d) => d.id === id)!.status, 'declined');
+    bot.escrow = 7;
+    id = await next();
+    await botTick(db, cfg, bot, now += 1000);
+    const held = (await skins.deposits(userId)).find((d) => d.id === id)!;
+    assert.equal(held.status, 'failed');
+    assert.match(held.reason!, /7-day trade hold/);
+    bot.escrow = 0;
+    id = await next();
+    await botTick(db, cfg, bot, now += 1000);
+    await botTick(db, cfg, bot, now += cfg.skins.offerTtlMs + 1);
+    assert.equal((await skins.deposits(userId)).find((d) => d.id === id)!.status, 'expired');
+    assert.deepEqual(bot.canceled, [String(bot.seq)]);
+    id = await next();
+    bot.offers.set('9999', { state: 'active', assets: ['1006'], message: `deposit #${id}` });
+    const sentBefore = bot.seq;
+    await botTick(db, cfg, bot, now += 1000);
+    assert.equal(bot.seq, sentBefore, 'the existing offer is adopted, not sent twice');
+    assert.equal((await skins.deposits(userId)).find((d) => d.id === id)!.offerId, '9999');
+    bot.offers.get('9999')!.state = 'canceled';
+    await botTick(db, cfg, bot, now += 1000);
+    assert.equal(await bal(db, userId), frags(1334));
+
+    // withdrawals: AML wager rule first, then reserve, refund on cancel, sent by an operator
+    const blocked = await code(async () => skins.createWithdrawal(await user(), ['n1006'], now));
+    assert.equal(blocked, 'withdrawal_blocked');
+    const easy = new SkinService(db, { ...cfg, amlWagerMultiple: 0 }, fetchFn);
+    const w1 = await easy.createWithdrawal(await user(), ['n1006'], now += 1000);
+    assert.equal(w1.status, 'pending');
+    assert.equal(await bal(db, userId), frags(1234));
+    assert.deepEqual((await skins.shop('', now)).map((i) => i.assetId), ['n1001']);
+    assert.equal(await code(async () => easy.createWithdrawal(await user(), ['n1006'], now)), 'invalid_items');
+    await easy.cancelWithdrawal(userId, w1.id, now += 1000);
+    assert.equal(await bal(db, userId), frags(1334), 'refunded');
+    assert.ok((await withdrawalCheck(db, cfg, await user(), frags(100))).reasons.some((r) => r.code === 'aml_wager'), 'a cancelled withdrawal does not reset the wager rule');
+    const w2 = await easy.createWithdrawal(await user(), ['n1006'], now += 1000);
+    assert.equal(await code(() => operatorWithdrawal(db, 'op', w2.id, 'cancel', null, '', now)), 'reason_required');
+    assert.equal(await code(() => operatorWithdrawal(db, 'op', w2.id, 'sent', 'abc', null, now)), 'invalid_offer');
+    const done = await operatorWithdrawal(db, 'op', w2.id, 'sent', '123456', 'sent from the Steam app', now += 1000);
+    assert.equal(done.status, 'sent');
+    assert.equal(await code(() => operatorWithdrawal(db, 'op', w2.id, 'cancel', null, 'too late', now)), 'not_pending');
+    assert.equal(await code(() => easy.cancelWithdrawal(userId, w2.id, now)), 'not_pending');
+    assert.equal(Number(((await db.prepare('SELECT withdrawn FROM player_stats WHERE user_id = ?').get(userId)) as { withdrawn: number }).withdrawn), frags(100));
+    assert.equal(await balanceOf(db, SKINS), -frags(1234), 'house:skins holds the counterpart of the stock still at the site');
+
+    // stock sync: new items come in, items gone without a withdrawal leave the shop
+    bot.inv = [{ assetId: 'n1001', name: 'Tempered AK47', icon: 'ic', tradable: true }, { assetId: 'x2000', name: 'Glory AK47', icon: 'g', tradable: true }];
+    await botTick(db, cfg, bot, now += 1000, { syncInventory: true });
+    assert.deepEqual((await skins.shop('glory', now)).map((i) => i.assetId), ['x2000']);
+    bot.inv = [bot.inv[1]];
+    await botTick(db, cfg, bot, now += 1000, { syncInventory: true });
+    assert.deepEqual((await skins.shop('', now)).map((i) => i.assetId), ['x2000']);
+    const admin = await skinsAdmin(db, now);
+    assert.equal(admin.bot!.online, true);
+    assert.equal(admin.bot!.items, 1);
+    assert.equal(admin.stock.gone.items, 1);
+    assert.equal(admin.pending.length, 0);
+    assert.deepEqual(await ledgerIntegrity(db), { sum: 0, mismatched: [] });
+
+    priv = true;
+    assert.equal(await code(async () => skins.inventory(await user(), true, now + 20_000)), 'inventory_private');
+    assert.equal(await code(async () => skins.shop('', now + PRICE_MAX_AGE + 1)), 'no-error');
+    assert.equal((await skins.shop('', now + 7 * HOUR)).length, 0, 'stale prices are not used');
+    assert.equal(await code(() => new SkinService(db, DEFAULT_CONFIG, fetchFn).shop('', now)), 'skins_off');
+  });
+});
+const PRICE_MAX_AGE = 6 * HOUR;

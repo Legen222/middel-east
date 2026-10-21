@@ -96,7 +96,7 @@ Cloudflare (TLS, WAF, CF-IPCountry)
 
 | Thema | Umsetzung |
 |---|---|
-| Konfiguration | Umgebungsvariablen (Kopf von `src/main.ts`): `DATABASE_URL`, `PG_POOL_MAX`, `DEMO`, `LICENCE_ID`, `REQUIRE_OPERATOR_MFA`, `OPERATOR_IP_ALLOWLIST`, `TRUST_PROXY`, `BEACON`, `PUBLIC_URL`, `PORT`, `LOG`. |
+| Konfiguration | Umgebungsvariablen (Kopf von `src/main.ts`): `DATABASE_URL`, `PG_POOL_MAX`, `DEMO`, `LICENCE_ID`, `REQUIRE_OPERATOR_MFA`, `OPERATOR_IP_ALLOWLIST`, `TRUST_PROXY`, `BEACON`, `PUBLIC_URL` (Adresse der Seite ohne `/api`, Rückkehr vom Steam-Login), `PORT`, `LOG`; Steam und Skins in `src/env.ts`, Trade-Bot in `src/bot-main.ts` (Phase 18). |
 | Health | `GET /health` (lebt). `GET /ready` prüft die Datenbank und liefert Dialekt, Leader-Status, Beacon und Demo-Flag. Der Docker-HEALTHCHECK nutzt `/ready`. |
 | Logs | Eine JSON-Zeile pro Anfrage (Zeit, Request-ID, Methode, Pfad, Status, Dauer, IP). Die Request-ID kommt von nginx (`X-Request-Id`) oder wird erzeugt und im Header zurückgegeben. Tickerfehler werden als `level: error` geloggt. |
 | Shutdown | SIGTERM/SIGINT: Ticker stoppen, keine neuen Verbindungen, SSE-Streams schließen, laufende Anfragen abarbeiten, Leader-Sperre freigeben, Pool schließen. Nach spätestens 15 s wird hart beendet. |

@@ -14,6 +14,7 @@ import { type DB, audit, tx } from './db';
 import { fail } from './errors';
 import { createSeed } from './seeds';
 import { getSettings } from './site';
+import { type SteamProfile, parseTradeUrl } from './steam';
 import { FAUCET, balanceOf, transfer, userAccount } from './wallet';
 
 export type Role = 'player' | 'moderator' | 'admin';
@@ -22,6 +23,7 @@ export interface UserRow {
   id: string; steam_id: string | null; display_name: string; country: string | null;
   age_confirmed_at: number | null; kyc_level: number; last_refill_at: number | null; created_at: number;
   role: Role; totp_secret: string | null; totp_pending: string | null; totp_pending_at: number | null;
+  steam_name: string | null; avatar_url: string | null; profile_url: string | null; trade_url: string | null;
 }
 
 export interface Session { user: UserRow; startedAt: number; mfaAt: number | null; mfaStep: number | null; tokenHash: string }
@@ -55,6 +57,27 @@ export async function signUp(db: DB, cfg: Config, input: { displayName: string; 
     await audit(db, id, 'signup', { steam: Boolean(input.steamId), ageConfirmed: true, country: input.country }, now);
     return { userId: id, created: true };
   });
+}
+
+/** Steam accounts carry the Steam persona: name, avatar and profile link follow Steam at every Steam sign-in. */
+export async function syncSteamProfile(db: DB, userId: string, p: SteamProfile, now: number): Promise<void> {
+  const u = await getUser(db, userId);
+  if (!u?.steam_id) return;
+  if (u.display_name === p.name && u.steam_name === p.name && u.avatar_url === p.avatarUrl && u.profile_url === p.profileUrl) return;
+  await db.prepare('UPDATE users SET display_name = ?, steam_name = ?, avatar_url = ?, profile_url = ? WHERE id = ?').run(p.name, p.name, p.avatarUrl, p.profileUrl, userId);
+  if (u.display_name !== p.name) await audit(db, userId, 'steam_profile', { from: u.display_name, to: p.name }, now);
+}
+
+/** Where skin offers go. Only a trade URL of the account's own SteamID is accepted. */
+export async function setTradeUrl(db: DB, userId: string, raw: unknown, now: number): Promise<string> {
+  const u = (await getUser(db, userId)) ?? fail('not_found', 'Account not found.', 404);
+  if (!u.steam_id) fail('steam_required', 'Sign in with Steam to add a trade URL.', 403);
+  const url = parseTradeUrl(raw, u.steam_id!) ?? fail('invalid_trade_url', 'That is not the trade URL of your Steam account. Copy it from Steam → Inventory → Trade Offers → Who can send me trade offers?');
+  if (url !== u.trade_url) {
+    await db.prepare('UPDATE users SET trade_url = ? WHERE id = ?').run(url, userId);
+    await audit(db, userId, 'trade_url', { set: true }, now);
+  }
+  return url;
 }
 
 export async function createSession(db: DB, cfg: Config, userId: string, now: number): Promise<string> {

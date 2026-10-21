@@ -23,17 +23,26 @@ export const walletView: View = {
       ${c.cfg.demo ? `<button class="btn" type="button" id="w-refill">${icon('upgrade')} Refill demo balance</button>` : ''}
     </div>
   </section>
+  <section class="card">
+    <h2 class="h-sect">${icon('gauge')} Totals</h2>
+    <div class="stats" aria-label="Account totals"><div><b id="t-dep">–</b><span>deposited</span></div><div><b id="t-wd">–</b><span>withdrawn</span></div>
+      <div><b id="t-wag">–</b><span>wagered</span></div><div><b id="t-bonus">–</b><span>rewards</span></div></div>
+    <p class="muted" style="font-size:12px">Kept live by the database with every booking, so the figures always add up to your balance.</p>
+  </section>
   <div class="admin-grid">
     <section class="card">
       <h2 class="h-sect">${icon('pot')} Deposit</h2>
-      ${c.cfg.demo
+      ${c.cfg.skins?.enabled
+        ? `<p class="muted">Deposit Rust skins from your Steam inventory: our bot sends a trade offer with a security code, you accept it in Steam, the Frags arrive at once.</p><div class="row"><a class="btn" href="#/deposit">${icon('crate')} Deposit skins</a></div>`
+        : c.cfg.demo
         ? `<p class="muted">This is a play-money demo: Frags have no cash value and cannot be bought. When the balance runs low you can refill it once a day, back to ${frags(c.cfg.demoStartBalance ?? 0, 0)} Frags.</p>`
         : '<p class="muted">Deposits open with the licence: Rust skins via Steam trade, crypto and cards, each with its own checks. Until then nothing can be deposited.</p>'}
     </section>
     <section class="card">
       <h2 class="h-sect">${icon('shield')} Withdraw</h2>
-      <p class="muted">${c.cfg.demo ? 'Play money cannot be withdrawn.' : 'Withdrawals need a verified identity above the KYC threshold and wagering of at least your deposits since the last withdrawal (anti-money-laundering rule).'}
+      <p class="muted">${c.cfg.demo ? 'Play money cannot be withdrawn.' : 'Withdrawals need a verified identity and wagering of at least your deposits since the last withdrawal (anti-money-laundering rule).'}
         Limits, breaks and self-exclusion are on <a href="#/limits">Responsible play</a>.</p>
+      ${c.cfg.skins?.enabled ? `<div class="row"><a class="btn ghost" href="#/withdraw">${icon('upgrade')} Withdraw skins</a></div>` : ''}
     </section>
   </div>
   <section class="card">
@@ -64,6 +73,12 @@ export const walletView: View = {
       $('#w-more', root).hidden = !next;
     };
     void load(true).catch((e) => toast(errorText(e), 'err'));
+    api<{ totals: { deposited: number; withdrawn: number; wagered: number; bonuses: number } }>('GET', '/me/stats').then(({ totals: t }) => {
+      $('#t-dep', root).textContent = frags(t.deposited);
+      $('#t-wd', root).textContent = frags(t.withdrawn);
+      $('#t-wag', root).textContent = frags(t.wagered);
+      $('#t-bonus', root).textContent = frags(t.bonuses);
+    }).catch(() => null);
     $('#w-kind', root).addEventListener('change', () => void load(true).catch((e) => toast(errorText(e), 'err')));
     $('#w-more', root).addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, () => load(false)));
     root.querySelector('#w-refill')?.addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {

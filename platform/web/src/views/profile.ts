@@ -8,7 +8,7 @@ interface Stats {
   memberSince: number | null; bets: number; wagered: number; paid: number; net: number; bestMultiplier: Pick | null; biggestWin: Pick | null; activeSessions: number;
   games: { game: string; gameName: string; bets: number; wagered: number; paid: number }[];
 }
-interface Profile { displayName: string; hidePublic: boolean; nameChangeAt: number | null }
+interface Profile { displayName: string; hidePublic: boolean; nameChangeAt: number | null; nameFromSteam?: boolean }
 
 const day = (t: number) => new Date(t).toLocaleDateString('en-US', { dateStyle: 'medium' });
 
@@ -16,8 +16,8 @@ export const profileView: View = {
   title: 'Profile',
   html: (c) => `
   <section class="card">
-    <div class="sect-head"><div><p class="eyebrow">Account</p><h1 class="h-display">${esc(c.me.displayName)}</h1>
-      <p class="muted" id="p-since">Level ${c.me.level}</p></div>
+    <div class="sect-head"><div class="p-who">${c.me.steam?.avatarUrl ? `<img class="avatar big" src="${esc(c.me.steam.avatarUrl)}" alt="" referrerpolicy="no-referrer">` : ''}<div><p class="eyebrow">Account</p><h1 class="h-display">${esc(c.me.displayName)}</h1>
+      <p class="muted" id="p-since">Level ${c.me.level}</p></div></div>
       <div class="row"><a class="btn ghost" href="#/history">${icon('clock')} History</a><a class="btn ghost" href="#/wallet">${icon('pot')} Wallet</a></div></div>
     <div class="stats" id="p-stats" aria-label="Lifetime figures">
       <div><b id="ps-bets">–</b><span>rounds played</span></div>
@@ -30,8 +30,8 @@ export const profileView: View = {
     <section class="card">
       <h2 class="h-sect">${icon('user')} Profile</h2>
       <form class="vf-fields" id="p-form" novalidate style="display:flex;flex-direction:column;gap:12px">
-        <label class="field">Display name<input id="p-name" maxlength="24" autocomplete="nickname" value="${esc(c.me.displayName)}"></label>
-        <p class="muted" style="font-size:12px" id="p-name-hint">Shown in chat and, unless hidden below, in public lists. You can change it once every 24 hours.</p>
+        <label class="field">Display name<input id="p-name" maxlength="24" autocomplete="nickname" value="${esc(c.me.displayName)}" ${c.me.steam?.name ? 'readonly' : ''}></label>
+        <p class="muted" style="font-size:12px" id="p-name-hint">${c.me.steam?.name ? 'Your name comes from Steam and updates every time you sign in with Steam.' : 'Shown in chat and, unless hidden below, in public lists. You can change it once every 24 hours.'}</p>
         <label class="check"><input type="checkbox" id="p-hide"> <span>Hide my name in public lists (live bets, crash, wheel, jackpot, battles). You still see your own seats.</span></label>
         <div><button class="btn" type="submit">Save</button></div>
       </form>
@@ -40,7 +40,7 @@ export const profileView: View = {
       <h2 class="h-sect">${icon('shield')} Security</h2>
       <dl class="fairbox plain">
         <dt>Signed in</dt><dd id="p-sessions">–</dd>
-        <dt>Steam</dt><dd>${c.me.steamLinked ? 'linked' : 'not linked'}</dd>
+        <dt>Steam</dt><dd>${c.me.steam ? `${c.me.steam.profileUrl ? `<a href="${esc(c.me.steam.profileUrl)}" target="_blank" rel="noopener noreferrer">${esc(c.me.steam.name ?? 'profile')}</a>` : 'linked'} · <span class="num">${esc(c.me.steam.id)}</span>` : 'not linked'}</dd>
         <dt>Identity check</dt><dd>${c.me.kycLevel > 0 ? `level ${c.me.kycLevel}` : 'not needed for play money'}</dd>
         ${c.me.role !== 'player' ? `<dt>Operator MFA</dt><dd>${c.me.mfa.enrolled ? 'enrolled' : 'not enrolled (Backoffice → security)'}</dd>` : ''}
         <dt>Seed pair</dt><dd>${esc(c.me.seed.serverSeedHash.slice(0, 24))}… · <a href="#/fair">manage</a></dd>
@@ -49,6 +49,11 @@ export const profileView: View = {
       <p class="muted" style="font-size:12px">Ends every session of this account, this one included.</p>
     </section>
   </div>
+  ${c.me.steam ? `<section class="card">
+    <h2 class="h-sect">${icon('keycard')} Steam trade URL</h2>
+    <p class="muted">Skin offers go to this link, and only to your own Steam account. Find it in Steam → Inventory → Trade Offers → <a href="https://steamcommunity.com/my/tradeoffers/privacy#trade_offer_access_url" target="_blank" rel="noopener noreferrer">Who can send me trade offers?</a></p>
+    <form class="row" id="p-tu"><input class="input" id="p-tu-url" value="${esc(c.me.steam.tradeUrl ?? '')}" placeholder="https://steamcommunity.com/tradeoffer/new/?partner=…&amp;token=…" aria-label="Trade URL" style="flex:1;min-width:240px"><button class="btn ghost" type="submit">Save</button></form>
+  </section>` : ''}
   <section class="card">
     <h2 class="h-sect">Per game</h2>
     <div class="tablewrap"><table><thead><tr><th>Game</th><th class="r">Rounds</th><th class="r">Wagered</th><th class="r">Paid out</th><th class="r">Your RTP</th></tr></thead><tbody id="p-games"><tr><td colspan="5" class="muted">Loading …</td></tr></tbody></table></div>
@@ -88,6 +93,14 @@ export const profileView: View = {
         await c.refresh();
         toast('Profile saved.');
         c.rerender();
+      });
+    });
+    root.querySelector('#p-tu')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      void guard($<HTMLButtonElement>('#p-tu button', root), async () => {
+        await api('PUT', '/me/trade-url', { tradeUrl: $<HTMLInputElement>('#p-tu-url', root).value });
+        await c.refresh();
+        toast('Trade URL saved.');
       });
     });
     $('#p-logout-all', root).addEventListener('click', () => {

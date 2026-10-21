@@ -1,6 +1,8 @@
-# SCRAPLINE stack: Postgres, two API instances (one becomes the ticker leader), nginx with the web app.
+# SCRAPLINE stack: Postgres, two API instances (one becomes the ticker leader), nginx with the web app,
+# and (profile "skins") the Steam trade bot for skin deposits.
 #   cp deploy/.env.example deploy/.env && docker compose -f deploy/docker-compose.yml --env-file deploy/.env up --build
-# Play money only. Real money needs a licence first (docs/platform/05-go-live.md).
+#   with the bot:  docker compose -f deploy/docker-compose.yml --env-file deploy/.env --profile skins up --build
+# Play money by default. Real money (skins included) needs a licence first (docs/platform/05-go-live.md, 10-online-plan.md).
 name: scrapline
 
 services:
@@ -21,8 +23,18 @@ services:
     build: { context: ../platform, dockerfile: server/Dockerfile }
     environment:
       DATABASE_URL: postgres://scrapline:${POSTGRES_PASSWORD}@db:5432/scrapline
-      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080/api}
-      DEMO: "true"
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
+      DEMO: ${DEMO:-true}
+      LICENCE_ID: ${LICENCE_ID:-}
+      STEAM_API_KEY: ${STEAM_API_KEY:-}
+      STEAM_LOGIN: ${STEAM_LOGIN:-}
+      SKINS: ${SKINS:-false}
+      DEPOSIT_RATE: ${DEPOSIT_RATE:-1}
+      WITHDRAW_RATE: ${WITHDRAW_RATE:-1}
+      SKIN_MIN_ITEM: ${SKIN_MIN_ITEM:-10}
+      KYC_BEFORE_DEPOSIT: ${KYC_BEFORE_DEPOSIT:-true}
+      PRICE_FEED_URL: ${PRICE_FEED_URL:-}
+      INVENTORY_URL: ${INVENTORY_URL:-}
       REQUIRE_OPERATOR_MFA: ${REQUIRE_OPERATOR_MFA:-true}
       OPERATOR_IP_ALLOWLIST: ${OPERATOR_IP_ALLOWLIST:-}
       TRUST_PROXY: "true"
@@ -31,6 +43,26 @@ services:
     depends_on: { db: { condition: service_healthy } }
     deploy: { replicas: 2 }
     stop_grace_period: 20s
+    restart: unless-stopped
+
+  # Steam trade bot: one instance (a Postgres lock keeps a second copy idle). Same image as the API.
+  bot:
+    profiles: [skins]
+    build: { context: ../platform, dockerfile: server/Dockerfile }
+    command: ["node", "--no-warnings=ExperimentalWarning", "bot-main.mjs"]
+    environment:
+      DATABASE_URL: postgres://scrapline:${POSTGRES_PASSWORD}@db:5432/scrapline
+      DEMO: ${DEMO:-true}
+      LICENCE_ID: ${LICENCE_ID:-}
+      SKINS: ${SKINS:-false}
+      SITE_NAME: ${SITE_NAME:-SCRAPLINE}
+      BOT_ACCOUNT_NAME: ${BOT_ACCOUNT_NAME:-}
+      BOT_PASSWORD: ${BOT_PASSWORD:-}
+      BOT_SHARED_SECRET: ${BOT_SHARED_SECRET:-}
+      BOT_IDENTITY_SECRET: ${BOT_IDENTITY_SECRET:-}
+    healthcheck: { disable: true }
+    depends_on: { db: { condition: service_healthy } }
+    stop_grace_period: 10s
     restart: unless-stopped
 
   web:

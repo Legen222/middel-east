@@ -127,7 +127,11 @@ CREATE TABLE IF NOT EXISTS users (
   totp_pending TEXT,              -- secret shown during enrolment, until the first code confirms it
   totp_pending_at INTEGER,
   name_changed_at INTEGER,        -- last display-name change (once per 24 h)
-  hide_public INTEGER NOT NULL DEFAULT 0 -- 1 = shown as "Hidden player" in public lists
+  hide_public INTEGER NOT NULL DEFAULT 0, -- 1 = shown as "Hidden player" in public lists
+  steam_name TEXT,                -- persona name from the Steam Web API, refreshed at every Steam sign-in
+  avatar_url TEXT,
+  profile_url TEXT,
+  trade_url TEXT                  -- where skin offers go; its partner id must be the account's SteamID
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
@@ -506,6 +510,132 @@ CREATE TABLE IF NOT EXISTS audit (
 CREATE INDEX IF NOT EXISTS audit_user ON audit(user_id, created_at);
 `;
 
+/* Skin rail (skins/): prices, deposits through the trade bot, the bot's stock, withdrawals for operators. */
+export const SKIN_SCHEMA = `
+CREATE TABLE IF NOT EXISTS item_prices (
+  market_hash_name TEXT PRIMARY KEY,
+  price INTEGER NOT NULL,          -- Frags (US cents)
+  volume INTEGER NOT NULL DEFAULT 0,
+  source TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS skin_deposits (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  status TEXT NOT NULL,            -- requested | sent | accepted | declined | canceled | expired | failed
+  offer_id TEXT,
+  security_code TEXT NOT NULL,
+  trade_url TEXT NOT NULL,
+  value INTEGER NOT NULL,          -- mF credited on acceptance (price snapshot x deposit rate)
+  reason TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS skin_deposits_user ON skin_deposits(user_id, created_at);
+CREATE INDEX IF NOT EXISTS skin_deposits_status ON skin_deposits(status);
+CREATE TABLE IF NOT EXISTS skin_deposit_items (
+  deposit_id TEXT NOT NULL REFERENCES skin_deposits(id),
+  asset_id TEXT NOT NULL,          -- in the player's inventory
+  market_hash_name TEXT NOT NULL,
+  icon_url TEXT,
+  value INTEGER NOT NULL,          -- mF
+  PRIMARY KEY (deposit_id, asset_id)
+);
+CREATE TABLE IF NOT EXISTS skin_withdrawals (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  status TEXT NOT NULL,            -- pending | sent | canceled
+  value INTEGER NOT NULL,          -- mF debited
+  trade_url TEXT NOT NULL,
+  offer_id TEXT,
+  handled_by TEXT,
+  note TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS skin_withdrawals_status ON skin_withdrawals(status, created_at);
+CREATE TABLE IF NOT EXISTS skin_items (
+  asset_id TEXT PRIMARY KEY,       -- in the bot's inventory (Steam gives items a new asset id on every trade)
+  market_hash_name TEXT NOT NULL,
+  icon_url TEXT,
+  tradable INTEGER NOT NULL DEFAULT 1,
+  status TEXT NOT NULL,            -- in_stock | reserved | withdrawn | gone (left the bot without a withdrawal)
+  deposit_id TEXT,
+  withdrawal_id TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS skin_items_status ON skin_items(status);
+CREATE TABLE IF NOT EXISTS bot_status (
+  id TEXT PRIMARY KEY,
+  steam_id TEXT,
+  online INTEGER NOT NULL,
+  items INTEGER NOT NULL DEFAULT 0,
+  message TEXT,
+  heartbeat_at INTEGER NOT NULL
+);
+`;
+
+/*
+ * Live player figures, kept by the database itself: every ledger row on a player's account updates
+ * player_stats in the same transaction (trigger), whichever game or rail wrote it. The current balance
+ * lives in balances; this table adds the totals behind it.
+ */
+export const PLAYER_STATS_TABLE = `
+CREATE TABLE IF NOT EXISTS player_stats (
+  user_id TEXT PRIMARY KEY,
+  wagered INTEGER NOT NULL DEFAULT 0,      -- mF staked, refunds taken off
+  paid INTEGER NOT NULL DEFAULT 0,         -- mF paid out by games
+  stakes INTEGER NOT NULL DEFAULT 0,       -- number of stakes
+  deposited INTEGER NOT NULL DEFAULT 0,
+  withdrawn INTEGER NOT NULL DEFAULT 0,
+  bonuses INTEGER NOT NULL DEFAULT 0,      -- rakeback, promo codes, crew rewards
+  grants INTEGER NOT NULL DEFAULT 0,       -- demo play money
+  adjustments INTEGER NOT NULL DEFAULT 0,  -- operator corrections
+  last_activity INTEGER
+);`;
+/** The per-row contribution of a ledger entry (column list + values over NEW.*). */
+const STAT_COLS = 'user_id, wagered, paid, stakes, deposited, withdrawn, bonuses, grants, adjustments, last_activity';
+const statValues = (r: string) => `substr(${r}.account, 6),
+    CASE WHEN ${r}.kind IN ('stake', 'refund') THEN -${r}.amount ELSE 0 END,
+    CASE WHEN ${r}.kind = 'payout' THEN ${r}.amount ELSE 0 END,
+    CASE ${r}.kind WHEN 'stake' THEN 1 WHEN 'refund' THEN -1 ELSE 0 END,
+    CASE WHEN ${r}.kind = 'deposit' THEN ${r}.amount ELSE 0 END,
+    CASE WHEN ${r}.kind = 'withdrawal' THEN -${r}.amount ELSE 0 END,
+    CASE WHEN ${r}.kind IN ('rakeback', 'promo', 'affiliate') THEN ${r}.amount ELSE 0 END,
+    CASE WHEN ${r}.kind = 'demo_grant' THEN ${r}.amount ELSE 0 END,
+    CASE WHEN ${r}.kind = 'adjustment' THEN ${r}.amount ELSE 0 END,
+    ${r}.created_at`;
+const STAT_UPSERT = `ON CONFLICT (user_id) DO UPDATE SET wagered = player_stats.wagered + excluded.wagered, paid = player_stats.paid + excluded.paid,
+    stakes = player_stats.stakes + excluded.stakes, deposited = player_stats.deposited + excluded.deposited, withdrawn = player_stats.withdrawn + excluded.withdrawn,
+    bonuses = player_stats.bonuses + excluded.bonuses, grants = player_stats.grants + excluded.grants, adjustments = player_stats.adjustments + excluded.adjustments,
+    last_activity = excluded.last_activity`;
+/** Rebuilds player_stats from the whole ledger (used once when the table is introduced). */
+export const PLAYER_STATS_BACKFILL = `
+DELETE FROM player_stats;
+INSERT INTO player_stats (${STAT_COLS})
+  SELECT substr(account, 6), SUM(CASE WHEN kind IN ('stake', 'refund') THEN -amount ELSE 0 END), SUM(CASE WHEN kind = 'payout' THEN amount ELSE 0 END),
+    SUM(CASE kind WHEN 'stake' THEN 1 WHEN 'refund' THEN -1 ELSE 0 END), SUM(CASE WHEN kind = 'deposit' THEN amount ELSE 0 END), SUM(CASE WHEN kind = 'withdrawal' THEN -amount ELSE 0 END),
+    SUM(CASE WHEN kind IN ('rakeback', 'promo', 'affiliate') THEN amount ELSE 0 END), SUM(CASE WHEN kind = 'demo_grant' THEN amount ELSE 0 END), SUM(CASE WHEN kind = 'adjustment' THEN amount ELSE 0 END),
+    MAX(created_at)
+  FROM ledger WHERE account LIKE 'user:%' GROUP BY account;`;
+export const PLAYER_STATS_TRIGGER_SQLITE = `
+CREATE TRIGGER IF NOT EXISTS ledger_player_stats AFTER INSERT ON ledger WHEN NEW.account LIKE 'user:%'
+BEGIN
+  INSERT INTO player_stats (${STAT_COLS}) VALUES (${statValues('NEW')}) ${STAT_UPSERT};
+END;`;
+export const PLAYER_STATS_TRIGGER_PG = `
+CREATE OR REPLACE FUNCTION ledger_player_stats() RETURNS trigger AS $fn$
+BEGIN
+  IF NEW.account LIKE 'user:%' THEN
+    INSERT INTO player_stats (${STAT_COLS}) VALUES (${statValues('NEW')}) ${STAT_UPSERT};
+  END IF;
+  RETURN NEW;
+END
+$fn$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS ledger_player_stats ON ledger;
+CREATE TRIGGER ledger_player_stats AFTER INSERT ON ledger FOR EACH ROW EXECUTE FUNCTION ledger_player_stats();`;
+
 /** A player's name in public lists (live feed, crash, wheel, jackpot, PvP); `u` is the users alias. */
 export const PUBLIC_NAME = "CASE WHEN u.hide_public = 1 THEN 'Hidden player' ELSE u.display_name END";
 
@@ -538,7 +668,7 @@ UPDATE cases SET enabled = 0 WHERE id IN (${RETIRED_CASES.map(sq).join(', ')})
   AND (SELECT created_by FROM case_versions v WHERE v.case_id = cases.id AND v.version = cases.current_version) IS NULL;`;
 
 /** One-shot SQLite steps, tracked in PRAGMA user_version (the schema and seed above are idempotent). */
-const SQLITE_STEPS: string[] = [CASE_RETIRE];
+const SQLITE_STEPS: string[] = [CASE_RETIRE, `${PLAYER_STATS_TRIGGER_SQLITE}${PLAYER_STATS_BACKFILL}`];
 
 /** Opens (and migrates) a SQLite database. Synchronous so tests and the browser demo can set up in one step. */
 export function openDb(path = ':memory:'): DB {
@@ -547,6 +677,8 @@ export function openDb(path = ':memory:'): DB {
   const legacy = raw.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'users'").get() !== undefined;
   if (legacy) migrateLegacy(raw);
   raw.exec(SCHEMA);
+  raw.exec(SKIN_SCHEMA);
+  raw.exec(PLAYER_STATS_TABLE);
   raw.exec(CASE_SEED);
   raw.exec(CASE_SYNC);
   const done = Number((raw.prepare('PRAGMA user_version').get() as { user_version: number }).user_version);
@@ -567,6 +699,7 @@ function migrateLegacy(raw: Raw): void {
   if (!u.includes('name_changed_at')) raw.exec('ALTER TABLE users ADD COLUMN name_changed_at INTEGER');
   if (!u.includes('hide_public')) raw.exec('ALTER TABLE users ADD COLUMN hide_public INTEGER NOT NULL DEFAULT 0');
   if (!cols('sessions').includes('last_seen')) raw.exec('ALTER TABLE sessions ADD COLUMN last_seen INTEGER');
+  for (const c of ['steam_name', 'avatar_url', 'profile_url', 'trade_url']) if (!u.includes(c)) raw.exec(`ALTER TABLE users ADD COLUMN ${c} TEXT`);
   const sc = cols('sessions');
   if (!sc.includes('mfa_at')) raw.exec('ALTER TABLE sessions ADD COLUMN mfa_at INTEGER');
   if (!sc.includes('mfa_step')) raw.exec('ALTER TABLE sessions ADD COLUMN mfa_step INTEGER');

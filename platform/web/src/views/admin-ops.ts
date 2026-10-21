@@ -351,3 +351,75 @@ export async function reportsTab(panel: HTMLElement) {
     await saveFile(`scrapline-daily-${r.rows.at(-1)?.date}-${r.rows[0]?.date}.csv`, lines.join('\n') + '\n');
   }));
 }
+
+/* ---------- skins: bot, stock, the withdrawal queue (beta: sent by hand) ---------- */
+
+const D_CHIP: Record<string, string> = { accepted: 'win', sent: '', requested: '', declined: 'lose', canceled: 'lose', expired: 'lose', failed: 'lose' };
+const img = (hash: string | null) => (hash ? `<img class="skin-mini" src="https://community.cloudflare.steamstatic.com/economy/image/${encodeURIComponent(hash)}/64fx64f" alt="" loading="lazy" referrerpolicy="no-referrer">` : '');
+
+export async function skinsTab(panel: HTMLElement) {
+  const s = await api<any>('GET', '/admin/skins');
+  const stock = (k: string) => s.stock[k] ?? { items: 0, value: 0 };
+  panel.innerHTML = `
+  <section class="card">
+    <h2 class="h-sect">Trade bot and stock</h2>
+    <div class="kpis">
+      ${kpi('Bot', s.bot ? (s.bot.online ? 'online' : 'offline') : 'never seen', s.bot ? `${esc(s.bot.message ?? 'ok')} · heartbeat ${when(s.bot.heartbeatAt)}` : 'start the bot process (bot-main)')}
+      ${kpi('In stock', frags(stock('in_stock').items, 0), `${frags(stock('in_stock').value, 0)} Frags market value`)}
+      ${kpi('Reserved', frags(stock('reserved').items, 0), 'waiting in withdrawals')}
+      ${kpi('Prices', frags(s.prices.items, 0), s.prices.updatedAt ? `updated ${when(s.prices.updatedAt)}` : 'never synced')}
+    </div>
+    ${s.bot?.steamId ? `<p class="muted" style="font-size:12px">Bot account <a href="https://steamcommunity.com/profiles/${esc(s.bot.steamId)}" target="_blank" rel="noopener noreferrer" class="num">${esc(s.bot.steamId)}</a> · ${s.bot.items} items in its inventory · ${stock('gone').items} items left the bot without a withdrawal</p>` : ''}
+  </section>
+  <section class="card">
+    <h2 class="h-sect">Withdrawal queue (${s.pending.length})</h2>
+    <p class="muted" style="font-size:13px">Send each offer from the bot account in Steam (desktop or mobile app) to the player's trade URL, with exactly these items. Then paste the offer number from the offer link and mark it sent. Cancel refunds the Frags and puts the items back in stock.</p>
+    <div class="tablewrap"><table><thead><tr><th>Requested</th><th>Player</th><th>Items</th><th class="r">Frags</th><th>Trade URL</th><th></th></tr></thead><tbody>
+      ${s.pending.map((w: any) => `<tr><td class="num" style="font-size:12px;white-space:nowrap">${when(w.createdAt)}</td>
+        <td>${esc(w.name)}<br><span class="muted num" style="font-size:11px">${esc(w.steamId ?? '')}</span></td>
+        <td style="font-size:13px">${w.items.map((i: any) => `<span class="skin-line">${img(i.icon)}${esc(i.name)}</span>`).join('')}</td>
+        <td class="r num">${frags(w.value)}</td>
+        <td><a class="btn ghost small" href="${esc(w.tradeUrl)}" target="_blank" rel="noopener noreferrer">Open trade URL</a></td>
+        <td><div class="row" style="flex-wrap:nowrap"><button class="btn small" type="button" data-sent="${esc(w.id)}">Mark sent</button><button class="btn ghost small" type="button" data-cancelw="${esc(w.id)}">Cancel</button></div></td></tr>`).join('') || '<tr><td colspan="6" class="muted">Nothing waiting.</td></tr>'}
+    </tbody></table></div>
+  </section>
+  <div class="admin-grid">
+    <section class="card">
+      <h2 class="h-sect">Recent deposits</h2>
+      <div class="tablewrap"><table><thead><tr><th>Time</th><th>Player</th><th class="r">Items</th><th class="r">Frags</th><th>Status</th></tr></thead><tbody>
+        ${s.deposits.map((d: any) => `<tr><td class="num" style="font-size:12px;white-space:nowrap">${when(d.createdAt)}</td><td>${esc(d.name)}</td><td class="r num">${d.items}</td><td class="r num">${frags(d.value)}</td>
+          <td><span class="chip ${D_CHIP[d.status] ?? ''}">${esc(d.status)}</span>${d.reason ? `<br><span class="muted" style="font-size:11px">${esc(d.reason)}</span>` : ''}${d.offerId ? `<br><a class="num" style="font-size:11px" href="https://steamcommunity.com/tradeoffer/${esc(d.offerId)}/" target="_blank" rel="noopener noreferrer">offer ${esc(d.offerId)}</a>` : ''}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">No deposits yet.</td></tr>'}
+      </tbody></table></div>
+    </section>
+    <section class="card">
+      <h2 class="h-sect">Handled withdrawals</h2>
+      <div class="tablewrap"><table><thead><tr><th>Time</th><th>Player</th><th class="r">Frags</th><th>Status</th></tr></thead><tbody>
+        ${s.withdrawals.filter((w: any) => w.status !== 'pending').map((w: any) => `<tr><td class="num" style="font-size:12px;white-space:nowrap">${when(w.updatedAt)}</td><td>${esc(w.name)}</td><td class="r num">${frags(w.value)}</td>
+          <td><span class="chip ${w.status === 'sent' ? 'win' : 'lose'}">${esc(w.status)}</span>${w.handledBy ? ` <span class="muted num" style="font-size:11px">by ${esc(w.handledBy)}</span>` : ''}${w.note ? `<br><span class="muted" style="font-size:11px">${esc(w.note)}</span>` : ''}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">None yet.</td></tr>'}
+      </tbody></table></div>
+    </section>
+  </div>`;
+  $$<HTMLButtonElement>('[data-sent]', panel).forEach((b) => b.addEventListener('click', () => {
+    const m = modal(`<h2 class="h-sect">Mark withdrawal as sent</h2>
+      <p class="muted" style="font-size:13px">Only after the offer has gone out from the bot account. The offer number is in the link of the sent offer (steamcommunity.com/tradeoffer/<b>1234567890</b>/).</p>
+      <label class="field">Offer number<input data-o inputmode="numeric" placeholder="1234567890"></label>
+      <label class="field">Note (optional)<input data-n maxlength="300" placeholder="e.g. sent from the Steam app"></label>
+      <div class="row"><button class="btn" data-ok type="button">Mark sent</button><button class="btn ghost" data-no type="button">Back</button></div>`);
+    m.root.querySelector('[data-no]')!.addEventListener('click', m.close);
+    m.root.querySelector('[data-ok]')!.addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {
+      await api('PUT', `/admin/withdrawals/${b.dataset.sent}`, { action: 'sent', offerId: (m.root.querySelector('[data-o]') as HTMLInputElement).value, note: (m.root.querySelector('[data-n]') as HTMLInputElement).value });
+      m.close(); toast('Marked as sent.'); await skinsTab(panel);
+    }));
+  }));
+  $$<HTMLButtonElement>('[data-cancelw]', panel).forEach((b) => b.addEventListener('click', () => {
+    const m = modal(`<h2 class="h-sect">Cancel and refund</h2>
+      <p class="muted" style="font-size:13px">The player gets the Frags back and sees your reason. The items return to stock.</p>
+      <label class="field">Reason for the player<input data-n maxlength="300" placeholder="e.g. item is on a trade hold, please pick another"></label>
+      <div class="row"><button class="btn" data-ok type="button">Cancel and refund</button><button class="btn ghost" data-no type="button">Back</button></div>`);
+    m.root.querySelector('[data-no]')!.addEventListener('click', m.close);
+    m.root.querySelector('[data-ok]')!.addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {
+      await api('PUT', `/admin/withdrawals/${b.dataset.cancelw}`, { action: 'cancel', note: (m.root.querySelector('[data-n]') as HTMLInputElement).value });
+      m.close(); toast('Canceled and refunded.'); await skinsTab(panel);
+    }));
+  }));
+}

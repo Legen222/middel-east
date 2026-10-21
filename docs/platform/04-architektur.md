@@ -210,6 +210,14 @@ Der gültige Fall und fünf Angriffsfälle sind getestet.
 | POST | `/auth/logout-all` | alle Sitzungen des Kontos beenden |
 | GET | `/feed?kind=all\|high` | öffentlich: letzte Runden aller Spieler (verborgene Namen als „Hidden player“), 2 s gecacht |
 | GET | `/stats/live` | öffentlich: Spieler online (letzte 5 min), Runden und bester Gewinn der letzten 24 h (Phase 17) |
+| GET | `/auth/steam`, `/auth/steam/return` | Steam-Login; übernimmt Name, Avatar und Profil-Link per Web-API (Phase 18). Aus, wenn `STEAM_LOGIN` nicht gesetzt ist. |
+| PUT | `/me/trade-url` | Trade-URL; nur für die eigene SteamID |
+| GET | `/skins/inventory?refresh=1` | eigenes Rust-Inventar mit Preis, Gutschrift und Grund, falls nicht einzahlbar |
+| GET/POST | `/deposits` | Skin-Einzahlung anlegen (Sicherheitscode) und eigene Einzahlungen; der Bot verschickt und schreibt gut |
+| GET | `/skins/shop?q=` | Bestand des Bots mit Preisen |
+| GET/POST | `/withdrawals`, `/withdrawals/:id/cancel` | Auszahlung anfordern (AML-Prüfung, Items reserviert), eigene Liste, Storno |
+| GET/PUT | `/admin/skins`, `/admin/withdrawals/:id` | Bot-Status, Bestand, Preise, Warteschlange; „sent“ mit Angebotsnummer oder „cancel“ mit Erstattung |
+| PUT | `/admin/players/:id/kyc` | Identitätsstufe 0–2 setzen, mit Pflichtnotiz fürs Audit |
 
 Einsätze gibt die API in Frags an, gespeichert werden Milli-Frags. Fehler haben immer die Form
 `{ error, message, details }` mit deutscher Meldung. Jede Anfrage durchläuft Rate-Limit (20/s, Burst 40 je IP),
@@ -217,7 +225,7 @@ Größenlimit (16 KB) und Geo-Prüfung.
 
 ```bash
 cd platform/server && npm install
-npm test     # 72 Tests (Stand Phase 17)
+npm test     # 79 Tests (Stand Phase 18)
 npm start    # http://localhost:8787, Datei data/scrapline-demo.sqlite
 ```
 
