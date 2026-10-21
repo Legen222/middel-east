@@ -9,6 +9,21 @@ export const pct = (n: number, d = 2) => `${(n * 100).toLocaleString('en-US', { 
 /** Percent without trailing zeros, up to 3 decimals (for odds tables). */
 export const pctShort = (n: number) => `${(n * 100).toLocaleString('en-US', { maximumFractionDigits: 3 })} %`;
 export const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/** Counts a number up (or down) from `from` to `to`; the element shows `fmt(value)` on every frame. */
+export function animateNumber(el: Element, from: number, to: number, fmt: (n: number) => string, ms = 650): void {
+  const prev = (el as HTMLElement & { _anim?: number })._anim;
+  if (prev) cancelAnimationFrame(prev);
+  if (reducedMotion() || from === to || !Number.isFinite(from)) { el.textContent = fmt(to); return; }
+  const t0 = performance.now();
+  const step = (t: number) => {
+    const k = Math.min(1, (t - t0) / ms);
+    const e = 1 - (1 - k) ** 3; // ease-out cubic
+    el.textContent = fmt(k === 1 ? to : from + (to - from) * e);
+    if (k < 1) (el as HTMLElement & { _anim?: number })._anim = requestAnimationFrame(step);
+  };
+  (el as HTMLElement & { _anim?: number })._anim = requestAnimationFrame(step);
+}
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, reducedMotion() ? 0 : ms));
 
 let toastTimer = 0;

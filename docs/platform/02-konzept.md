@@ -1,6 +1,21 @@
 # Phase 2 – Konzept: drei Richtungen
 
 > **Stand 20.10.2026 (Phase 12):** Die Web-App nutzt jetzt das visuelle System von **Richtung C · BLUEPRINT** (Tokens, Schriften, Raster, Bemaßungen, Proof-Panel). Marke und Name bleiben **SCRAPLINE**; Signature in der Lobby ist Monument Run.
+>
+> **Stand 21.10.2026 (Phase 15) · Clean Neon:** BLUEPRINT bleibt die Grundlage, bekommt aber eine Neon-Kante aus Richtung B, sparsam dosiert.
+> - **Farben:** Akzent Neon-Cyan `#3DDCFF` statt Blueprint-Blau, Violett `#9B7BFF` nur im Hintergrundlicht, Gewinne in `#3EE89A`.
+> - **Ruhiger:** tieferes Graphit, Karten mit feinen Kanten statt harter Rahmen; das Raster ist nur noch oben schwach zu sehen und läuft nach unten aus.
+> - **Neon nur an wenigen Stellen:**
+>   - Haarlinie unter der Glas-Topbar.
+>   - Glow an Primär-Buttons, aktiven Tabs und Fokus.
+>   - Gewinnzahlen, Crash-Kurve und laufender Multiplikator.
+> - **Dynamik:**
+>   - Ansichten gleiten abschnittsweise herein, die Kacheln der Lobby nacheinander.
+>   - Ein Lichtkegel folgt dem Mauszeiger über Kacheln und Kisten.
+>   - Das Guthaben zählt zum neuen Stand hoch und leuchtet bei Gewinn grün.
+>   - Die Hero-Zeichnung zeichnet sich selbst.
+>   - Live-Leiste in der Lobby: laufender Scrap-Press-Multiplikator, Countdown des Bandit Wheel, Jackpot-Pot, offene Battles.
+> - Mit `prefers-reduced-motion` ist jede Bewegung aus.
 
 Stand: 26.09.2026 · baut auf [01-wettbewerbsanalyse.md](01-wettbewerbsanalyse.md) auf.
 Klickbare Mockups: [`mockups/konzepte.html`](mockups/konzepte.html) (auch als Artifact veröffentlicht).

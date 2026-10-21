@@ -89,6 +89,7 @@ export function createRouter(deps: AppDeps) {
   });
   route('GET', '/config', async () => ({
     demo: cfg.demo, currency: 'Frags', fragsPerDollar: 100, minStake: cfg.minStake / MF_PER_FRAG, maxStake: cfg.maxStake / MF_PER_FRAG, maxWin: cfg.maxWin / MF_PER_FRAG,
+    demoStartBalance: cfg.demoStartBalance / MF_PER_FRAG,
     games: GAMES, houseEdge: EDGE, operatorMfa: cfg.requireOperatorMfa,
     plinko: Object.fromEntries(Object.entries(PLINKO_TABLES).map(([r, t]) => [r, Object.fromEntries(Object.entries(t).map(([k, v]) => [k, { multipliers: v, rtp: plinkoTheoreticalRtp(Number(r) as 8, k as 'low') }]))])),
     cases: await listCases(db),

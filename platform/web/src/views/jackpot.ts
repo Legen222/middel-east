@@ -15,7 +15,7 @@ interface JackpotState {
   history: { id: string; total: number; payout: number; chance: number; name: string; settledAt: number }[];
 }
 
-const PALETTE = ['#5AA9E6', '#C9A45C', '#6CCB8E', '#E5534B', '#4C8DF6', '#B88AE0', '#3FB950', '#DDBB75', '#8B949E', '#86C2F0'];
+const PALETTE = ['#3DDCFF', '#C9A45C', '#6CCB8E', '#E5534B', '#4C8DF6', '#B88AE0', '#3FB950', '#DDBB75', '#8B949E', '#86C2F0'];
 
 export const jackpotView: View = {
   title: 'Jackpot',

@@ -105,10 +105,13 @@ export const crashView: View = {
       ctx.strokeStyle = css.getPropertyValue('--line').trim(); ctx.lineWidth = dpr; ctx.font = `${11 * dpr}px IBM Plex Mono, monospace`; ctx.fillStyle = css.getPropertyValue('--muted').trim();
       for (const g of [1, 1.5, 2, 5, 10, 50, 100, 500, 1000]) if (g <= mMax) { ctx.beginPath(); ctx.moveTo(X(0), Y(g)); ctx.lineTo(W, Y(g)); ctx.stroke(); ctx.fillText(`${g}×`, 4 * dpr, Y(g) + 4 * dpr); }
       const tEnd = crashed ? Math.log(r.crash!) / st.rate : elapsed;
-      ctx.strokeStyle = css.getPropertyValue(crashed ? '--lose' : '--bp').trim(); ctx.lineWidth = 2.5 * dpr; ctx.beginPath();
+      const col = css.getPropertyValue(crashed ? '--lose' : '--bp').trim();
+      ctx.strokeStyle = col; ctx.lineWidth = 2.5 * dpr; ctx.beginPath();
       for (let i = 0; i <= 120; i++) { const t = (tEnd * i) / 120; const v = Math.exp(st.rate * t); i ? ctx.lineTo(X(t), Y(v)) : ctx.moveTo(X(t), Y(v)); }
+      ctx.shadowColor = col; ctx.shadowBlur = 14 * dpr; // light neon halo on the curve
       ctx.stroke();
-      big.textContent = mult(Math.floor(m * 100) / 100); big.className = `big-mult ${crashed ? 'lose' : ''}`;
+      ctx.shadowBlur = 0;
+      big.textContent = mult(Math.floor(m * 100) / 100); big.className = `big-mult ${crashed ? 'lose' : 'run'}`;
       phase.textContent = crashed ? 'Crushed' : 'Running';
     };
     draw(); // the curve is information, not decoration, so it also runs with reduced motion

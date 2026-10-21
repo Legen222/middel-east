@@ -3,7 +3,7 @@ import { LOGO_MARK, heroSheet } from './art';
 import { chatPanelHtml, chatView, mountChatPanel } from './chatpanel';
 import { CATEGORIES, GAMES, gameByPath } from './games';
 import { SPRITE, icon } from './icons';
-import { $, $$, errorText, esc, frags, guard, modal, toast } from './ui';
+import { $, $$, animateNumber, errorText, esc, frags, guard, modal, toast } from './ui';
 import { adminView } from './views/admin';
 import { airdropView } from './views/airdrop';
 import { blackjackView } from './views/blackjack';
@@ -109,7 +109,7 @@ function renderGate(cfg: PublicConfig) {
       <a class="logo" href="#/">${LOGO_MARK}<span>SCRAPLINE</span></a>
       <div style="display:flex;flex-direction:column;gap:12px">
         <p class="eyebrow">Play-money demo · 18+</p>
-        <h1>Every round with an open blueprint.</h1>
+        <h1>Every round with an <em>open blueprint.</em></h1>
         <p class="muted" style="max-width:48ch">Rust originals with published maths. Every outcome can be recomputed from its seeds, and the limits are yours to set.</p>
       </div>
       <div class="drawing">${heroSheet()}</div>
@@ -121,7 +121,7 @@ function renderGate(cfg: PublicConfig) {
       ${bannerHtml()}
       <label class="field">Display name<input id="name" autocomplete="nickname" maxlength="24" required placeholder="e.g. Rust Rat"></label>
       <label class="check"><input type="checkbox" id="age"> <span>I am at least 18 years old. I understand that gambling can be addictive.</span></label>
-      <button class="btn block" type="submit">Create account · ${frags(100000, 0)} Frags play money</button>
+      <button class="btn block" type="submit">Create account · ${frags(cfg.demoStartBalance ?? 0, 0)} Frags play money</button>
       <p class="muted" style="font-size:13px">Play money has no cash value and cannot be withdrawn.${cfg.demo ? ' Real money only comes with a licence.' : ''}</p>
     </form>
     <p class="help">Help with gambling problems: <a href="https://www.begambleaware.org" target="_blank" rel="noopener">BeGambleAware</a> · <a href="https://www.gamblersanonymous.org" target="_blank" rel="noopener">Gamblers Anonymous</a></p>
@@ -244,12 +244,43 @@ addEventListener('resize', fitAside);
 
 async function refresh() {
   if (!ctx) return;
+  const before = ctx.me.balance;
   ctx.me = await api<Me>('GET', '/me');
-  $('#balance').textContent = frags(ctx.me.balance);
+  paintBalance(before, ctx.me.balance);
   $('#level').textContent = `Level ${ctx.me.level}`;
   paintSession();
   scheduleRealityCheck();
 }
+
+/* Balance: counts to the new value; the wallet glows green on a gain. */
+let walletFx = 0;
+function paintBalance(from: number, to: number) {
+  const el = document.getElementById('balance');
+  const wallet = el?.closest('.wallet');
+  if (!el || !wallet) return;
+  animateNumber(el, from, to, (n) => frags(n));
+  if (to === from) return;
+  wallet.classList.remove('up', 'down');
+  void (wallet as HTMLElement).offsetWidth;
+  wallet.classList.add(to > from ? 'up' : 'down');
+  clearTimeout(walletFx);
+  walletFx = window.setTimeout(() => wallet.classList.remove('up', 'down'), 1100);
+}
+
+/* Spotlight: cards light up where the pointer is (CSS reads --mx / --my). */
+const SPOT = '.tile, .case, .bcase, .bcard, .live-card';
+let spotFrame = 0;
+document.addEventListener('pointermove', (e) => {
+  if (e.pointerType !== 'mouse' || spotFrame) return;
+  spotFrame = requestAnimationFrame(() => {
+    spotFrame = 0;
+    const el = (e.target as Element | null)?.closest?.<HTMLElement>(SPOT);
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    el.style.setProperty('--mx', `${e.clientX - r.left}px`);
+    el.style.setProperty('--my', `${e.clientY - r.top}px`);
+  });
+}, { passive: true });
 
 let tick = 0;
 function paintSession() {
@@ -310,6 +341,11 @@ function route() {
   const root = $('#view');
   root.innerHTML = view.html(ctx);
   decorateGame(root, path);
+  // entrance: the view's sections rise in one after another
+  [...root.children].forEach((el, i) => (el as HTMLElement).style.setProperty('--i', String(Math.min(i, 8))));
+  root.classList.remove('enter');
+  void root.offsetWidth;
+  root.classList.add('enter');
   document.title = `${view.title} · SCRAPLINE`;
   unmount = view.mount?.(root, ctx);
   syncAside();

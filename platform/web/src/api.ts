@@ -49,7 +49,7 @@ export interface Me {
 }
 export interface CaseInfo { id: string; name: string; version: number; price: number; rtp: number; items: { name: string; value: number; chance: number }[] }
 export interface PublicConfig {
-  demo: boolean; currency: string; fragsPerDollar: number; minStake: number; maxStake: number; maxWin: number;
+  demo: boolean; currency: string; fragsPerDollar: number; minStake: number; maxStake: number; maxWin: number; demoStartBalance: number;
   games: string[]; houseEdge: Record<string, number>; operatorMfa: boolean;
   plinko: Record<string, Record<string, { multipliers: number[]; rtp: number }>>;
   cases: CaseInfo[];

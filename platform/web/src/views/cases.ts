@@ -28,7 +28,7 @@ export const casesView: View = {
       <button type="button" class="case" data-id="${k.id}" aria-pressed="${i === 0}">
         <span class="art">${crateArt(k.id, k.price)}</span>
         <b>${esc(k.name)}</b>
-        <span class="price"><span class="num">${frags(k.price, 0)} Frags</span><span class="muted num" style="font-size:12px">≈ ${usd(k.price, c.cfg.fragsPerDollar)} · RTP ${pct(k.rtp)} · ${k.items.length} items</span></span>
+        <span class="price"><span class="num">${frags(k.price, 0)} Frags</span><span class="muted num" style="font-size:12px">≈ ${usd(k.price, c.cfg.fragsPerDollar)} · RTP ${pct(k.rtp)}</span></span>
       </button>`).join('')}</div>
   </section>
   <section class="card" style="gap:14px">
