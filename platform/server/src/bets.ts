@@ -21,7 +21,7 @@ import {
   upgraderChance, validateDice, validateZone, type DiceBet, type PlinkoRisk, type PlinkoRows, type RaidTool,
 } from '../../engine/src/index';
 import { type Config, MF_PER_FRAG, fmtFrags } from './config';
-import { type DB, tx } from './db';
+import { type DB, PUBLIC_NAME, tx } from './db';
 import { fail } from './errors';
 import { systemMessage } from './chat';
 import { type CaseVersion, playableCase } from './cases';
@@ -72,7 +72,7 @@ export async function settle(db: DB, betId: string, userId: string, stake: numbe
   await db.prepare("UPDATE bets SET status = 'settled', payout = ?, multiplier = ?, result = ?, state = NULL, settled_at = ? WHERE id = ?")
     .run(payout, mult, JSON.stringify(result), now, betId);
   if (payout >= BIG_WIN.minPayout && payout >= stake * BIG_WIN.minMultiple) {
-    const b = (await db.prepare('SELECT u.display_name AS name, b.game FROM bets b JOIN users u ON u.id = b.user_id WHERE b.id = ?').get(betId)) as { name: string; game: GameId };
+    const b = (await db.prepare(`SELECT ${PUBLIC_NAME} AS name, b.game FROM bets b JOIN users u ON u.id = b.user_id WHERE b.id = ?`).get(betId)) as { name: string; game: GameId };
     await systemMessage(db, 'win', `${b.name} hit ${+(payout / stake).toFixed(2)}× on ${GAME_NAME[b.game] ?? b.game}: +${fmtFrags(payout)} Frags`, now);
   }
   return (await getBet(db, betId))!;

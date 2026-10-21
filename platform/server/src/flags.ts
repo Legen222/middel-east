@@ -13,7 +13,7 @@ export const GAME_IDS = ['raid', 'cases', 'battle', 'crash', 'coinflip', 'mines'
 export type GameId = (typeof GAME_IDS)[number];
 
 export const GAME_NAME: Record<GameId, string> = {
-  raid: 'Raid', cases: 'Cases', battle: 'Case Battle', crash: 'Scrap Press', coinflip: 'Coinflip',
+  raid: 'Raid', cases: 'Crate opening', battle: 'Case Battle', crash: 'Scrap Press', coinflip: 'Coinflip',
   mines: 'Minefield', dice: 'Dice', plinko: 'Scrap Chute', upgrader: 'Workbench',
   wheel: 'Bandit Wheel', jackpot: 'Jackpot', towers: 'Monument Run', hilo: 'Hi-Lo', blackjack: 'Blackjack', airdrop: 'Airdrop',
 };

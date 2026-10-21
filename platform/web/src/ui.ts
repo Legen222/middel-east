@@ -55,6 +55,7 @@ export function modal(html: string): { root: HTMLElement; close: () => void } {
   document.body.append(back);
   const close = () => back.remove();
   back.addEventListener('keydown', (e) => { if ((e as KeyboardEvent).key === 'Escape') close(); });
+  back.addEventListener('click', (e) => { if (e.target === back) close(); }); // click outside the dialog
   ($('button, input, select', back) as HTMLElement | null)?.focus();
   return { root: back, close };
 }

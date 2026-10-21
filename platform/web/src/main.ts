@@ -25,6 +25,10 @@ import { rewardsView } from './views/rewards';
 import { towersView } from './views/towers';
 import { upgraderView } from './views/upgrader';
 import { wheelView } from './views/wheel';
+import { HELP_LINES, helpView, notFoundView, privacyView, termsView } from './views/info';
+import { profileView } from './views/profile';
+import { verifyView } from './views/verify';
+import { walletView } from './views/wallet';
 
 export interface Ctx {
   cfg: PublicConfig;
@@ -33,6 +37,8 @@ export interface Ctx {
   refresh: () => Promise<void>;
   /** Rebuilds the shell (navigation depends on the role) and the current view. */
   rerender: () => void;
+  /** Ends the local session and returns to the sign-up page, with a message. */
+  signOut: (message?: string) => void;
 }
 export interface View { title: string; html: (c: Ctx) => string; mount?: (root: HTMLElement, c: Ctx) => void | (() => void) }
 
@@ -43,9 +49,11 @@ const VIEWS: Record<string, View> = {
   'scrap-press': crashView, 'bandit-wheel': wheelView, jackpot: jackpotView,
   cases: casesView, battle: battleView, coinflip: coinflipView,
   rewards: rewardsView, limits: limitsView, fair: fairView, history: historyView, chat: chatView, admin: adminView,
+  wallet: walletView, profile: profileView, verify: verifyView, terms: termsView, privacy: privacyView, help: helpView,
 };
 const MAIN_NAV: [string, string][] = [['', 'Lobby'], ['rewards', 'Rewards'], ['fair', 'Provably fair'], ['limits', 'Responsible play']];
 const BOTTOM_NAV: [string, string, string][] = [['', 'Lobby', 'home'], ['rewards', 'Rewards', 'trophy'], ['chat', 'Chat', 'chat'], ['limits', 'Limits', 'gauge'], ['fair', 'Fair', 'shield']];
+const FOOT_NAV: [string, string][] = [['fair', 'Provably fair'], ['verify', 'Verifier'], ['limits', 'Responsible play'], ['help', 'Help'], ['terms', 'Terms'], ['privacy', 'Privacy']];
 const WIDE = matchMedia('(min-width: 1280px)');
 const CHAT_KEY = 'scrapline.chat';
 
@@ -75,14 +83,37 @@ function watchSite() {
   siteEvents.addEventListener('site', () => void loadSite());
 }
 
+/* Steam sends the player back to /auth/steam/return?…; the API checks the assertion and opens a session. */
+async function finishSteamLogin() {
+  if (!location.pathname.endsWith('/auth/steam/return')) return;
+  const search = location.search;
+  history.replaceState(null, '', location.pathname.replace(/\/auth\/steam\/return$/, '/') + '#/');
+  const r = await api<{ token: string }>('GET', `/auth/steam/return${search}`).catch((e) => { toast(errorText(e), 'err'); return null; });
+  if (r) token.set(r.token);
+}
+
+/** Ends the local session (server session already gone or ended) and shows the sign-up page. */
+function signOut(message?: string) {
+  if (unmountAside) { unmountAside(); unmountAside = null; }
+  if (typeof unmount === 'function') unmount();
+  unmount = undefined;
+  ctx = null;
+  token.set(null);
+  if (location.hash && location.hash !== '#/') location.hash = '';
+  void boot().then(() => { if (message) toast(message); });
+}
+/* any 401 while signed in: the session expired or was ended elsewhere */
+addEventListener('scrapline:unauthorized', () => { if (ctx) signOut('Your session has ended. Please sign in again.'); });
+
 async function boot() {
   const cfg = await api<PublicConfig>('GET', '/config').catch((e) => { renderFatal(e); throw e; });
   await loadSite();
   watchSite();
+  await finishSteamLogin();
   if (!token.get()) return renderGate(cfg);
   try {
     const me = await api<Me>('GET', '/me');
-    ctx = { cfg, me, refresh, rerender: () => { renderShell(); route(); } };
+    ctx = { cfg, me, refresh, rerender: () => { renderShell(); route(); }, signOut };
     renderShell();
     route();
   } catch (e) {
@@ -122,10 +153,15 @@ function renderGate(cfg: PublicConfig) {
       <label class="field">Display name<input id="name" autocomplete="nickname" maxlength="24" required placeholder="e.g. Rust Rat"></label>
       <label class="check"><input type="checkbox" id="age"> <span>I am at least 18 years old. I understand that gambling can be addictive.</span></label>
       <button class="btn block" type="submit">Create account · ${frags(cfg.demoStartBalance ?? 0, 0)} Frags play money</button>
+      ${cfg.demo ? '' : `<button class="btn ghost block" type="button" id="steam">Sign in with Steam</button>`}
       <p class="muted" style="font-size:13px">Play money has no cash value and cannot be withdrawn.${cfg.demo ? ' Real money only comes with a licence.' : ''}</p>
     </form>
-    <p class="help">Help with gambling problems: <a href="https://www.begambleaware.org" target="_blank" rel="noopener">BeGambleAware</a> · <a href="https://www.gamblersanonymous.org" target="_blank" rel="noopener">Gamblers Anonymous</a></p>
+    <p class="help">Help with gambling problems: ${HELP_LINES}</p>
   </div>`;
+  document.getElementById('steam')?.addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {
+    if (!$<HTMLInputElement>('#age').checked) { toast('Please confirm that you are at least 18 years old.', 'err'); return; }
+    location.href = (await api<{ url: string }>('GET', '/auth/steam')).url;
+  }));
   $('#gate').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = $<HTMLButtonElement>('#gate button');
@@ -156,10 +192,13 @@ function renderShell() {
         <button class="iconbtn" id="acct" type="button" aria-expanded="false" aria-haspopup="menu" aria-label="Account">${icon('user')}</button>
         <div class="menu" id="acct-menu" role="menu" hidden>
           <div class="who"><b>${esc(c.me.displayName)}</b><span id="level">Level ${c.me.level}</span><span> · ${esc(c.me.role)}</span></div>
-          <a role="menuitem" href="#/rewards">${icon('trophy')}Rewards</a>
+          <a role="menuitem" href="#/profile">${icon('user')}Profile</a>
+          <a role="menuitem" href="#/wallet">${icon('pot')}Wallet</a>
           <a role="menuitem" href="#/history">${icon('clock')}History</a>
+          <a role="menuitem" href="#/rewards">${icon('trophy')}Rewards</a>
           <a role="menuitem" href="#/limits">${icon('gauge')}Limits &amp; breaks</a>
           <a role="menuitem" href="#/fair">${icon('shield')}Provably fair</a>
+          <a role="menuitem" href="#/verify">${icon('target')}Verifier</a>
           <a role="menuitem" href="#/chat">${icon('chat')}Chat</a>
           ${showAdmin ? `<a role="menuitem" href="#/admin">${icon('wrench')}Backoffice</a>` : ''}
           <hr>
@@ -174,15 +213,18 @@ function renderShell() {
       <main id="view" tabindex="-1"></main>
       <aside class="chatside" id="chatside" hidden></aside>
     </div>
+    <footer class="sitefoot">
+      <div class="sf-top"><a class="logo" href="#/">${LOGO_MARK}<span>SCRAPLINE</span></a>
+        <nav aria-label="Footer">${FOOT_NAV.map(([p, l]) => `<a href="#/${p}">${l}</a>`).join('')}</nav></div>
+      <p><span class="age">18+</span> ${c.cfg.demo ? 'Play-money demo: Frags have no cash value and cannot be withdrawn.' : 'Licensed real-money play.'} Gambling can be addictive. Help: ${HELP_LINES}</p>
+    </footer>
     <nav class="bottomnav" aria-label="Navigation">${BOTTOM_NAV.map(([p, l, ic]) => `<a href="#/${p}" data-path="${p}">${icon(ic)}${l}</a>`).join('')}</nav>
   </div>`;
 
   $$<HTMLButtonElement>('[data-refill]').forEach((b) => b.addEventListener('click', () => guard(b, async () => { closeMenu(); await api('POST', '/demo/refill'); await refresh(); toast('Demo balance refilled.'); })));
   $('#logout').addEventListener('click', async () => {
-    if (unmountAside) { unmountAside(); unmountAside = null; }
-    ctx = null;
     await api('POST', '/auth/logout').catch(() => null);
-    token.set(null); location.hash = ''; boot();
+    signOut();
   });
   const acct = $<HTMLButtonElement>('#acct');
   acct.addEventListener('click', (e) => { e.stopPropagation(); $('#acct-menu').hidden ? openMenu() : closeMenu(); });
@@ -331,7 +373,7 @@ function route() {
   closeMenu();
   const raw = location.hash.replace(/^#\/?/, '').split('?')[0];
   const path = raw in VIEWS ? raw : '';
-  const view = VIEWS[path];
+  const view = raw in VIEWS ? VIEWS[raw] : notFoundView;
   $$<HTMLAnchorElement>('[data-path]').forEach((a) => {
     if (a.dataset.path === path) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');

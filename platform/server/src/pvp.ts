@@ -18,7 +18,7 @@ import { randomBytes } from 'node:crypto';
 import { EDGE, FairStream, newServerSeed, playBattle, playCoinflip, type BattleMode, type CoinSide } from '../../engine/src/index';
 import type { Beacon } from './beacon';
 import { type Config, MF_PER_FRAG } from './config';
-import { type DB, audit, tx } from './db';
+import { type DB, PUBLIC_NAME, audit, tx } from './db';
 import { fail } from './errors';
 import { type CaseVersion, caseVersion, playableCase } from './cases';
 import { assertGameEnabled, gameConfig } from './flags';
@@ -171,7 +171,7 @@ export async function settleDue(db: DB, beacon: Beacon, now: number): Promise<nu
 
 export async function publicGame(db: DB, beacon: Beacon, id: string, viewerId: string | null = null) {
   const g = (await getGame(db, id)) ?? fail('not_found', 'Game not found.', 404);
-  const seats = (await db.prepare('SELECT s.*, u.display_name AS name FROM pvp_seats s LEFT JOIN users u ON u.id = s.user_id WHERE s.game_id = ? ORDER BY s.seat').all(id)) as (SeatRow & { name: string | null })[];
+  const seats = (await db.prepare(`SELECT s.*, ${PUBLIC_NAME} AS name FROM pvp_seats s LEFT JOIN users u ON u.id = s.user_id WHERE s.game_id = ? ORDER BY s.seat`).all(id)) as (SeatRow & { name: string | null })[];
   return {
     id: g.id, type: g.type, status: g.status, params: JSON.parse(g.params), seats: g.seats, seatStake: g.seat_stake / MF_PER_FRAG,
     players: seats.map((s) => ({ seat: s.seat, name: s.user_id ? s.name : 'Demo bot', bot: !s.user_id, you: viewerId !== null && s.user_id === viewerId, payout: s.payout / MF_PER_FRAG })),

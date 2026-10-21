@@ -125,7 +125,9 @@ CREATE TABLE IF NOT EXISTS users (
   role TEXT NOT NULL DEFAULT 'player',
   totp_secret TEXT,               -- operator MFA (base32), NULL = not enrolled
   totp_pending TEXT,              -- secret shown during enrolment, until the first code confirms it
-  totp_pending_at INTEGER
+  totp_pending_at INTEGER,
+  name_changed_at INTEGER,        -- last display-name change (once per 24 h)
+  hide_public INTEGER NOT NULL DEFAULT 0 -- 1 = shown as "Hidden player" in public lists
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
@@ -503,6 +505,9 @@ CREATE TABLE IF NOT EXISTS audit (
 CREATE INDEX IF NOT EXISTS audit_user ON audit(user_id, created_at);
 `;
 
+/** A player's name in public lists (live feed, crash, wheel, jackpot, PvP); `u` is the users alias. */
+export const PUBLIC_NAME = "CASE WHEN u.hide_public = 1 THEN 'Hidden player' ELSE u.display_name END";
+
 /** The built-in cases as version 1. Idempotent; edits from the backoffice become version 2, 3, … */
 const sq = (v: string) => `'${v.replace(/'/g, "''")}'`;
 export const CASE_SEED = SAMPLE_CASES.map((c, i) => `
@@ -558,6 +563,8 @@ function migrateLegacy(raw: Raw): void {
   if (!u.includes('totp_secret')) raw.exec('ALTER TABLE users ADD COLUMN totp_secret TEXT');
   if (!u.includes('totp_pending')) raw.exec('ALTER TABLE users ADD COLUMN totp_pending TEXT');
   if (!u.includes('totp_pending_at')) raw.exec('ALTER TABLE users ADD COLUMN totp_pending_at INTEGER');
+  if (!u.includes('name_changed_at')) raw.exec('ALTER TABLE users ADD COLUMN name_changed_at INTEGER');
+  if (!u.includes('hide_public')) raw.exec('ALTER TABLE users ADD COLUMN hide_public INTEGER NOT NULL DEFAULT 0');
   const sc = cols('sessions');
   if (!sc.includes('mfa_at')) raw.exec('ALTER TABLE sessions ADD COLUMN mfa_at INTEGER');
   if (!sc.includes('mfa_step')) raw.exec('ALTER TABLE sessions ADD COLUMN mfa_step INTEGER');

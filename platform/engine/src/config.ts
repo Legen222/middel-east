@@ -25,7 +25,7 @@ export const DISPLAY_NAME = {
   raid: 'Raid',
   upgrader: 'Workbench',
   coinflip: 'Coinflip',
-  cases: 'Cases',
+  cases: 'Crate opening',
   battles: 'Case Battle',
   wheel: 'Bandit Wheel',
   jackpot: 'Jackpot',

@@ -18,7 +18,7 @@ import { randomBytes } from 'node:crypto';
 import { EDGE, FairStream, drawJackpot, newServerSeed } from '../../engine/src/index';
 import type { Beacon } from './beacon';
 import { type Config, MF_PER_FRAG, frags } from './config';
-import { type DB, audit, tx } from './db';
+import { type DB, PUBLIC_NAME, audit, tx } from './db';
 import { fail } from './errors';
 import { bus } from './events';
 import { assertGameEnabled, gameConfig } from './flags';
@@ -46,7 +46,7 @@ interface EntryRow { id: number; round_id: string; user_id: string | null; amoun
 const rnd = (n: number) => new Uint8Array(randomBytes(n));
 const roomOf = (r: string): JackpotRoom => (r === 'high' || r === 'low' ? r : fail('not_found', 'Unknown jackpot room.', 404));
 const activeRound = async (db: DB, room: JackpotRoom) => (await db.prepare("SELECT * FROM jackpot_rounds WHERE room = ? AND status IN ('open', 'counting', 'locked') ORDER BY created_at DESC LIMIT 1").get(room)) as RoundRow | undefined;
-const entriesOf = async (db: DB, id: string) => (await db.prepare('SELECT e.*, u.display_name AS name FROM jackpot_entries e LEFT JOIN users u ON u.id = e.user_id WHERE e.round_id = ? ORDER BY e.id').all(id)) as EntryRow[];
+const entriesOf = async (db: DB, id: string) => (await db.prepare(`SELECT e.*, ${PUBLIC_NAME} AS name FROM jackpot_entries e LEFT JOIN users u ON u.id = e.user_id WHERE e.round_id = ? ORDER BY e.id`).all(id)) as EntryRow[];
 const announce = (db: DB, room: JackpotRoom) => db.afterCommit(() => bus.publish({ topic: 'jackpot', event: { type: 'update', room } }));
 
 export class JackpotService {
@@ -178,7 +178,7 @@ export class JackpotService {
     };
     const cur = await activeRound(this.db, room);
     const last = (await this.db.prepare("SELECT * FROM jackpot_rounds WHERE room = ? AND status = 'settled' ORDER BY settled_at DESC LIMIT 1").get(room)) as RoundRow | undefined;
-    const history = (await this.db.prepare("SELECT r.id, r.total, r.payout, r.ticket, r.settled_at, e.amount, u.display_name AS name, e.user_id FROM jackpot_rounds r JOIN jackpot_entries e ON e.id = r.winner_entry LEFT JOIN users u ON u.id = e.user_id WHERE r.room = ? AND r.status = 'settled' ORDER BY r.settled_at DESC LIMIT 10").all(room)) as { id: string; total: number; payout: number; ticket: number; settled_at: number; amount: number; name: string | null; user_id: string | null }[];
+    const history = (await this.db.prepare(`SELECT r.id, r.total, r.payout, r.ticket, r.settled_at, e.amount, ${PUBLIC_NAME} AS name, e.user_id FROM jackpot_rounds r JOIN jackpot_entries e ON e.id = r.winner_entry LEFT JOIN users u ON u.id = e.user_id WHERE r.room = ? AND r.status = 'settled' ORDER BY r.settled_at DESC LIMIT 10`).all(room)) as { id: string; total: number; payout: number; ticket: number; settled_at: number; amount: number; name: string | null; user_id: string | null }[];
     const lim = JACKPOT_ROOMS[room];
     const cfg = await gameConfig(this.db, this.cfg, 'jackpot');
     return {

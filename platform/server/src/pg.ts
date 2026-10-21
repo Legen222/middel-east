@@ -66,6 +66,9 @@ const MIGRATIONS: { version: number; sql: () => string }[] = [
   // Twenty-crate line-up (1 to 1 500 $): new crates as version 1, seed-managed crates get the new item
   // list as their next version, the four crates that left are disabled. Operator versions stay.
   { version: 6, sql: () => `${CASE_SEED}${CASE_SYNC}${CASE_RETIRE}` },
+  // Player profile: display-name cooldown and "hide my name in public lists".
+  { version: 7, sql: () => `ALTER TABLE users ADD COLUMN IF NOT EXISTS name_changed_at BIGINT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS hide_public BIGINT NOT NULL DEFAULT 0;` },
 ];
 
 type Queryable = pg.Pool | pg.PoolClient;

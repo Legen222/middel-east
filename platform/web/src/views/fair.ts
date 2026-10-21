@@ -1,11 +1,10 @@
 import { api } from '../api';
 import type { View } from '../main';
+import { verifyHref } from './verify';
 import { $, esc, guard, toast } from '../ui';
 
-interface Rotation { revealed: { server_seed: string; server_hash: string; client_seed: string; nonce: number }; next: { serverSeedHash: string; clientSeed: string; nextNonce: number } }
-const KEY = 'scrapline.revealed';
-const loadRevealed = (): Rotation['revealed'][] => { try { return JSON.parse(localStorage.getItem(KEY) ?? '[]'); } catch { return []; } };
-const saveRevealed = (r: Rotation['revealed'][]) => { try { localStorage.setItem(KEY, JSON.stringify(r.slice(0, 20))); } catch { /* ignore */ } };
+interface Rotation { next: { serverSeedHash: string; clientSeed: string; nextNonce: number } }
+interface Revealed { serverSeed: string; serverSeedHash: string; clientSeed: string; bets: number; createdAt: number; revealedAt: number }
 
 export const fairView: View = {
   title: 'Provably Fair',
@@ -30,24 +29,34 @@ export const fairView: View = {
   </section>
   <section class="card">
     <h2 class="h-sect">Revealed seeds</h2>
-    <div class="tablewrap"><table><thead><tr><th>Server seed</th><th>Hash</th><th>Client seed</th><th class="r">Bets</th></tr></thead><tbody id="revealed"></tbody></table></div>
-    <p class="muted" style="font-size:13px">To verify: enter server seed, client seed and nonce in the <b>SCRAPLINE fairness verifier</b> (<code>platform/engine/verify/verify.html</code>). Every single bet is listed in History.</p>
+    <div class="tablewrap"><table><thead><tr><th>Revealed</th><th>Server seed</th><th>Hash</th><th>Client seed</th><th class="r">Bets</th><th></th></tr></thead><tbody id="revealed"><tr><td colspan="6" class="muted">Loading …</td></tr></tbody></table></div>
+    <p class="muted" style="font-size:13px">Every bet made with a revealed pair can be replayed: open it in <a href="#/history">History</a> and press “Verify in browser”, or use the <a href="#/verify">Verifier</a> with server seed, client seed and the bet's nonce (0 … bets − 1).</p>
+  </section>
+  <section class="card">
+    <h2 class="h-sect">How it works</h2>
+    <div class="how-grid">
+      <div><b>1 · Commitment</b><span>Before your first bet you see <code>sha256(server seed)</code>. The seed itself stays secret until you rotate.</span></div>
+      <div><b>2 · Your input</b><span>Your client seed and a nonce that counts up by one per bet go into every round.</span></div>
+      <div><b>3 · Randomness</b><span><code>HMAC-SHA256(server seed, client:nonce:round)</code> gives 32 bytes; every 4 bytes are one float in [0, 1).</span></div>
+      <div><b>4 · Shared games</b><span>Crash and Bandit Wheel run on a published hash chain, PvP and Jackpot on a public beacon round nobody knows in advance.</span></div>
+    </div>
   </section>`,
   mount: (root, c) => {
-    const paint = () => {
-      const r = loadRevealed();
-      $('#revealed', root).innerHTML = r.length
-        ? r.map((x) => `<tr><td class="num" style="word-break:break-all;font-size:12px">${esc(x.server_seed)}</td><td class="num" style="word-break:break-all;font-size:12px">${esc(x.server_hash)}</td><td class="num">${esc(x.client_seed)}</td><td class="r num">${x.nonce}</td></tr>`).join('')
-        : '<tr><td colspan="4" class="muted">Nothing rotated yet.</td></tr>';
+    const paint = async () => {
+      const { revealed } = await api<{ revealed: Revealed[] }>('GET', '/seeds');
+      $('#revealed', root).innerHTML = revealed.length
+        ? revealed.map((x) => `<tr><td class="num" style="font-size:12px;white-space:nowrap">${new Date(x.revealedAt).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}</td>
+            <td class="num" style="word-break:break-all;font-size:12px">${esc(x.serverSeed)}</td><td class="num" style="word-break:break-all;font-size:12px">${esc(x.serverSeedHash)}</td><td class="num">${esc(x.clientSeed)}</td><td class="r num">${x.bets}</td>
+            <td class="r">${x.bets ? `<a class="btn ghost small" href="${verifyHref({ game: 'dice', serverSeed: x.serverSeed, serverHash: x.serverSeedHash, clientSeed: x.clientSeed, nonce: 0 })}">Verify</a>` : ''}</td></tr>`).join('')
+        : '<tr><td colspan="6" class="muted">Nothing rotated yet.</td></tr>';
     };
-    paint();
+    void paint().catch(() => null);
     $('#rotate', root).addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {
       const v = ($('#client', root) as HTMLInputElement).value.trim();
       const r = await api<Rotation>('POST', '/seed/rotate', v ? { clientSeed: v } : {});
-      saveRevealed([r.revealed, ...loadRevealed()]);
       await c.refresh();
       $('#active', root).innerHTML = `<dt>Server seed hash</dt><dd>${esc(r.next.serverSeedHash)}</dd><dt>Client seed</dt><dd>${esc(r.next.clientSeed)}</dd><dt>Next nonce</dt><dd>${r.next.nextNonce}</dd>`;
-      paint();
+      await paint();
       toast('Seed revealed. Your previous bets can now be verified.');
     }));
   },

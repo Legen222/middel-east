@@ -52,14 +52,21 @@ export const lobbyView: View = {
     </section>`).join('')}
 
     <section class="card">
+      <div class="sect-head"><div><p class="eyebrow"><span class="live-dot"></span> Live</p><h2 class="h-sect">Latest bets</h2></div>
+        <div class="seg" role="group" aria-label="Which bets" style="min-width:min(330px,100%)"><button type="button" data-feed="all" aria-pressed="true">All bets</button><button type="button" data-feed="high" aria-pressed="false">High wins</button><button type="button" data-feed="mine" aria-pressed="false">My bets</button></div></div>
+      <div class="tablewrap"><table class="feed"><thead><tr><th>Game</th><th>Player</th><th class="hide-xs">Time</th><th class="r hide-xs">Stake</th><th class="r">Multi</th><th class="r">Payout</th></tr></thead><tbody id="feed"><tr><td colspan="6" class="muted">Loading …</td></tr></tbody></table></div>
+    </section>
+
+    <section class="card">
       <div class="sect-head"><div><p class="eyebrow">Fair-Ledger</p><h2 class="h-sect">Published vs. actual RTP · last 30 days</h2></div><a href="#/fair" style="font-size:13px">Verify any round →</a></div>
       <div class="tablewrap"><table><thead><tr><th>Game</th><th class="r">Bets</th><th class="r">Wagered</th><th class="r">Paid out</th><th class="r">Actual</th><th class="r">Published</th></tr></thead><tbody id="rtp"><tr><td colspan="6" class="muted">Loading …</td></tr></tbody></table></div>
       <p class="muted" style="font-size:13px">A few bets swing a lot; the actual figure settles towards the published one after a few thousand rounds.</p>
     </section>
   `,
-  mount: (root) => {
+  mount: (root, c) => {
     drawIn(root);
     const stopLive = mountLive(root);
+    const stopFeed = mountFeed(root, c.me.displayName);
     api<{ game: string; enabled: boolean; reason: string | null }[]>('GET', '/games/status').then((list) => {
       for (const g of list) {
         const t = root.querySelector<HTMLElement>(`.tile[data-game="${g.game}"]`);
@@ -82,9 +89,37 @@ export const lobbyView: View = {
             <td class="r num">${g.rtp === null ? '–' : pct(g.rtp)}</td><td class="r num muted">${esc(GAMES.find((x) => x.id === g.game)?.rtp ?? '–')}</td></tr>`).join('')
         : '<tr><td colspan="6" class="muted">No rounds yet.</td></tr>';
     }).catch(() => null);
-    return stopLive;
+    return () => { stopLive(); stopFeed(); };
   },
 };
+
+/* ---------- latest bets: everyone's settled rounds, high wins, or the player's own ---------- */
+interface FeedRow { game: string; gameName: string; name: string; stake: number; payout: number; multiplier: number; at: number }
+function mountFeed(root: HTMLElement, me: string): () => void {
+  let kind: 'all' | 'high' | 'mine' = 'all';
+  let sig = '';
+  const ago = (t: number) => { const s = Math.max(0, Math.round((Date.now() - t) / 1000)); return s < 60 ? `${s} s ago` : s < 3600 ? `${Math.floor(s / 60)} min ago` : `${Math.floor(s / 3600)} h ago`; };
+  const load = async () => {
+    const rows: FeedRow[] = kind === 'mine'
+      ? (await api<{ bets: { game: string; gameName: string; stake: number; payout: number; multiplier: number; settled: boolean; createdAt: number; settledAt: number | null }[] }>('GET', '/history?limit=12')).bets
+        .filter((b) => b.settled).map((b) => ({ game: b.game, gameName: b.gameName, name: me, stake: b.stake, payout: b.payout, multiplier: b.multiplier, at: b.settledAt ?? b.createdAt }))
+      : await api<FeedRow[]>('GET', `/feed?kind=${kind}`);
+    const body = root.querySelector('#feed');
+    if (!body) return;
+    const html = rows.length ? rows.slice(0, 12).map((r) => `<tr><td>${esc(r.gameName)}</td><td class="${r.name === 'Hidden player' ? 'muted' : ''}">${esc(r.name)}</td><td class="num muted hide-xs" style="font-size:12px">${ago(r.at)}</td>
+        <td class="r num hide-xs">${frags(r.stake)}</td><td class="r num ${r.multiplier >= 5 ? 'pos' : ''}">${r.multiplier.toFixed(2)}×</td><td class="r num ${r.payout > r.stake ? 'pos' : 'muted'}">${frags(r.payout)}</td></tr>`).join('')
+      : `<tr><td colspan="6" class="muted">${kind === 'high' ? 'No win of 5× or more in the last 24 hours yet.' : 'No rounds yet. Play one and it shows up here.'}</td></tr>`;
+    if (html !== sig) { sig = html; body.innerHTML = html; }
+  };
+  root.querySelectorAll<HTMLButtonElement>('[data-feed]').forEach((b) => b.addEventListener('click', () => {
+    kind = b.dataset.feed as typeof kind;
+    root.querySelectorAll('[data-feed]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    void load().catch(() => null);
+  }));
+  void load().catch(() => null);
+  const t = setInterval(() => void load().catch(() => null), 3000);
+  return () => clearInterval(t);
+}
 
 /** The hero drawing draws itself: every line runs from its start to its end, labels fade in after. */
 function drawIn(root: HTMLElement) {

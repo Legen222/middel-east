@@ -23,7 +23,7 @@ import { buildChain, crashPoint, sha256Hex } from '../../engine/src/index';
 import type { Beacon } from './beacon';
 import { type ChainRow, latestChain, publishChain } from './chains';
 import { type Config, MF_PER_FRAG } from './config';
-import { type DB, audit, tx } from './db';
+import { type DB, PUBLIC_NAME, audit, tx } from './db';
 import { fail } from './errors';
 import { bus } from './events';
 import { assertGameEnabled, gameConfig } from './flags';
@@ -50,7 +50,7 @@ export type CrashEvent =
   | { type: 'cashout'; round: number; name: string; multiplier: number; payout: number };
 
 const currentOf = async (db: DB) => (await db.prepare('SELECT * FROM crash_rounds ORDER BY id DESC LIMIT 1').get()) as RoundRow | undefined;
-const nameOf = async (db: DB, userId: string) => ((await db.prepare('SELECT display_name AS n FROM users WHERE id = ?').get(userId)) as { n: string } | undefined)?.n ?? '?';
+const nameOf = async (db: DB, userId: string) => ((await db.prepare(`SELECT ${PUBLIC_NAME} AS n FROM users u WHERE u.id = ?`).get(userId)) as { n: string } | undefined)?.n ?? '?';
 
 export class CrashService {
   private seeds: string[] = [];
@@ -163,7 +163,7 @@ export class CrashService {
     const r = await currentOf(this.db);
     const history = ((await this.db.prepare("SELECT id, idx, crash, seed FROM crash_rounds WHERE status = 'crashed' ORDER BY id DESC LIMIT 20").all()) as { id: number; idx: number; crash: number; seed: string }[])
       .map((h) => ({ round: h.id, index: h.idx, crash: h.crash / 100, seed: h.seed }));
-    const rows = r ? ((await this.db.prepare(`SELECT b.*, u.display_name AS name FROM crash_bets b JOIN users u ON u.id = b.user_id
+    const rows = r ? ((await this.db.prepare(`SELECT b.*, ${PUBLIC_NAME} AS name FROM crash_bets b JOIN users u ON u.id = b.user_id
       WHERE b.round_id = ? ORDER BY b.created_at, b.id`).all(r.id)) as (BetRow & { name: string })[]) : [];
     const bets = rows.map((b) => ({
       name: b.name, you: b.user_id === viewerId, stake: b.stake / MF_PER_FRAG, target: b.target / 100,

@@ -55,6 +55,8 @@ import { ADJUSTMENTS } from '../src/wallet';
 import { resolveSession } from '../src/accounts';
 import { dailyReport } from '../src/reports';
 import { betDetail, exploreBets } from '../src/explorer';
+import { NAME_CHANGE_COOLDOWN_MS, logoutAll, playerBetDetail, playerHistory, playerStats, publicFeed, revealedSeeds, transactions, updateProfile } from '../src/player';
+import { sha256Hex } from '../../engine/src/index';
 import { listChains } from '../src/chains';
 import { EDGE, buildChain } from '../../engine/src/index';
 import { JACKPOT_COUNTDOWN_MS, JACKPOT_ESCROW, JACKPOT_REFUND_MS, JackpotService } from '../src/jackpot';
@@ -1494,5 +1496,127 @@ describe('twenty crates and the bonus battle (phase 14)', () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('player account: history, detail, seeds, wallet, profile, feed (phase 16)', () => {
+  it('history pages through every game with a tie-safe cursor and filters by game', async () => {
+    const { db, cfg, userId } = await setup();
+    const beacon = new LocalBeacon(T0 - 60_000, 1000);
+    const { userId: other } = await signUp(db, cfg, { displayName: 'Other', ageConfirmed: true, country: 'NZ' }, T0);
+    for (let i = 0; i < 3; i++) await playInstant(db, cfg, userId, 'dice', frags(1), { chance: 49.5, direction: 'under' }, T0 + i);
+    await openCases(db, cfg, userId, 'barrel', 5, T0 + 10); // five bets in the same millisecond
+    const flip = await createCoinflip(db, cfg, userId, frags(5), 'rust', T0 + 20);
+    await joinGame(db, cfg, beacon, flip, other, T0 + 21);
+    await settleDue(db, beacon, (await publicGame(db, beacon, flip)).fairness.beacon.resolvesAt!);
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    do {
+      const page: Awaited<ReturnType<typeof playerHistory>> = await playerHistory(db, userId, { cursor, limit: 3 });
+      seen.push(...page.bets.map((b) => `${b.game}:${b.ref}`));
+      cursor = page.next;
+    } while (cursor);
+    assert.equal(seen.length, 9, 'dice ×3, crates ×5, coinflip ×1');
+    assert.equal(new Set(seen).size, 9, 'no bet twice across pages');
+    assert.ok(seen[0].startsWith('coinflip:'), 'newest first, PvP included');
+    assert.equal((await playerHistory(db, userId, { game: 'cases' })).bets.length, 5);
+    assert.equal((await playerHistory(db, other, {})).bets.length, 1, 'only the own bets');
+    assert.equal(await code(() => playerHistory(db, userId, { game: 'poker' })), 'invalid_params');
+    assert.equal(await code(() => playerHistory(db, userId, { cursor: 'x' })), 'invalid_params');
+  });
+
+  it('bet detail: own rounds only, verified by replay, the server seed shows after rotation', async () => {
+    const { db, cfg, userId } = await setup();
+    const beacon = new LocalBeacon(T0 - 60_000, 1000);
+    const { userId: other } = await signUp(db, cfg, { displayName: 'Other', ageConfirmed: true, country: 'NZ' }, T0);
+    const bet = await playInstant(db, cfg, userId, 'dice', frags(2), { chance: 30, direction: 'over' }, T0);
+    const d = (await playerBetDetail(db, beacon, userId, 'dice', bet.id, T0)) as any;
+    assert.equal(d.verification.status, 'verified');
+    assert.equal(d.fairness.serverSeed, null, 'still secret before rotation');
+    assert.equal(d.userId, undefined);
+    assert.equal(await code(() => playerBetDetail(db, beacon, other, 'dice', bet.id, T0)), 'not_found');
+    assert.equal(await code(() => playerBetDetail(db, beacon, userId, 'plinko', bet.id, T0)), 'not_found');
+    await rotateSeed(db, userId, 'fresh', T0 + 1);
+    const after = (await playerBetDetail(db, beacon, userId, 'dice', bet.id, T0 + 2)) as any;
+    assert.equal(sha256Hex(after.fairness.serverSeed), after.fairness.serverSeedHash);
+    const seeds = await revealedSeeds(db, userId);
+    assert.equal(seeds.length, 1);
+    assert.deepEqual([seeds[0].bets, seeds[0].serverSeed], [1, after.fairness.serverSeed]);
+  });
+
+  it('wallet transactions: every balance change, newest first, with the game, pageable and filterable', async () => {
+    const { db, cfg, userId } = await setup();
+    for (let i = 0; i < 4; i++) await playInstant(db, cfg, userId, 'dice', frags(1), { chance: 90, direction: 'under' }, T0 + i);
+    const all = await transactions(db, userId, { limit: 100 });
+    assert.equal(all.transactions[all.transactions.length - 1].kind, 'demo_grant');
+    const stakes = all.transactions.filter((t) => t.kind === 'stake');
+    assert.equal(stakes.length, 4);
+    assert.ok(stakes.every((t) => t.amount === -1 && t.game === 'dice'));
+    const sum = all.transactions.reduce((a, t) => a + t.amount, 0);
+    assert.ok(Math.abs(sum - (await bal(db, userId)) / MF_PER_FRAG) < 1e-9, 'the ledger adds up to the balance');
+    const p1 = await transactions(db, userId, { limit: 2 });
+    const p2 = await transactions(db, userId, { limit: 2, before: p1.next });
+    assert.ok(p2.transactions.every((t) => t.id < p1.transactions[1].id));
+    assert.equal((await transactions(db, userId, { kind: 'demo_grant' })).transactions.length, 1);
+    assert.equal(await code(() => transactions(db, userId, { kind: 'magic' })), 'invalid_params');
+  });
+
+  it('stats, profile (name once per 24 h, hidden in public lists) and sign-out everywhere', async () => {
+    const { db, cfg, userId } = await setup();
+    const beacon = new LocalBeacon(T0 - 60_000, 1000);
+    await playInstant(db, cfg, userId, 'dice', frags(10), { chance: 49.5, direction: 'under' }, T0);
+    await playInstant(db, cfg, userId, 'dice', frags(10), { chance: 49.5, direction: 'over' }, T0 + 1);
+    const st = await playerStats(db, userId, T0 + 2);
+    assert.deepEqual([st.bets, st.wagered, st.games[0].game], [2, 20, 'dice']);
+    assert.equal(st.memberSince, T0);
+
+    assert.equal((await updateProfile(db, userId, { displayName: 'Neon Rat' }, T0 + 10)).displayName, 'Neon Rat');
+    assert.equal(await code(() => updateProfile(db, userId, { displayName: 'Again' }, T0 + 20)), 'name_cooldown');
+    assert.equal((await updateProfile(db, userId, { displayName: 'Neon Rat' }, T0 + 30)).displayName, 'Neon Rat', 'the same name is no change');
+    assert.equal(await code(() => updateProfile(db, userId, { displayName: '<b>' }, T0 + 40)), 'invalid_name');
+    assert.equal((await updateProfile(db, userId, { displayName: 'Later' }, T0 + 10 + NAME_CHANGE_COOLDOWN_MS)).displayName, 'Later');
+    assert.equal(await code(() => updateProfile(db, userId, { hidePublic: 'yes' }, T0 + 50)), 'invalid_params');
+
+    const feed = (await publicFeed(db, 'all', T0 + 100)) as { name: string }[];
+    assert.equal(feed[0].name, 'Later');
+    await updateProfile(db, userId, { hidePublic: true }, T0 + 200);
+    const hidden = (await publicFeed(db, 'all', T0 + 5000)) as { name: string }[];
+    assert.ok(hidden.every((r) => r.name === 'Hidden player'));
+    const flip = await createCoinflip(db, cfg, userId, frags(5), 'rust', T0 + 300);
+    const g = await publicGame(db, beacon, flip, userId);
+    assert.deepEqual([g.players[0].name, g.players[0].you], ['Hidden player', true], 'the player still knows the seat is theirs');
+
+    const t1 = await createSession(db, cfg, userId, T0);
+    const t2 = await createSession(db, cfg, userId, T0);
+    assert.ok((await playerStats(db, userId, T0 + 400)).activeSessions >= 2);
+    assert.ok((await logoutAll(db, userId, T0 + 500)) >= 2);
+    assert.equal(await resolveSession(db, t1, T0 + 600), null);
+    assert.equal(await resolveSession(db, t2, T0 + 600), null);
+  });
+
+  it('public feed: high wins only above 5×, refuses unknown kinds', async () => {
+    const { db, cfg, userId } = await setup();
+    for (let i = 0; i < 30; i++) await playInstant(db, cfg, userId, 'dice', frags(1), { chance: 10, direction: 'under' }, T0 + i);
+    const high = (await publicFeed(db, 'high', T0 + 100)) as { multiplier: number }[];
+    assert.ok(high.every((r) => r.multiplier >= 5));
+    assert.ok(((await publicFeed(db, 'all', T0 + 100)) as unknown[]).length <= 20);
+    assert.equal(await code(() => publicFeed(db, 'big' as never, T0)), 'invalid_params');
+  });
+
+  it('the HTTP routes answer for a signed-in player', async () => {
+    const { db, cfg } = await setup();
+    const router = createRouter({ db, cfg, clock: () => T0 + 1000, fetch: async () => ({ ok: false, text: async () => '' }) as never, publicUrl: 'http://x', beacon: new LocalBeacon(T0 - 60_000, 1000) } as never);
+    const s = await router.dispatch({ method: 'POST', url: '/auth/demo', headers: {}, body: { displayName: 'Http', ageConfirmed: true }, ip: '1.1.1.1' });
+    const auth = { authorization: `Bearer ${(s.payload as { token: string }).token}` };
+    for (const url of ['/history', '/seeds', '/wallet/transactions', '/me/stats', '/me/profile', '/feed?kind=high']) {
+      const r = await router.dispatch({ method: 'GET', url, headers: auth, body: null, ip: '1.1.1.1' });
+      assert.equal(r.status, 200, url);
+    }
+    assert.equal((await router.dispatch({ method: 'GET', url: '/history', headers: {}, body: null, ip: '1.1.1.1' })).status, 401);
+    const put = await router.dispatch({ method: 'PUT', url: '/me/profile', headers: auth, body: { hidePublic: true }, ip: '1.1.1.1' });
+    assert.equal((put.payload as { hidePublic: boolean }).hidePublic, true);
+    const out = await router.dispatch({ method: 'POST', url: '/auth/logout-all', headers: auth, body: null, ip: '1.1.1.1' });
+    assert.equal(out.status, 200);
+    assert.equal((await router.dispatch({ method: 'GET', url: '/me', headers: auth, body: null, ip: '1.1.1.1' })).status, 401);
   });
 });

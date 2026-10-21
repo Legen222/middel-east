@@ -17,7 +17,7 @@ import { FairStream, WHEEL_COUNTS, WHEEL_FIELDS, WHEEL_LAYOUT, buildChain, spinW
 import type { Beacon } from './beacon';
 import { type ChainRow, latestChain, publishChain } from './chains';
 import { type Config, MF_PER_FRAG } from './config';
-import { type DB, audit, tx } from './db';
+import { type DB, PUBLIC_NAME, audit, tx } from './db';
 import { fail } from './errors';
 import { bus } from './events';
 import { assertGameEnabled, gameConfig } from './flags';
@@ -117,7 +117,7 @@ export class WheelService {
       const id = randomBytes(10).toString('hex');
       await transfer(db, userAccount(userId), HOUSE, stake, 'stake', id, now);
       await db.prepare("INSERT INTO wheel_bets (id, round_id, user_id, field, stake, status, created_at) VALUES (?, ?, ?, ?, ?, 'open', ?)").run(id, r!.id, userId, field, stake, now);
-      const name = ((await db.prepare('SELECT display_name AS n FROM users WHERE id = ?').get(userId)) as { n: string }).n;
+      const name = ((await db.prepare(`SELECT ${PUBLIC_NAME} AS n FROM users u WHERE u.id = ?`).get(userId)) as { n: string }).n;
       this.emit(db, { type: 'bet', round: r!.id, name, field, stake: stake / MF_PER_FRAG });
       return { id, round: r!.id };
     });
@@ -127,7 +127,7 @@ export class WheelService {
   async state(now: number, viewerId: string | null) {
     const c = await latestChain(this.db, 'wheel');
     const r = await currentOf(this.db);
-    const bets = r ? ((await this.db.prepare(`SELECT b.*, u.display_name AS name FROM wheel_bets b JOIN users u ON u.id = b.user_id
+    const bets = r ? ((await this.db.prepare(`SELECT b.*, ${PUBLIC_NAME} AS name FROM wheel_bets b JOIN users u ON u.id = b.user_id
       WHERE b.round_id = ? ORDER BY b.created_at, b.id`).all(r.id)) as (BetRow & { name: string })[]) : [];
     const history = ((await this.db.prepare("SELECT id, field_index, seed FROM wheel_rounds WHERE status = 'settled' ORDER BY id DESC LIMIT 30").all()) as { id: number; field_index: number; seed: string }[])
       .map((h) => ({ round: h.id, index: h.field_index, field: WHEEL_LAYOUT[h.field_index], seed: h.seed }));

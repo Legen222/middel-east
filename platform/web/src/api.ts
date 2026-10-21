@@ -23,7 +23,7 @@ export async function api<T = any>(method: 'GET' | 'POST' | 'PUT' | 'DELETE', pa
   });
   const json = await res.json().catch(() => ({ error: 'network', message: 'No connection to the server.' }));
   if (!res.ok) {
-    if (res.status === 401) token.set(null);
+    if (res.status === 401 && t) { token.set(null); dispatchEvent(new Event('scrapline:unauthorized')); }
     throw new RequestError(res.status, json as ApiError);
   }
   return json as T;

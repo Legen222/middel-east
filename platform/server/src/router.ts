@@ -26,6 +26,7 @@ import type { CrashService } from './crash';
 import type { DB } from './db';
 import { AppError, fail } from './errors';
 import { betDetail, exploreBets } from './explorer';
+import { type FeedKind, logoutAll, playerBetDetail, playerHistory, playerStats, profile, publicFeed, revealedSeeds, transactions, updateProfile } from './player';
 import { GAME_IDS, type GameLimits, gameConfig, gameFlags, setGameFlag, setGameLimits } from './flags';
 import { confirm as mfaConfirm, enroll as mfaEnroll, verify as mfaVerify } from './mfa';
 import { JackpotService } from './jackpot';
@@ -156,8 +157,24 @@ export function createRouter(deps: AppDeps) {
   route('POST', '/demo/refill', async (c) => ({ balance: (await demoRefill(db, cfg, await uid(c), clock())) / MF_PER_FRAG }));
   route('GET', '/wallet/withdrawal-check', async (c) => withdrawalCheck(db, cfg, (await c.auth()).user, Math.round(Number(c.url.searchParams.get('amount') ?? 0) * MF_PER_FRAG)));
 
+  route('GET', '/me/stats', async (c) => playerStats(db, await uid(c), clock()));
+  route('GET', '/me/profile', async (c) => profile(db, await uid(c)));
+  route('PUT', '/me/profile', async (c) => updateProfile(db, await uid(c), { displayName: c.body?.displayName, hidePublic: c.body?.hidePublic }, clock()));
+  route('POST', '/auth/logout-all', async (c) => ({ sessions: await logoutAll(db, await uid(c), clock()) }));
+  route('GET', '/wallet/transactions', async (c) => {
+    const q = c.url.searchParams;
+    return transactions(db, await uid(c), { kind: q.get('kind'), before: q.get('before') ? Number(q.get('before')) : null, limit: q.get('limit') ? Number(q.get('limit')) : undefined });
+  });
+  route('GET', '/history', async (c) => {
+    const q = c.url.searchParams;
+    return playerHistory(db, await uid(c), { game: q.get('game'), cursor: q.get('cursor'), limit: q.get('limit') ? Number(q.get('limit')) : undefined });
+  });
+  route('GET', '/history/:game/:ref', async (c, p) => playerBetDetail(db, deps.beacon, await uid(c), p.game, p.ref, clock()));
+  route('GET', '/feed', async (c) => publicFeed(db, (c.url.searchParams.get('kind') ?? 'all') as FeedKind, clock()));
+
   /* ---------- seeds ---------- */
   route('GET', '/seed', async (c) => activeSeedPublic(db, await uid(c)));
+  route('GET', '/seeds', async (c) => { const id = await uid(c); return { active: await activeSeedPublic(db, id), revealed: await revealedSeeds(db, id) }; });
   route('POST', '/seed/rotate', async (c) => rotateSeed(db, await uid(c), c.body?.clientSeed ? String(c.body.clientSeed) : null, clock()));
 
   /* ---------- games ---------- */

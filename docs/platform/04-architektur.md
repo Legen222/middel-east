@@ -204,6 +204,11 @@ Der gültige Fall und fünf Angriffsfälle sind getestet.
 | GET/POST | `/pvp/list/:type`, `/pvp/game/:id`, `/pvp/coinflip`, `/pvp/battle`, `/pvp/:id/join`, `/pvp/:id/bot`, `/pvp/:id/cancel` | Münzwurf und Kisten-Battle |
 | GET | `/games/open` | offene Minenfeld- und Raid-Runden (nach einem Neuladen) |
 | GET/POST | `/rewards`, `/rewards/rakeback`, `/rewards/daily`, `/rewards/rain`, `/crew/code`, `/crew/redeem`, `/crew/claim` | Level, Rakeback, Schrottkiste, Ölregen, Crew |
+| GET | `/history?game=&cursor=`, `/history/:game/:ref` | eigene Runden aller Spiele (Paging per Cursor), Detail mit Seeds und Nachrechnung (Phase 16) |
+| GET | `/seeds`, `/wallet/transactions?kind=&before=`, `/me/stats` | aufgedeckte Seed-Paare, Kontoauszug, Lebenszeit-Kennzahlen |
+| GET/PUT | `/me/profile` | Anzeigename (einmal pro 24 h), Name in öffentlichen Listen verbergen |
+| POST | `/auth/logout-all` | alle Sitzungen des Kontos beenden |
+| GET | `/feed?kind=all\|high` | öffentlich: letzte Runden aller Spieler (verborgene Namen als „Hidden player“), 2 s gecacht |
 
 Einsätze gibt die API in Frags an, gespeichert werden Milli-Frags. Fehler haben immer die Form
 `{ error, message, details }` mit deutscher Meldung. Jede Anfrage durchläuft Rate-Limit (20/s, Burst 40 je IP),
@@ -211,7 +216,7 @@ Größenlimit (16 KB) und Geo-Prüfung.
 
 ```bash
 cd platform/server && npm install
-npm test     # 65 Tests (Stand Phase 14)
+npm test     # 71 Tests (Stand Phase 16)
 npm start    # http://localhost:8787, Datei data/scrapline-demo.sqlite
 ```
 
