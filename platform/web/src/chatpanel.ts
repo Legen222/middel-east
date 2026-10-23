@@ -8,7 +8,7 @@
 import { api } from './api';
 import { icon } from './icons';
 import type { Ctx, View } from './main';
-import { $, esc, frags, guard, modal, toast } from './ui';
+import { $, esc, guard, modal, scrap, toast } from './ui';
 
 interface Msg { id: number; userId: string | null; name: string; level: number | null; role: string | null; kind: 'user' | 'system' | 'win' | 'rain'; body: string; createdAt: number; you: boolean }
 interface Rules { minLevel: number; slowModeSeconds: number; maxLength: number; reportHideAt: number }
@@ -37,7 +37,7 @@ export function showRules(r: Rules, onAccept?: () => void) {
     <ol class="rules-list">
       <li><b>Be decent.</b> No slurs, hate speech, harassment or threats. Telling anyone to harm themselves gets you muted at once.</li>
       <li><b>No links and no advertising.</b> No other sites, referral or promo codes from elsewhere, Discord invites.</li>
-      <li><b>No begging, trading or selling</b> items, accounts or Frags in chat.</li>
+      <li><b>No begging, trading or selling</b> items, accounts or Scrap in chat.</li>
       <li><b>Staff wear a badge.</b> Only accounts with a <span class="badge">MOD</span> or <span class="badge">ADMIN</span> badge are staff. Staff never ask for your password, Steam Guard code or items. Names that look like staff are not allowed.</li>
       <li><b>No spam.</b> One message every ${r.slowModeSeconds} second${r.slowModeSeconds === 1 ? '' : 's'}, up to ${r.maxLength} characters. No flooding or repeating.</li>
       <li><b>Chat unlocks at level ${r.minLevel}.</b> Reading is open to everyone.</li>
@@ -77,7 +77,7 @@ export function mountChatPanel(el: HTMLElement, c: Ctx): () => void {
     const r = state.rain;
     const box = $('[data-rain]', el);
     box.classList.toggle('open', r.open);
-    box.innerHTML = `${icon('rain')}<div><b>Oil Rain</b> <span class="num">${frags(r.pot, 0)} Frags</span><br>
+    box.innerHTML = `${icon('rain')}<div><b>Oil Rain</b> <span class="num">${scrap(r.pot, 0)}</span><br>
       <span class="muted">${r.open ? `open · ${left(r.closesAt!)} left · ${r.joiners} joined` : `next in ${left(r.nextAt)} · level 5+, not during a break`}</span></div>
       ${r.open ? `<button class="btn small ${r.joined ? 'ghost' : 'win'}" type="button" data-join ${r.joined || !c.me.promoEligible ? 'disabled' : ''}>${r.joined ? 'Joined' : 'Join'}</button>` : ''}`;
     $('[data-join]', box)?.addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {

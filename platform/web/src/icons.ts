@@ -1,5 +1,6 @@
 /** Icon sprite (generated from docs/platform/assets/icons.svg). Stroke style comes from CSS. */
 export const SPRITE = `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-scrap" viewBox="0 0 24 24"><path d="M1.2 16.8 7.6 3.4l8 3.1-4.4 12.8z" fill="#66727F"/><path d="M1.2 16.8 7.6 3.4l1.7.7-6.3 13.5z" fill="#8E9AA7"/><path d="M8.4 21.8l3.4-11.6 11 1.6-1.3 10.4z" fill="#A7B2BD"/><path d="M11.8 10.2l11 1.6-.2 1.6-11.2-1.6z" fill="#DCE3E9"/><path d="M12.9 11.4l4.3 2.5v5l-4.3 2.5-4.3-2.5v-5z" fill="#C9A24F"/><path d="M12.9 11.4l4.3 2.5-4.3 2.5-4.3-2.5z" fill="#F2D58C"/><path d="M8.6 13.9l4.3 2.5v5l-4.3-2.5z" fill="#A9833A"/><ellipse cx="12.9" cy="13.9" rx="1.6" ry=".95" fill="#4A3916"/></symbol>
 <symbol id="i-crate" viewBox="0 0 24 24"><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/><path d="M7.5 5.2l9 4.5"/></symbol>
 <symbol id="i-battle" viewBox="0 0 24 24"><path d="M4 4l7 7M4 4h4M4 4v4"/><path d="M20 4l-7 7M20 4h-4M20 4v4"/><path d="M8 14l-4 4 2 2 4-4M16 14l4 4-2 2-4-4"/></symbol>
 <symbol id="i-coin" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="8" ry="8"/><path d="M12 7v10M9.5 9.5h4a1.8 1.8 0 010 3.5h-3a1.8 1.8 0 000 3.5h4"/></symbol>

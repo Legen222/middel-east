@@ -1,7 +1,7 @@
 /**
- * Jackpot: everyone adds Frags to one pot, every 0.001 Frag is a ticket, one ticket wins the pot minus a
+ * Jackpot: everyone adds Scrap to one pot, every 0.001 Scrap is a ticket, one ticket wins the pot minus a
  * 4 % fee. Two rooms, like the "High Rollers" / "Low Ballers" split competitors use:
- *   high  entries 10 Frags up to the max stake      low  entries 1 to 50 Frags
+ *   high  entries 10 Scrap up to the max stake      low  entries 1 to 50 Scrap
  *
  * Lifecycle  open ──(second player)──▶ counting (30 s, or 40 entries) ──▶ locked ──(beacon)──▶ settled
  *                 └─(alone for 10 min: full refund)─▶ refunded
@@ -61,7 +61,7 @@ export class JackpotService {
       const lim = JACKPOT_ROOMS[room];
       const max = Math.min(lim.max, cfg.maxStake);
       if (!Number.isSafeInteger(amount) || amount < Math.max(lim.min, cfg.minStake) || amount > max) {
-        fail('invalid_stake', `${lim.label}: ${Math.max(lim.min, cfg.minStake) / MF_PER_FRAG} to ${max / MF_PER_FRAG} Frags per entry.`);
+        fail('invalid_stake', `${lim.label}: ${Math.max(lim.min, cfg.minStake) / MF_PER_FRAG} to ${max / MF_PER_FRAG} Scrap per entry.`);
       }
       let r = await activeRound(db, room);
       if (r && r.status === 'locked') fail('jackpot_locked', 'This pot is being drawn. The next one opens in a moment.', 409);

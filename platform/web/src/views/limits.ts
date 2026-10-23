@@ -1,6 +1,6 @@
 import { api } from '../api';
 import type { View } from '../main';
-import { $, $$, esc, frags, guard, modal, readNum, toast } from '../ui';
+import { $, $$, SCRAP_SYM, esc, frags, guard, modal, readNum, toast } from '../ui';
 
 interface Limit { kind: string; period: string; amount: number | null; pending: { amount: number | null; effectiveAt: number } | null; used: number }
 interface RgState { limits: Limit[]; block: { kind: string; until: number | null } | null; session: { elapsedMs: number; wagered: number; net: number; realityCheckMinutes: number } }
@@ -19,7 +19,7 @@ export const limitsView: View = {
     <div id="block"></div>
   </section>
   <section class="card">
-    <h2 class="h-sect">Limits (Frags)</h2>
+    <h2 class="h-sect">Limits ${SCRAP_SYM}</h2>
     <div class="tablewrap"><table><thead><tr><th>Type</th>${PERIODS.map(([, l]) => `<th>${l}</th>`).join('')}</tr></thead><tbody id="limits"></tbody></table></div>
   </section>
   <section class="card">
@@ -56,7 +56,7 @@ export const limitsView: View = {
         toast(r.applied === 'now' ? 'Limit applies now.' : `Change applies from ${when(r.effectiveAt)}.`);
         await load();
       })));
-      $('#session', root).textContent = `${Math.round(s.session.elapsedMs / 60000)} min · wagered ${frags(s.session.wagered)} · net ${s.session.net > 0 ? '+' : ''}${frags(s.session.net)} Frags`;
+      $('#session', root).textContent = `${Math.round(s.session.elapsedMs / 60000)} min · wagered ${frags(s.session.wagered)} · net ${s.session.net > 0 ? '+' : ''}${frags(s.session.net)} Scrap`;
       ($('#rc', root) as HTMLSelectElement).value = String(s.session.realityCheckMinutes);
     };
     load().catch(() => null);

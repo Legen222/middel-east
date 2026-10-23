@@ -79,7 +79,7 @@ Bei Spielen mit schweren Rändern (Minenfeld mit vielen Minen, Raid mit Satchels
 
 | Auslöser | Standard (`cfg.rgAlert`) |
 |---|---|
-| Netto-Verlust in 24 h (offene Einsätze zählen als verloren) | > 50 000 Frags (500 $) |
+| Netto-Verlust in 24 h (offene Einsätze zählen als verloren) | > 50 000 Scrap (500 $) |
 | Limit erhöht oder entfernt | ≥ 3× in 30 Tagen |
 | Sitzung mit Wette in den letzten 15 min | > 3 h |
 
@@ -98,8 +98,8 @@ Ablauf: **open → contacted** (RG-Nachricht mit Limit-Werkzeugen gesendet) **�
 - **Systemnachrichten:** nur echte Ereignisse, keine Fake-Aktivität.
   - Oil Rain öffnet (Topf, Level-Voraussetzung).
   - Oil Rain ausgezahlt (Betrag je Spieler, Anzahl).
-  - Großgewinn ab 10× und 100 Frags (`BIG_WIN` in `bets.ts`).
-- **Oil-Rain-Box** im Chat: Topf, Countdown und Teilnahme-Button. Die Regeln aus Phase 5 gelten weiter: Level 5+, 100 Frags Einsatz in 24 h, nicht während einer Pause.
+  - Großgewinn ab 10× und 100 Scrap (`BIG_WIN` in `bets.ts`).
+- **Oil-Rain-Box** im Chat: Topf, Countdown und Teilnahme-Button. Die Regeln aus Phase 5 gelten weiter: Level 5+, 100 Scrap Einsatz in 24 h, nicht während einer Pause.
 
 Für Produktion vorgesehen:
 

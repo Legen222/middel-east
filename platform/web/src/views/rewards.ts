@@ -1,7 +1,7 @@
 import { api } from '../api';
 import { icon } from '../icons';
 import type { View } from '../main';
-import { $, esc, frags, guard, pct, pctShort, sleep, toast } from '../ui';
+import { $, esc, frags, guard, pct, pctShort, scrap, sleep, toast } from '../ui';
 
 interface Rewards {
   xp: number; level: number; levelXp: number; nextLevelXp: number; rakebackRate: number; rakebackAvailable: number; rakebackBands: [number, number][];
@@ -41,7 +41,7 @@ export const rewardsView: View = {
       e.preventDefault();
       void guard($<HTMLButtonElement>('#promo button', root), async () => {
         const r = await api<{ code: string; amount: number }>('POST', '/promo/redeem', { code: $<HTMLInputElement>('#promo-code', root).value });
-        toast(`${r.code}: +${frags(r.amount)} Frags`);
+        toast(`${r.code}: +${frags(r.amount)} Scrap`);
         $<HTMLInputElement>('#promo-code', root).value = '';
         await c.refresh();
       });
@@ -56,12 +56,12 @@ export const rewardsView: View = {
       $('#level', root).innerHTML = `
         <div class="row" style="justify-content:space-between"><b class="h-sect">Level ${r.level}</b><span class="num muted">${r.xp.toLocaleString('en-US')} / ${r.nextLevelXp.toLocaleString('en-US')} XP</span></div>
         <div style="height:10px;border:1px solid var(--line);border-radius:999px;background:var(--bg-2);overflow:hidden"><div style="height:100%;width:${Math.round(k * 100)}%;background:linear-gradient(90deg,var(--bp),var(--bp-hi))"></div></div>
-        <p class="muted" style="font-size:13px">1 XP = 1 Frag of expected loss. Level L needs 100 · (L − 1)^1.6 XP.</p>`;
+        <p class="muted" style="font-size:13px">1 XP = 1 Scrap of expected loss. Level L needs 100 · (L − 1)^1.6 XP.</p>`;
 
       $('#rakeback', root).innerHTML = `
         <h2 class="h-sect">${icon('gauge')} Rakeback</h2>
         <p>Your rate: <b class="num">${pct(r.rakebackRate, 0)}</b> of expected loss.</p>
-        <p class="big-mult num" style="font-size:36px">${frags(r.rakebackAvailable)}</p>
+        <p class="big-mult num" style="font-size:36px">${scrap(r.rakebackAvailable)}</p>
         <button class="btn" id="rb" type="button" ${r.rakebackAvailable < 1 ? 'disabled' : ''}>Claim</button>
         <p class="muted" style="font-size:12px">${r.rakebackBands.map(([l, x]) => `from lvl ${l}: ${pct(x, 0)}`).join(' · ')}</p>`;
 
@@ -76,16 +76,16 @@ export const rewardsView: View = {
       const rain = r.rain;
       $('#rain', root).innerHTML = `
         <h2 class="h-sect">${icon('rain')} Oil Rain</h2>
-        <p class="muted">Every 30 minutes, open for 2 minutes: pot = 1 % of the period's expected loss (demo minimum 500 Frags), split equally. Requires level 5 and 100 Frags wagered in 24 h.</p>
-        <p><b class="num">${frags(rain.pot, 0)}</b> Frags · ${rain.joiners} joined</p>
+        <p class="muted">Every 30 minutes, open for 2 minutes: pot = 1 % of the period's expected loss (demo minimum 500 Scrap), split equally. Requires level 5 and 100 Scrap wagered in 24 h.</p>
+        <p><b class="num">${scrap(rain.pot, 0)}</b> · ${rain.joiners} joined</p>
         <button class="btn" id="rn" type="button" ${rain.open && !rain.joined && r.promoEligible ? '' : 'disabled'}>${rain.joined ? 'You are in' : rain.open ? `Join · ${until(rain.closesAt!)} left` : `Next rain in ${until(rain.nextAt)}`}</button>`;
 
       const crew = r.crew;
       $('#crew', root).innerHTML = `
         <h2 class="h-sect">${icon('user')} Crew code</h2>
         ${crew.code ? `<p>Your code: <b class="num" style="color:var(--brass)">${esc(crew.code)}</b> · ${crew.members} members · share ${pct(crew.rate, 1)} of NGR</p>
-          <p class="muted" style="font-size:13px">NGR since last payout: <span class="num">${frags(crew.ngr)}</span> Frags (your crew's wagers − wins − bonuses)</p>
-          <button class="btn" id="cc" type="button" ${crew.available < 1 ? 'disabled' : ''}>Claim · ${frags(crew.available)}</button>`
+          <p class="muted" style="font-size:13px">NGR since last payout: <span class="num">${scrap(crew.ngr)}</span> (your crew's wagers − wins − bonuses)</p>
+          <button class="btn" id="cc" type="button" ${crew.available < 1 ? 'disabled' : ''}>Claim · ${scrap(crew.available)}</button>`
         : `<div class="row"><input id="code" class="num" maxlength="16" placeholder="YOUR OWN CODE" style="flex:1;min-width:140px;background:var(--bg);border:1px solid var(--line);border-radius:3px;padding:9px;color:var(--text)"><button class="btn ghost" id="mk" type="button">Create</button></div>`}
         ${crew.joinedCode ? `<p class="muted" style="font-size:13px">You are in crew <b>${esc(crew.joinedCode)}</b>.</p>`
         : `<div class="row"><input id="redeem" class="num" maxlength="16" placeholder="A friend's code" style="flex:1;min-width:140px;background:var(--bg);border:1px solid var(--line);border-radius:3px;padding:9px;color:var(--text)"><button class="btn ghost" id="rd" type="button">Redeem</button></div>
@@ -93,7 +93,7 @@ export const rewardsView: View = {
       bind();
     };
     const bind = () => {
-      $('#rb', root)?.addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => { const x = await api<{ amount: number }>('POST', '/rewards/rakeback'); toast(`+${frags(x.amount)} Frags Rakeback`); await c.refresh(); await load(); }));
+      $('#rb', root)?.addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => { const x = await api<{ amount: number }>('POST', '/rewards/rakeback'); toast(`+${frags(x.amount)} Scrap Rakeback`); await c.refresh(); await load(); }));
       $('#dl', root)?.addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {
         const x = await api<{ item: { name: string; value: number }; fairness: { nonce: number } }>('POST', '/rewards/daily');
         const out = $('#daily-out', root);
@@ -103,7 +103,7 @@ export const rewardsView: View = {
         await sleep(900); await c.refresh(); await load();
       }));
       $('#rn', root)?.addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => { await api('POST', '/rewards/rain'); toast('You joined the Oil Rain.'); await load(); }));
-      $('#cc', root)?.addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => { const x = await api<{ amount: number }>('POST', '/crew/claim'); toast(`+${frags(x.amount)} Frags crew share`); await c.refresh(); await load(); }));
+      $('#cc', root)?.addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => { const x = await api<{ amount: number }>('POST', '/crew/claim'); toast(`+${frags(x.amount)} Scrap crew share`); await c.refresh(); await load(); }));
       $('#mk', root)?.addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => { await api('POST', '/crew/code', { code: ($('#code', root) as HTMLInputElement).value }); await load(); }));
       $('#rd', root)?.addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => { await api('POST', '/crew/redeem', { code: ($('#redeem', root) as HTMLInputElement).value }); toast('Crew code redeemed.'); await load(); }));
     };

@@ -1,6 +1,6 @@
 /**
- * Jackpot (PvP pot). Every Frag in the pot is a ticket; the winner takes the pot minus a fee.
- *   tickets: entry i owns [from_i, to_i) with to_i − from_i = amount_i (in milli-Frags), in entry order
+ * Jackpot (PvP pot). Every Scrap in the pot is a ticket; the winner takes the pot minus a fee.
+ *   tickets: entry i owns [from_i, to_i) with to_i − from_i = amount_i (in milli-Scrap), in entry order
  *   winning ticket t = ⌊f · total⌋                      one float
  *   winner payout = total · (1 − fee)
  *   EV of entry i = amount_i/total · total · (1 − fee) = amount_i · (1 − fee)   ⇒ RTP = 1 − fee for everyone

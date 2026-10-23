@@ -67,7 +67,7 @@ Freigeben lassen sich diese Hosts in den Umgebungseinstellungen unter *Network a
 - E[Auszahlung] = n/25 · (1 − e) · 25/n = 1 − e für jedes Feld.
 
 **Jackpot**
-- Ein Ticket pro Milli-Frag, vergeben in der Reihenfolge des Eintritts. Gewinnerticket = ⌊f · Σ⌋.
+- Ein Ticket pro Milli-Scrap, vergeben in der Reihenfolge des Eintritts. Gewinnerticket = ⌊f · Σ⌋.
 - Ein Einsatz a gewinnt mit a/Σ und erhält Σ · (1 − e).
 - E = a/Σ · Σ(1 − e) = a(1 − e), also RTP = 1 − e für jede Topfgröße und jede Mischung.
 
@@ -173,13 +173,13 @@ Strategien mit sehr schweren Rändern (Hi-Lo ohne Stopp, Schwarz bis Raum 8) bek
 
 **Promo-Codes**
 - Pro Spieler und Code nur eine Einlösung. Die letzte Nutzung wird mit einem bedingten Update vergeben, das ist race-sicher.
-- Betrag höchstens 10 000 Frags, Budget (Betrag × Nutzungen) höchstens 1 000 000 Frags.
+- Betrag höchstens 10 000 Scrap, Budget (Betrag × Nutzungen) höchstens 1 000 000 Scrap.
 - Eingelöst werden kann nicht während einer Pause oder Selbstsperre und nicht unter dem Mindestlevel.
 - Gegen Raten: 10 falsche Codes pro Stunde, danach Sperre für eine Stunde.
 - Promo-Codes zählen als Bonus: in den Bonuskosten und im NGR der Crew-Codes.
 
 **Saldo-Korrektur**
-- Aus dem Konto `house:adjustments`, höchstens ±100 000 Frags, mit Pflicht-Begründung, auditiert.
+- Aus dem Konto `house:adjustments`, höchstens ±100 000 Scrap, mit Pflicht-Begründung, auditiert.
 - Belastungen nie unter null.
 - **Nie auf das eigene Konto.**
 
@@ -246,7 +246,7 @@ Stand: 20.10.2026. Code:
 
 ### 5.2 Kisten
 
-- **Sechs neue Kisten**, jetzt zehn insgesamt (31 bis 21 784 Frags):
+- **Sechs neue Kisten**, jetzt zehn insgesamt (31 bis 21 784 Scrap):
   - Scrap Box, Road Sign, Tech Trash, Locked Crate, Bradley Crate, Cargo Ship.
 - Preise wie immer ⌈EV ÷ 0,93⌉. Kleine Kisten verlieren durch das Aufrunden etwas RTP; die Scrap Box liegt bei 91,5 %.
 - Die Postgres-Migration v5 legt die neuen Kisten als Version 1 an.
@@ -277,8 +277,8 @@ Stand: 20.10.2026. Code:
 |---|---:|---:|---:|
 | Workbench, Chance 1–80 %, Zone irgendwo auf dem Ring | 95,0000 % | 94,9095 % | −1,42 |
 | Case Battle 2v2, Platz 1 / 2 / 3 / 4 | 92,9682 % | 92,9578 / 92,9754 / 92,9392 / 92,9486 % | −0,31 / 0,22 / −0,87 / −0,59 |
-| Scrap Box (31 Frags) | 91,5161 % | 91,5669 % | 0,44 |
-| Cargo Ship (20 556 Frags) | 92,9996 % | 92,9863 % | −0,36 |
+| Scrap Box (31 Scrap) | 91,5161 % | 91,5669 % | 0,44 |
+| Cargo Ship (20 556 Scrap) | 92,9996 % | 92,9863 % | −0,36 |
 
 Engine 83 Tests, Server 62 Tests auf SQLite und Postgres. Ein Server-Test für das gleichzeitige Öffnen hing anfangs vom Glück der ersten Kisten ab; er prüft das „alles oder nichts“ jetzt über ein Einsatzlimit, das nur Einsätze zählt und deshalb deterministisch ist.
 
@@ -294,8 +294,8 @@ Stand: 21.10.2026. Code:
 - Alle Kisten tragen Namen von Rust-Lootcontainern und -Monumenten, die Items heißen wie Rust-Items und -Skins.
   - Sets (z. B. „Whiteout Set“, „Gold Collection“) sind Bündel echter Skins.
   - Die Item-Werte sind Platzhalter, bis der Skin-Preisfeed angeschlossen ist.
-- Die Gewichte sind so gelöst, dass jeder Preis genau auf seiner Stufe liegt und der RTP 93,00 % beträgt (Barrel 92,99 %, weil 100 Frags kaum Spielraum zum Runden lassen).
-- 100 Frags = 1 $ Spielgeld, also 100 bis 150 000 Frags:
+- Die Gewichte sind so gelöst, dass jeder Preis genau auf seiner Stufe liegt und der RTP 93,00 % beträgt (Barrel 92,99 %, weil 100 Scrap kaum Spielraum zum Runden lassen).
+- 100 Scrap = 1 $ Spielgeld, also 100 bis 150 000 Scrap:
 
 | Kiste | Preis | Top-Item | Kiste | Preis | Top-Item |
 |---|---:|---|---|---:|---|
@@ -311,9 +311,9 @@ Stand: 21.10.2026. Code:
 | Elite Crate | 45 $ | Punishment Mask | Gold Egg | 1 500 $ | Gold Collection (3,2×) |
 
 - **Limits angehoben**, damit die teuren Kisten spielbar sind:
-  - Max. Einsatz 200 000 Frags (2 000 $), max. Gewinn 5 000 000 Frags (50 000 $).
+  - Max. Einsatz 200 000 Scrap (2 000 $), max. Gewinn 5 000 000 Scrap (50 000 $).
   - Ein Battle mit 4 Plätzen über zwei Gold Eggs passt unter den Max-Gewinn (Pool-Obergrenze = Top-Items × Plätze).
-  - Demo-Startguthaben und Nachfüllung 250 000 Frags.
+  - Demo-Startguthaben und Nachfüllung 250 000 Scrap.
   - Pro Spiel lassen sich die Limits im Backoffice weiter senken.
 - **Bilder:** jede Kiste hat eine eigene Zeichnung im Blueprint-Stil (Fass, Ölfass, Werkzeugkasten, Fallschirm, Bradley, Ölplattform, Containerschiff, Rakete, Ei …).
   - Items bekommen ein Symbol nach Typ (Gewehr, SMG, Pistole, Maske, Helm, Tür, Sprengstoff, Medizin, Set …), eingefärbt nach Seltenheit.
@@ -364,9 +364,9 @@ Für 2 bis 4 Plätze. Zum normalen Öffnen kommen fünf Features:
 
 | Lauf | Theorie | Simuliert | z |
 |---|---:|---:|---:|
-| Barrel (100 Frags) | 92,9921 % | 92,8844 % | −0,84 |
-| Tool Box (1 000 Frags) | 93,0000 % | 92,9740 % | −0,34 |
-| Gold Egg (150 000 Frags) | 92,9999 % | 92,9788 % | −0,93 |
+| Barrel (100 Scrap) | 92,9921 % | 92,8844 % | −0,84 |
+| Tool Box (1 000 Scrap) | 93,0000 % | 92,9740 % | −0,34 |
+| Gold Egg (150 000 Scrap) | 92,9999 % | 92,9788 % | −0,93 |
 | Bonus 1v1, Platz 1 / 2 | 92,9972 % | 93,0529 / 93,0464 % | 1,06 / 0,93 |
 | Bonus 1v1v1, Platz 1 / 2 / 3 | 92,9972 % | 93,2026 / 93,0895 / 92,9159 % | 3,59 / 1,61 / −1,42 |
 | Bonus 1v1v1v1, Platz 1 / 2 / 3 / 4 | 92,9972 % | 92,9661 / 92,9168 / 92,9131 / 93,0497 % | −0,51 / −1,32 / −1,38 / 0,86 |

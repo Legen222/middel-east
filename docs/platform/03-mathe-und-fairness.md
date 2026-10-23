@@ -135,15 +135,15 @@ Die Chance muss zwischen 1 % und 80 % liegen, sonst wird die Wette abgelehnt. So
 Die Rake ist klar als **4 % vom Pot** ausgewiesen. Das entspricht 4 % Edge auf den Einsatz, nicht 2 %.
 
 ### Kisten
-`ticket = ⌊f · W⌋` über ganzzahlige Gewichte, `EV = Σ wᵢ · Wertᵢ / W`, `Preis = ⌈EV / 0,93⌉` in ganzen Frags.
-Das Aufrunden kostet höchstens 1 Frag. Das sind 0,27 Prozentpunkte bei der 3,44-$-Werkzeugkiste und unter 0,001 Prozentpunkten beim Tresor.
+`ticket = ⌊f · W⌋` über ganzzahlige Gewichte, `EV = Σ wᵢ · Wertᵢ / W`, `Preis = ⌈EV / 0,93⌉` in ganzen Scrap.
+Das Aufrunden kostet höchstens 1 Scrap. Das sind 0,27 Prozentpunkte bei der 3,44-$-Werkzeugkiste und unter 0,001 Prozentpunkten beim Tresor.
 
 | Kiste | Preis | EV | RTP |
 |---|---:|---:|---:|
-| Werkzeugkiste | 344 Frags (3,44 $) | 319,00 | 92,733 % |
-| Militärkiste | 969 Frags (9,69 $) | 900,54 | 92,935 % |
-| Elite-Crate | 5 226 Frags (52,26 $) | 4 859,65 | 92,990 % |
-| Tresor | 21 784 Frags (217,84 $) | 20 258,80 | 92,999 % |
+| Werkzeugkiste | 344 Scrap (3,44 $) | 319,00 | 92,733 % |
+| Militärkiste | 969 Scrap (9,69 $) | 900,54 | 92,935 % |
+| Elite-Crate | 5 226 Scrap (52,26 $) | 4 859,65 | 92,990 % |
+| Tresor | 21 784 Scrap (217,84 $) | 20 258,80 | 92,999 % |
 
 Die Artikelwerte sind **Platzhalter**. Im Betrieb liest ein Preis-Job die Skinpreise ein (z. B. SCMM
 oder mehrere Marktplätze), rechnet mit `priceCase()` die Preise neu und protokolliert jede Änderung.
@@ -206,10 +206,10 @@ Seed `20260926` · v22.22.2 · alle 40 Läufe bestanden, größter Ausschlag |z|
 | upgrader | 100 → 200 (47.5 %) | 10.000.000 | 95.0000 % | 94.9613 % | 0.0619 pp | -1.23 | 47.48 % | 2 | ✔ |
 | upgrader | mixed: chance 1 %…80 % | 10.000.000 | 95.0000 % | 95.0388 % | 0.1256 pp | 0.60 | 40.54 % | 94.97 | ✔ |
 | coinflip | creator seat, random side | 10.000.000 | 96.0000 % | 95.9714 % | 0.0595 pp | -0.94 | 49.99 % | 1.92 | ✔ |
-| cases | Werkzeugkiste (Preis 344 Frags) | 10.000.000 | 92.7326 % | 92.7903 % | 0.2648 pp | 0.43 | 100.00 % | 61.05 | ✔ |
-| cases | Militärkiste (Preis 969 Frags) | 10.000.000 | 92.9350 % | 92.8709 % | 0.1194 pp | -1.05 | 100.00 % | 21.67 | ✔ |
-| cases | Elite-Crate (Preis 5226 Frags) | 10.000.000 | 92.9899 % | 92.9797 % | 0.0468 pp | -0.43 | 100.00 % | 4.02 | ✔ |
-| cases | Tresor (Preis 21784 Frags) | 10.000.000 | 92.9985 % | 92.9882 % | 0.0858 pp | -0.24 | 100.00 % | 5.51 | ✔ |
+| cases | Werkzeugkiste (Preis 344 Scrap) | 10.000.000 | 92.7326 % | 92.7903 % | 0.2648 pp | 0.43 | 100.00 % | 61.05 | ✔ |
+| cases | Militärkiste (Preis 969 Scrap) | 10.000.000 | 92.9350 % | 92.8709 % | 0.1194 pp | -1.05 | 100.00 % | 21.67 | ✔ |
+| cases | Elite-Crate (Preis 5226 Scrap) | 10.000.000 | 92.9899 % | 92.9797 % | 0.0468 pp | -0.43 | 100.00 % | 4.02 | ✔ |
+| cases | Tresor (Preis 21784 Scrap) | 10.000.000 | 92.9985 % | 92.9882 % | 0.0858 pp | -0.24 | 100.00 % | 5.51 | ✔ |
 | battles | 2 Plätze / normal / Platz 1 | 10.000.000 | 92.9682 % | 93.0046 % | 0.0720 pp | 0.99 | 51.11 % | 11.98 | ✔ |
 | battles | 2 Plätze / normal / Platz 2 | 10.000.000 | 92.9682 % | 92.9719 % | 0.0720 pp | 0.10 | 51.09 % | 11.57 | ✔ |
 | battles | 3 Plätze / crazy / Platz 1 | 10.000.000 | 92.9682 % | 93.0189 % | 0.0916 pp | 1.08 | 34.80 % | 13.82 | ✔ |
@@ -234,15 +234,15 @@ Seed `20260926` · v22.22.2 · alle 40 Läufe bestanden, größter Ausschlag |z|
 
 ## 6. Entscheidungen und Befunde aus dieser Phase
 
-1. **Kistenpreise in ganzen Frags** (1 Frag = 0,01 $). Beim ersten Entwurf mit feinerer Einheit hat der Test
-   einen Fehler bei der Preisrundung gefunden. Jetzt gilt nachweislich: Rundung ≤ 1 Frag, RTP ≤ 93 %.
+1. **Kistenpreise in ganzen Scrap** (1 Scrap = 0,01 $). Beim ersten Entwurf mit feinerer Einheit hat der Test
+   einen Fehler bei der Preisrundung gefunden. Jetzt gilt nachweislich: Rundung ≤ 1 Scrap, RTP ≤ 93 %.
 2. **Crash-Mindestziel 1,01×.** Andernfalls wäre 1,00× eine risikofreie Wette mit 100 % RTP.
 3. **Upgrader-Chance zwischen 1 und 80 %.** Innerhalb dieses Bereichs muss nie gekappt werden, deshalb bleibt der RTP exakt.
 4. **Haftungsgrenzen gehören in die Wallet, nicht ins RNG.** *(Umgesetzt in Phase 4, siehe [04-architektur.md](04-architektur.md) Abschnitt 2.)* Minenfeld und Raid können extreme Multiplikatoren
-   erreichen. Eine Obergrenze für den Maximalgewinn pro Wette in Frags gehört in die Wallet-Schicht (Phase 4).
+   erreichen. Eine Obergrenze für den Maximalgewinn pro Wette in Scrap gehört in die Wallet-Schicht (Phase 4).
    Wird sie erreicht, sinkt der RTP für genau diese Kombination. Das muss dem Spieler vor der Wette angezeigt werden.
-5. **Auszahlungen in Milli-Frags.** *(Umgesetzt in Phase 4.)* Die Engine liefert exakte Multiplikatoren. Die Wallet rundet pro Wette
-   auf 0,001 Frag ab. Dadurch sinkt der RTP bei Einsätzen ab 1 Frag um höchstens 0,1 %.
+5. **Auszahlungen in Milli-Scrap.** *(Umgesetzt in Phase 4.)* Die Engine liefert exakte Multiplikatoren. Die Wallet rundet pro Wette
+   auf 0,001 Scrap ab. Dadurch sinkt der RTP bei Einsätzen ab 1 Scrap um höchstens 0,1 %.
 6. **Keine Skalierung der Plinko-Tabellen zur Laufzeit.** Die Tabellen sind fest, und ihr RTP ist dokumentiert.
    Jede Änderung braucht einen neuen Test und einen neuen Monte-Carlo-Lauf.
 

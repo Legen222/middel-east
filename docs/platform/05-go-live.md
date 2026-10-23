@@ -75,7 +75,7 @@ Legende: ✔ im Repo umgesetzt · ◐ vorbereitet (Schnittstelle/Hook) · ☐ of
 ### Geld
 | | Punkt |
 |---|---|
-| ✔ | Doppelte Buchführung, Integritätsprüfung, Rundung zugunsten der Kasse um höchstens 0,001 Frag |
+| ✔ | Doppelte Buchführung, Integritätsprüfung, Rundung zugunsten der Kasse um höchstens 0,001 Scrap |
 | ✔ | Maximalgewinn je Wette, Escrow für PvP mit Nachschuss aus der Bankroll |
 | ◐ | Zahlungswege `CryptoRail`, `CardRail`, `SkinRail` (Schnittstellen) |
 | ◐ | AML-Hooks: Umsatzbedingung vor Auszahlung, Flags für große und gestückelte Einzahlungen |

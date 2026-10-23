@@ -127,7 +127,7 @@ export const crashView: View = {
     }));
     $('#out', root).addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {
       const r = await api<{ multiplier: number; payout: number }>('POST', '/crash/cashout', {});
-      status(`Out at ${mult(r.multiplier)}: +${frags(r.payout)} Frags`, 'win'); toast(`Cashed out at ${mult(r.multiplier)}`);
+      status(`Out at ${mult(r.multiplier)}: +${frags(r.payout)} Scrap`, 'win'); toast(`Cashed out at ${mult(r.multiplier)}`);
       await load(); await c.refresh();
     }));
 

@@ -11,7 +11,7 @@
  * Withdrawal (beta: sent by hand)
  *   The player picks items from the bot's stock. The balance is debited and the items reserved; a 'pending'
  *   row waits for an operator, who sends the offer in Steam and marks it sent, or cancels it (refund).
- * Ledger: both directions move Frags between the player and house:skins, the stock's counterpart.
+ * Ledger: both directions move Scrap between the player and house:skins, the stock's counterpart.
  */
 
 import { randomBytes, randomInt } from 'node:crypto';
@@ -40,7 +40,7 @@ const skinsOn = (cfg: Config) => { if (!cfg.skins.enabled || cfg.demo) fail('ski
 
 export interface PriceRow { name: string; price: number; volume: number }
 
-/** Skinport's /v1/items, or any array of { market_hash_name, suggested_price | price (USD), quantity | volume }. Prices in Frags. */
+/** Skinport's /v1/items, or any array of { market_hash_name, suggested_price | price (USD), quantity | volume }. Prices in Scrap. */
 export function parsePriceFeed(json: unknown): PriceRow[] {
   if (!Array.isArray(json)) throw new Error('price feed: expected an array');
   const out: PriceRow[] = [];
@@ -225,7 +225,7 @@ export class SkinService {
 
   withdrawals(userId: string) { return withdrawalsOf(this.db, userId); }
 
-  /** The player cancels a withdrawal nobody has sent yet; the Frags come back. */
+  /** The player cancels a withdrawal nobody has sent yet; the Scrap come back. */
   cancelWithdrawal(userId: string, id: string, now: number) {
     return closeWithdrawal(this.db, id, { userId }, 'canceled', null, 'Canceled by the player', now);
   }
@@ -258,7 +258,7 @@ async function withdrawalsOf(db: DB, userId: string | null, id?: string, status?
   }));
 }
 
-/** Sent (items gone to the player) or canceled (items back in stock, Frags refunded). Only from 'pending'. */
+/** Sent (items gone to the player) or canceled (items back in stock, Scrap refunded). Only from 'pending'. */
 function closeWithdrawal(db: DB, id: string, by: { userId?: string; operatorId?: string }, to: 'sent' | 'canceled', offerId: string | null, note: string | null, now: number) {
   return tx(db, async (db) => {
     const w = (await db.prepare('SELECT user_id, status, value FROM skin_withdrawals WHERE id = ?').get(id)) as { user_id: string; status: string; value: number } | undefined;

@@ -1,7 +1,7 @@
 import { api } from '../api';
 import { icon } from '../icons';
 import type { View } from '../main';
-import { $, $$, bindStake, esc, frags, guard, readNum, stakeField } from '../ui';
+import { $, $$, bindStake, esc, frags, guard, readNum, scrap, stakeField } from '../ui';
 
 interface Player { seat: number; name: string; bot: boolean; you: boolean; payout: number }
 interface Game {
@@ -24,7 +24,7 @@ function fairness(g: Game) {
 function actions(g: Game) {
   if (g.status !== 'open') return '';
   const inGame = g.players.some((p) => p.you);
-  return `<div class="row">${!inGame ? `<button class="btn small" data-join="${g.id}" type="button">Join · ${frags(g.seatStake)}</button>` : ''}
+  return `<div class="row">${!inGame ? `<button class="btn small" data-join="${g.id}" type="button">Join · ${scrap(g.seatStake)}</button>` : ''}
     ${g.mine ? `<button class="btn ghost small" data-bot="${g.id}" type="button">Call demo bot</button><button class="btn ghost small" data-cancel="${g.id}" type="button">Cancel</button>` : ''}</div>`;
 }
 
@@ -41,7 +41,7 @@ function coinCard(g: Game) {
   const label = (s: string) => (s === 'rust' ? 'Rust' : 'Scrap');
   const res = g.result as { side: string; winnerSeat: number } | null;
   return `<article class="card" data-game="${g.id}" style="gap:10px">
-    <div class="row" style="justify-content:space-between"><b class="h-sect">${frags(g.seatStake)} Frags</b><span class="chip">${STATUS[g.status]}</span>${countdown(g)}</div>
+    <div class="row" style="justify-content:space-between"><b class="h-sect">${scrap(g.seatStake)}</b><span class="chip">${STATUS[g.status]}</span>${countdown(g)}</div>
     <div class="row" style="justify-content:space-between;gap:12px">
       ${[0, 1].map((seat) => { const p = g.players.find((x) => x.seat === seat); const s = seat === 0 ? side : other;
         const won = res && res.winnerSeat === seat;

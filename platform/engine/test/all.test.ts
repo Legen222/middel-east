@@ -261,11 +261,11 @@ describe('coinflip', () => {
 
 describe('cases', () => {
   for (const c of SAMPLE_CASES) {
-    it(`${c.name}: integer weights, RTP ≤ 93 %, price rounding ≤ 1 Frag, every ticket maps to an item`, () => {
+    it(`${c.name}: integer weights, RTP ≤ 93 %, price rounding ≤ 1 Scrap, every ticket maps to an item`, () => {
       assert.ok(c.items.every((i) => Number.isInteger(i.weight) && i.weight > 0 && Number.isInteger(i.value)));
       const r = caseRtp(c);
       assert.ok(r <= 1 - EDGE.cases, `RTP ${r}`);
-      assert.ok(priceCase(c) - caseEv(c) / (1 - EDGE.cases) < 1, 'price rounds up by less than one Frag');
+      assert.ok(priceCase(c) - caseEv(c) / (1 - EDGE.cases) < 1, 'price rounds up by less than one Scrap');
       const W = caseWeight(c);
       let sum = 0;
       for (let t = 0; t < W; t += 1) sum += openCase(fixed([at(t, W)]), c).item.value;

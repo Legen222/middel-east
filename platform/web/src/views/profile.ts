@@ -21,7 +21,7 @@ export const profileView: View = {
       <div class="row"><a class="btn ghost" href="#/history">${icon('clock')} History</a><a class="btn ghost" href="#/wallet">${icon('pot')} Wallet</a></div></div>
     <div class="stats" id="p-stats" aria-label="Lifetime figures">
       <div><b id="ps-bets">–</b><span>rounds played</span></div>
-      <div><b id="ps-wag">–</b><span>Frags wagered</span></div>
+      <div><b id="ps-wag">–</b><span>Scrap wagered</span></div>
       <div><b id="ps-net">–</b><span>net result</span></div>
       <div><b id="ps-best">–</b><span id="ps-best-l">best multiplier</span></div>
     </div>
@@ -74,7 +74,7 @@ export const profileView: View = {
       net.textContent = `${s.net > 0 ? '+' : s.net < 0 ? '−' : ''}${frags(Math.abs(s.net))}`;
       net.className = s.net > 0 ? 'pos' : s.net < 0 ? 'neg' : '';
       if (s.bestMultiplier) { $('#ps-best', root).textContent = mult(s.bestMultiplier.multiplier); $('#ps-best-l', root).textContent = `best multiplier · ${s.bestMultiplier.gameName}`; }
-      if (s.memberSince) $('#p-since', root).textContent = `Level ${c.me.level} · member since ${day(s.memberSince)}${s.biggestWin && s.biggestWin.payout > 0 ? ` · biggest win ${frags(s.biggestWin.payout)} Frags on ${s.biggestWin.gameName}` : ''}`;
+      if (s.memberSince) $('#p-since', root).textContent = `Level ${c.me.level} · member since ${day(s.memberSince)}${s.biggestWin && s.biggestWin.payout > 0 ? ` · biggest win ${frags(s.biggestWin.payout)} Scrap on ${s.biggestWin.gameName}` : ''}`;
       $('#p-sessions', root).textContent = `${s.activeSessions} device${s.activeSessions === 1 ? '' : 's'}`;
       $('#p-games', root).innerHTML = s.games.length ? s.games.map((g) => `<tr><td>${esc(g.gameName)}</td><td class="r num">${g.bets.toLocaleString('en-US')}</td><td class="r num">${frags(g.wagered)}</td><td class="r num">${frags(g.paid)}</td>
         <td class="r num">${g.wagered ? `${((g.paid / g.wagered) * 100).toFixed(2)} %` : '–'}</td></tr>`).join('') : '<tr><td colspan="5" class="muted">No rounds yet.</td></tr>';

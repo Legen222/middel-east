@@ -56,7 +56,7 @@ export interface PublicConfig {
   games: string[]; houseEdge: Record<string, number>; operatorMfa: boolean;
   plinko: Record<string, Record<string, { multipliers: number[]; rtp: number }>>;
   cases: CaseInfo[];
-  /** Stake range and max win per game after per-game limits (Frags). */
+  /** Stake range and max win per game after per-game limits (Scrap). */
   limits: Record<string, { minStake: number; maxStake: number; maxWin: number }>;
   responsibleGambling: { realityCheckOptions: number[]; limitIncreaseDelayHours: number };
   steamLogin?: boolean;

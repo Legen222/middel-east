@@ -4,8 +4,8 @@
  * A case lists items with integer ticket weights. One float per opening:
  *   ticket = ⌊f · W⌋,  W = Σ weights  → the item whose cumulative range contains the ticket.
  *   EV     = Σ w_i · value_i / W
- *   price  = ⌈EV / (1 − e)⌉  (whole Frags)  ⇒  RTP = EV / price ≤ 1 − e
- * Values and prices are integer Frags (1 Frag = 0.01 $). Rounding the price up costs at most one Frag,
+ *   price  = ⌈EV / (1 − e)⌉  (whole Scrap)  ⇒  RTP = EV / price ≤ 1 − e
+ * Values and prices are integer Scrap (1 Scrap = 0.01 $). Rounding the price up costs at most one Scrap,
  * i.e. < 1/price of RTP (0.3 pp on a 3 $ case, 0.001 pp on a 1 000 $ case). Item values must be
  * re-priced from the skin price feed on a schedule, and case prices recomputed with priceCase().
  *
@@ -39,7 +39,7 @@ import type { FloatSource } from '../pf/stream';
 
 export interface CaseItem {
   name: string;
-  value: number; // Frags (integer, 1 Frag = 0.01 $)
+  value: number; // Scrap (integer, 1 Scrap = 0.01 $)
   weight: number; // integer tickets
 }
 
@@ -94,7 +94,7 @@ export interface BattleOutcome {
   drops: CaseItem[][]; // [round][seat]
   totals: number[];
   winners: number[];
-  payouts: number[]; // Frags per seat (ties may produce fractions; the wallet settles in milli-Frags)
+  payouts: number[]; // Scrap per seat (ties may produce fractions; the wallet settles in milli-Scrap)
   bonus?: BonusDetail;
 }
 
@@ -173,7 +173,7 @@ function playBonusBattle(src: FloatSource, cases: CaseDef[], seats: number): Bat
 
 /**
  * The SCRAPLINE crate line-up: twenty crates named after Rust loot containers and monuments, priced
- * 1 € to 1 500 € (100 to 150 000 Frags), each at a 93.00 % RTP. Item names are Rust items and skins; the
+ * 1 € to 1 500 € (100 to 150 000 Scrap), each at a 93.00 % RTP. Item names are Rust items and skins; the
  * values are placeholders until the skin price feed is connected, and the weights were solved so every
  * price lands on its step of the ladder (engine tests check price, RTP and every ticket).
  */

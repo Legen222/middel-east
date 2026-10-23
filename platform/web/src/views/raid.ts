@@ -86,7 +86,7 @@ export const raidView: View = {
       if (res.status === 'settled') {
         const held = res.payout === 0;
         draw(held ? tools.length - 1 : -1);
-        status(held ? `${layer} holds. Raid repelled.` : `Tool Cupboard cracked: +${frags(res.payout)} Frags.`, held ? 'lose' : 'win');
+        status(held ? `${layer} holds. Raid repelled.` : `Tool Cupboard cracked: +${frags(res.payout)} Scrap.`, held ? 'lose' : 'win');
         await c.refresh();
       } else {
         draw();
@@ -97,7 +97,7 @@ export const raidView: View = {
       if (!bet) return;
       bet = await api<RaidBet>('POST', `/raid/${bet.id}/cashout`, {});
       draw();
-      status(`Loot secured: ${frags(bet.payout)} Frags.`, 'win');
+      status(`Loot secured: ${frags(bet.payout)} Scrap.`, 'win');
       await c.refresh();
     }));
     draw();

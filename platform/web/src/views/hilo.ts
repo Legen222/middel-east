@@ -94,7 +94,7 @@ export const hiloView: View = {
     $('#cash', root).addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {
       if (!bet) return;
       bet = await api<HiloBet>('POST', `/hilo/${bet.id}/cashout`, {});
-      status(`Cashed out: ${frags(bet.payout)} Frags.`, 'win');
+      status(`Cashed out: ${frags(bet.payout)} Scrap.`, 'win');
       draw();
       await c.refresh();
     }));

@@ -104,7 +104,7 @@ export async function checkBet(db: DB, userId: string, stake: number, now: numbe
     const used = await usage(db, userId, r.kind, r.period, now);
     if (used + stake > r.amount!) {
       const label = r.kind === 'loss' ? 'Loss limit' : 'Wager limit';
-      fail('rg_limit', `${label} (${periodLabel(r.period)}) reached: ${Math.max(0, r.amount! - used) / 1000} Frags left.`, 403, { kind: r.kind, period: r.period, limit: r.amount, used });
+      fail('rg_limit', `${label} (${periodLabel(r.period)}) reached: ${Math.max(0, r.amount! - used) / 1000} Scrap left.`, 403, { kind: r.kind, period: r.period, limit: r.amount, used });
     }
   }
 }

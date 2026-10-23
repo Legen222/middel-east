@@ -84,7 +84,7 @@ export const minesView: View = {
       if (!bet || bet.status !== 'open') return;
       bet = await api<MinesBet>('POST', `/mines/${bet.id}/reveal`, { tile: Number(cell.dataset.t) });
       if (bet.status === 'settled') {
-        status(bet.payout > 0 ? `All safe tiles found: +${frags(bet.payout)} Frags.` : 'Mine! Round lost.', bet.payout > 0 ? 'win' : 'lose');
+        status(bet.payout > 0 ? `All safe tiles found: +${frags(bet.payout)} Scrap.` : 'Mine! Round lost.', bet.payout > 0 ? 'win' : 'lose');
         await c.refresh();
       } else status(`Safe. Next tile: ${mult(bet.nextMultiplier ?? 1)}`);
       draw();
@@ -92,7 +92,7 @@ export const minesView: View = {
     $('#cash', root).addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {
       if (!bet) return;
       bet = await api<MinesBet>('POST', `/mines/${bet.id}/cashout`, {});
-      status(`Cashed out: ${frags(bet.payout)} Frags.`, 'win');
+      status(`Cashed out: ${frags(bet.payout)} Scrap.`, 'win');
       draw();
       await c.refresh();
     }));

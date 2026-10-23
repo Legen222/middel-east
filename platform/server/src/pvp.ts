@@ -54,7 +54,7 @@ export function createCoinflip(db: DB, cfgIn: Config, userId: string, stake: num
   if (side !== 'rust' && side !== 'scrap') fail('invalid_params', 'Side: rust or scrap.');
   return tx(db, async (db) => {
     const cfg = await gameConfig(db, cfgIn, 'coinflip');
-    if (!Number.isSafeInteger(stake) || stake < cfg.minStake || stake > cfg.maxStake) fail('invalid_stake', `Stake: ${cfg.minStake / MF_PER_FRAG} to ${cfg.maxStake / MF_PER_FRAG} Frags.`);
+    if (!Number.isSafeInteger(stake) || stake < cfg.minStake || stake > cfg.maxStake) fail('invalid_stake', `Stake: ${cfg.minStake / MF_PER_FRAG} to ${cfg.maxStake / MF_PER_FRAG} Scrap.`);
     if (stake * 2 * (1 - EDGE.coinflip) > cfg.maxWin) fail('max_win', 'This stake exceeds the max win.');
     return create(db, cfg, userId, 'coinflip', { side }, 2, stake, now);
   });

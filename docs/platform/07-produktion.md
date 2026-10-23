@@ -37,7 +37,7 @@ Cloudflare (TLS, WAF, CF-IPCountry)
 | Transaktionen | SQLite: eine Verbindung mit Sperre, Anfragen außerhalb warten (wie `BEGIN IMMEDIATE`). Postgres: `SERIALIZABLE`, bis zu 8 Wiederholungen bei 40001/40P01 mit Jitter. Der Code behält damit die Semantik „eine Transaktion nach der anderen“. |
 | Hot Rows | Hauskonten (Bankroll, Escrow, Promo, Faucet) werden nicht mehr gecacht, sondern aus dem Ledger summiert. Ein gecachtes Bankroll-Konto würde bei jeder Wette geschrieben und alle Transaktionen gegeneinander abbrechen lassen. Spielerkonten bleiben gecacht (`balances`), die Integritätsprüfung vergleicht sie mit dem Ledger. |
 | Garantien im Schema | Eindeutige Indizes für eine offene Minen- oder Raid-Runde pro Spieler, eine Crash-Wette pro Runde und Spieler, einen offenen RG-Fall pro Grund. |
-| Typen | `BIGINT` und `NUMERIC` kommen als JS-Zahlen zurück (Beträge in Milli-Frags, weit unter 2^53). |
+| Typen | `BIGINT` und `NUMERIC` kommen als JS-Zahlen zurück (Beträge in Milli-Scrap, weit unter 2^53). |
 
 **Absicherung**
 

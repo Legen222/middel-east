@@ -87,7 +87,7 @@ export function limitsSection(list: any[], global: { minStake: number; maxStake:
   return `
   <section class="card">
     <h2 class="h-sect">Stake and win limits per game</h2>
-    <p class="muted" style="font-size:13px;max-width:80ch">Empty means the global limit (${frags(global.minStake)} to ${frags(global.maxStake, 0)} Frags stake, ${frags(global.maxWin, 0)} Frags max win). A game's limits can only be tighter than the global ones.</p>
+    <p class="muted" style="font-size:13px;max-width:80ch">Empty means the global limit (${frags(global.minStake)} to ${frags(global.maxStake, 0)} Scrap stake, ${frags(global.maxWin, 0)} Scrap max win). A game's limits can only be tighter than the global ones.</p>
     <div class="tablewrap"><table><thead><tr><th>Game</th><th>Min stake</th><th>Max stake</th><th>Max win</th><th></th></tr></thead><tbody>
       ${list.map((g) => `<tr><td><b>${esc(g.name)}</b></td>
         ${(['minStake', 'maxStake', 'maxWin'] as const).map((k) => `<td><input class="input num" style="max-width:130px" data-lim="${g.game}" data-k="${k}" inputmode="decimal" value="${g.limits[k] ?? ''}" placeholder="${frags(global[k], 0)}" aria-label="${esc(g.name)} ${k}"></td>`).join('')}
@@ -145,11 +145,11 @@ function editor(panel: HTMLElement, k: any | null) {
       <label class="field" style="flex:1;min-width:160px">Id<input data-id value="${esc(k?.id ?? '')}" ${k ? 'readonly' : ''} placeholder="e.g. rad-town" maxlength="32"></label>
       <label class="field" style="flex:2;min-width:200px">Name<input data-name value="${esc(k?.name ?? '')}" maxlength="40" placeholder="Rad Town Crate"></label>
     </div>
-    <div class="tablewrap"><table><thead><tr><th>Item</th><th class="r">Value (Frags)</th><th class="r">Weight (tickets)</th><th class="r">Chance</th><th></th></tr></thead><tbody data-items></tbody></table></div>
+    <div class="tablewrap"><table><thead><tr><th>Item</th><th class="r">Value (Scrap)</th><th class="r">Weight (tickets)</th><th class="r">Chance</th><th></th></tr></thead><tbody data-items></tbody></table></div>
     <div class="row"><button class="btn ghost small" type="button" data-add>Add item</button></div>
     <div class="kpis" data-preview></div>
     <div class="row"><button class="btn" type="button" data-publish>${k ? 'Publish new version' : 'Create case'}</button><span class="status" data-msg></span></div>
-    ${k ? `<details><summary class="muted" style="font-size:13px">Version history (${k.versions.length})</summary><div class="tablewrap"><table><tbody>${k.versions.map((v: any) => `<tr><td class="num">v${v.version}</td><td class="num">${frags(v.price, 0)} Frags</td><td class="num">${pct(v.rtp)}</td><td class="num" style="font-size:12px">${when(v.created_at || null)}</td><td><a href="/api/cases/${esc(k.id)}/v/${v.version}" target="_blank" rel="noopener">items (JSON)</a></td></tr>`).join('')}</tbody></table></div></details>` : ''}
+    ${k ? `<details><summary class="muted" style="font-size:13px">Version history (${k.versions.length})</summary><div class="tablewrap"><table><tbody>${k.versions.map((v: any) => `<tr><td class="num">v${v.version}</td><td class="num">${frags(v.price, 0)} Scrap</td><td class="num">${pct(v.rtp)}</td><td class="num" style="font-size:12px">${when(v.created_at || null)}</td><td><a href="/api/cases/${esc(k.id)}/v/${v.version}" target="_blank" rel="noopener">items (JSON)</a></td></tr>`).join('')}</tbody></table></div></details>` : ''}
   </section>`;
   box.scrollIntoView({ block: 'start' });
   const rows = $('[data-items]', box);
@@ -160,7 +160,7 @@ function editor(panel: HTMLElement, k: any | null) {
       const msg = $('[data-msg]', box);
       try {
         const p = await api<any>('POST', '/admin/cases/preview', { name: $<HTMLInputElement>('[data-name]', box).value || 'Preview', items });
-        $('[data-preview]', box).innerHTML = kpi('Price', `${frags(p.price, 0)} Frags`) + kpi('RTP', pct(p.rtp)) + kpi('Top item', `${frags(Math.max(...items.map((i) => i.value)), 0)}`, `${(p.price ? Math.max(...items.map((i) => i.value)) / p.price : 0).toFixed(1)}× the price`);
+        $('[data-preview]', box).innerHTML = kpi('Price', `${frags(p.price, 0)} Scrap`) + kpi('RTP', pct(p.rtp)) + kpi('Top item', `${frags(Math.max(...items.map((i) => i.value)), 0)}`, `${(p.price ? Math.max(...items.map((i) => i.value)) / p.price : 0).toFixed(1)}× the price`);
         p.items.forEach((it: any, n: number) => { const cell = rows.querySelector(`[data-chance="${n}"]`); if (cell) cell.textContent = pct(it.chance, 3); });
         msg.textContent = ''; msg.className = 'status';
       } catch (e: any) { msg.textContent = e?.body?.message ?? 'Check the items.'; msg.className = 'status lose'; }
@@ -186,7 +186,7 @@ function editor(panel: HTMLElement, k: any | null) {
   $('[data-publish]', box).addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {
     const id = $<HTMLInputElement>('[data-id]', box).value.trim().toLowerCase();
     const v = await api<any>('PUT', `/admin/cases/${encodeURIComponent(id)}`, { name: $<HTMLInputElement>('[data-name]', box).value, items });
-    toast(`${v.name} v${v.version} published at ${frags(v.price, 0)} Frags (${pct(v.rtp)} RTP).`);
+    toast(`${v.name} v${v.version} published at ${frags(v.price, 0)} Scrap (${pct(v.rtp)} RTP).`);
     await casesTab(panel);
   }));
 }
@@ -200,14 +200,14 @@ export async function promosTab(panel: HTMLElement) {
     <h2 class="h-sect">New promo code</h2>
     <form class="row" id="promo-new" style="align-items:flex-end">
       <label class="field" style="flex:1;min-width:130px">Code<input name="code" maxlength="20" placeholder="WIPEDAY" required></label>
-      <label class="field" style="width:120px">Frags each<input name="amount" inputmode="decimal" value="25"></label>
+      <label class="field" style="width:120px">Scrap each<input name="amount" inputmode="decimal" value="25"></label>
       <label class="field" style="width:110px">Max uses<input name="maxUses" inputmode="numeric" value="100"></label>
       <label class="field" style="width:100px">Min level<input name="minLevel" inputmode="numeric" value="1"></label>
       <label class="field" style="width:200px">Expires (optional)<input name="expires" type="datetime-local"></label>
       <label class="field" style="flex:1;min-width:160px">Note<input name="note" maxlength="200" placeholder="Stream giveaway"></label>
       <button class="btn" type="submit">Create</button>
     </form>
-    <p class="muted" style="font-size:12px">One use per player; blocked during a break or self-exclusion; budget (amount × uses) at most 1,000,000 Frags. Ten wrong codes in an hour lock a player out of redeeming for an hour.</p>
+    <p class="muted" style="font-size:12px">One use per player; blocked during a break or self-exclusion; budget (amount × uses) at most 1,000,000 Scrap. Ten wrong codes in an hour lock a player out of redeeming for an hour.</p>
   </section>
   <section class="card">
     <h2 class="h-sect">Codes</h2>
@@ -369,7 +369,7 @@ export async function skinsTab(panel: HTMLElement) {
     <h2 class="h-sect">Trade bot and stock</h2>
     <div class="kpis">
       ${kpi('Bot', s.bot ? (s.bot.online ? 'online' : 'offline') : 'never seen', s.bot ? `${esc(s.bot.message ?? 'ok')} · heartbeat ${when(s.bot.heartbeatAt)}` : 'start the bot process (bot-main)')}
-      ${kpi('In stock', frags(stock('in_stock').items, 0), `${frags(stock('in_stock').value, 0)} Frags market value`)}
+      ${kpi('In stock', frags(stock('in_stock').items, 0), `${frags(stock('in_stock').value, 0)} Scrap market value`)}
       ${kpi('Reserved', frags(stock('reserved').items, 0), 'waiting in withdrawals')}
       ${kpi('Prices', frags(s.prices.items, 0), s.prices.updatedAt ? `updated ${when(s.prices.updatedAt)}` : 'never synced')}
     </div>
@@ -377,8 +377,8 @@ export async function skinsTab(panel: HTMLElement) {
   </section>
   <section class="card">
     <h2 class="h-sect">Withdrawal queue (${s.pending.length})</h2>
-    <p class="muted" style="font-size:13px">Send each offer from the bot account in Steam (desktop or mobile app) to the player's trade URL, with exactly these items. Then paste the offer number from the offer link and mark it sent. Cancel refunds the Frags and puts the items back in stock.</p>
-    <div class="tablewrap"><table><thead><tr><th>Requested</th><th>Player</th><th>Items</th><th class="r">Frags</th><th>Trade URL</th><th></th></tr></thead><tbody>
+    <p class="muted" style="font-size:13px">Send each offer from the bot account in Steam (desktop or mobile app) to the player's trade URL, with exactly these items. Then paste the offer number from the offer link and mark it sent. Cancel refunds the Scrap and puts the items back in stock.</p>
+    <div class="tablewrap"><table><thead><tr><th>Requested</th><th>Player</th><th>Items</th><th class="r">Scrap</th><th>Trade URL</th><th></th></tr></thead><tbody>
       ${s.pending.map((w: any) => `<tr><td class="num" style="font-size:12px;white-space:nowrap">${when(w.createdAt)}</td>
         <td>${esc(w.name)}<br><span class="muted num" style="font-size:11px">${esc(w.steamId ?? '')}</span></td>
         <td style="font-size:13px">${w.items.map((i: any) => `<span class="skin-line">${img(i.icon)}${esc(i.name)}</span>`).join('')}</td>
@@ -390,14 +390,14 @@ export async function skinsTab(panel: HTMLElement) {
   <div class="admin-grid">
     <section class="card">
       <h2 class="h-sect">Recent deposits</h2>
-      <div class="tablewrap"><table><thead><tr><th>Time</th><th>Player</th><th class="r">Items</th><th class="r">Frags</th><th>Status</th></tr></thead><tbody>
+      <div class="tablewrap"><table><thead><tr><th>Time</th><th>Player</th><th class="r">Items</th><th class="r">Scrap</th><th>Status</th></tr></thead><tbody>
         ${s.deposits.map((d: any) => `<tr><td class="num" style="font-size:12px;white-space:nowrap">${when(d.createdAt)}</td><td>${esc(d.name)}</td><td class="r num">${d.items}</td><td class="r num">${frags(d.value)}</td>
           <td><span class="chip ${D_CHIP[d.status] ?? ''}">${esc(d.status)}</span>${d.reason ? `<br><span class="muted" style="font-size:11px">${esc(d.reason)}</span>` : ''}${d.offerId ? `<br><a class="num" style="font-size:11px" href="https://steamcommunity.com/tradeoffer/${esc(d.offerId)}/" target="_blank" rel="noopener noreferrer">offer ${esc(d.offerId)}</a>` : ''}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">No deposits yet.</td></tr>'}
       </tbody></table></div>
     </section>
     <section class="card">
       <h2 class="h-sect">Handled withdrawals</h2>
-      <div class="tablewrap"><table><thead><tr><th>Time</th><th>Player</th><th class="r">Frags</th><th>Status</th></tr></thead><tbody>
+      <div class="tablewrap"><table><thead><tr><th>Time</th><th>Player</th><th class="r">Scrap</th><th>Status</th></tr></thead><tbody>
         ${s.withdrawals.filter((w: any) => w.status !== 'pending').map((w: any) => `<tr><td class="num" style="font-size:12px;white-space:nowrap">${when(w.updatedAt)}</td><td>${esc(w.name)}</td><td class="r num">${frags(w.value)}</td>
           <td><span class="chip ${w.status === 'sent' ? 'win' : 'lose'}">${esc(w.status)}</span>${w.handledBy ? ` <span class="muted num" style="font-size:11px">by ${esc(w.handledBy)}</span>` : ''}${w.note ? `<br><span class="muted" style="font-size:11px">${esc(w.note)}</span>` : ''}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">None yet.</td></tr>'}
       </tbody></table></div>
@@ -417,7 +417,7 @@ export async function skinsTab(panel: HTMLElement) {
   }));
   $$<HTMLButtonElement>('[data-cancelw]', panel).forEach((b) => b.addEventListener('click', () => {
     const m = modal(`<h2 class="h-sect">Cancel and refund</h2>
-      <p class="muted" style="font-size:13px">The player gets the Frags back and sees your reason. The items return to stock.</p>
+      <p class="muted" style="font-size:13px">The player gets the Scrap back and sees your reason. The items return to stock.</p>
       <label class="field">Reason for the player<input data-n maxlength="300" placeholder="e.g. item is on a trade hold, please pick another"></label>
       <div class="row"><button class="btn" data-ok type="button">Cancel and refund</button><button class="btn ghost" data-no type="button">Back</button></div>`);
     m.root.querySelector('[data-no]')!.addEventListener('click', m.close);

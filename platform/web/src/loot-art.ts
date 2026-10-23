@@ -79,7 +79,7 @@ const CRATES: Record<string, () => string> = {
 export function crateArt(id: string, price: number): string {
   const draw = CRATES[id];
   if (!draw) return caseArt(price);
-  return svg(draw() + dimH(48, 192, 146, `${price.toLocaleString('en-US')} Frags`), `${id.replace(/-/g, ' ')} drawing`);
+  return svg(draw() + dimH(48, 192, 146, `${price.toLocaleString('en-US')} Scrap`), `${id.replace(/-/g, ' ')} drawing`);
 }
 
 /* ---------- item icons ---------- */

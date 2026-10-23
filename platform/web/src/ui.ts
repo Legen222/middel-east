@@ -4,6 +4,10 @@ export const $ = <T extends Element = HTMLElement>(sel: string, root: ParentNode
 export const $$ = <T extends Element = HTMLElement>(sel: string, root: ParentNode = document) => [...root.querySelectorAll(sel)] as T[];
 export const esc = (s: unknown) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 export const frags = (n: number, d = 2) => n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+/** The Scrap currency symbol (own drawing, sprite id i-scrap). */
+export const SCRAP_SYM = '<svg class="cur" role="img" aria-label="Scrap"><use href="#i-scrap"/></svg>';
+/** Amount with the Scrap symbol, as HTML. Plain-text places (toasts, status lines) write "Scrap" instead. */
+export const scrap = (n: number, d = 2) => `<span class="amt">${SCRAP_SYM}${frags(n, d)}</span>`;
 export const mult = (n: number) => `${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}×`;
 export const pct = (n: number, d = 2) => `${(n * 100).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d })} %`;
 /** Percent without trailing zeros, up to 3 decimals (for odds tables). */
@@ -60,8 +64,8 @@ export function modal(html: string): { root: HTMLElement; close: () => void } {
   return { root: back, close };
 }
 
-/** Stake input with ½ and 2× buttons. Reads Frags. */
-export function stakeField(id: string, value: number, label = 'Stake (Frags)') {
+/** Stake input with ½ and 2× buttons. Reads Scrap. */
+export function stakeField(id: string, value: number, label = `Stake ${SCRAP_SYM}`) {
   return `<div class="stakebar"><label class="field">${label}<input id="${id}" inputmode="decimal" value="${value}"></label>
     <button type="button" class="btn ghost small" data-stake="${id}" data-f="0.5">½</button><button type="button" class="btn ghost small" data-stake="${id}" data-f="2">2×</button></div>`;
 }

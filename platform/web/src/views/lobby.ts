@@ -4,7 +4,7 @@ import { crateArt } from '../loot-art';
 import { CATEGORIES, GAMES, type GameMeta, gameName } from '../games';
 import { icon } from '../icons';
 import type { View } from '../main';
-import { $, animateNumber, esc, frags, pct, reducedMotion } from '../ui';
+import { $, animateNumber, esc, frags, pct, reducedMotion, scrap } from '../ui';
 
 /* Ribbon text on the tall phone tiles (the desktop shows the short tag). */
 const RIBBON: Record<string, string> = { NEW: 'New update!', LIVE: 'Live now', SIGNATURE: 'Top pick' };
@@ -24,10 +24,10 @@ const SLIDES: { href: string; kicker: string; title: string; text: string; cta: 
   { href: '#/cases', kicker: 'Crate opening', title: 'Twenty crates', text: '$1 to $1,500 · 93 % RTP each', cta: 'Open a crate', art: () => crateArt('gold-egg', 150_000), tone: 'brass' },
   { href: '#/battle', kicker: 'Case Battle', title: 'Bonus battles', text: 'Power rounds, jackpot drops, a final spin', cta: 'Start a battle', art: () => gameArt('battle'), tone: 'bp' },
   { href: '#/verify', kicker: 'Provably fair', title: 'Check every round', text: 'Replay any bet in your own browser', cta: 'Open the verifier', art: () => gameArt('dice'), tone: 'ok' },
-  { href: '#/chat', kicker: 'Oil Rain', title: 'Rain in the chat', text: 'Free Frags every 30 minutes from level 5', cta: 'Go to the chat', art: () => gameArt('jackpot'), tone: 'violet' },
+  { href: '#/chat', kicker: 'Oil Rain', title: 'Rain in the chat', text: 'Free Scrap every 30 minutes from level 5', cta: 'Go to the chat', art: () => gameArt('jackpot'), tone: 'violet' },
 ];
 
-/* Free Frags: every way to get play money without staking it. */
+/* Free Scrap: every way to get play money without staking it. */
 const FREE: { href: string; icon: string; title: string; text: string; demoOnly?: boolean }[] = [
   { href: '#/rewards', icon: 'trophy', title: 'Redeem your level rewards', text: 'Rakeback grows with every level' },
   { href: '#/rewards', icon: 'crate', title: 'Open your free Scrap Crate', text: 'Once a day from level 2' },
@@ -45,7 +45,7 @@ export const lobbyView: View = {
       <h1 class="mh-brand">SCRAPLINE</h1>
       <p class="mh-tag">Rust originals with an open blueprint</p>
       <p class="mh-online"><span class="live-dot"></span><b class="num" id="mh-online">–</b> online<span class="sep">·</span><b class="num" id="mh-rounds">–</b> rounds today</p>
-      ${c.guest ? `<button class="btn cta block" type="button" data-signup-inline>${c.cfg.demo ? `Sign up · ${frags(c.cfg.demoStartBalance ?? 0, 0)} Frags play money` : 'Sign in with Steam'}</button>` : ''}
+      ${c.guest ? `<button class="btn cta block" type="button" data-signup-inline>${c.cfg.demo ? `Sign up · ${scrap(c.cfg.demoStartBalance ?? 0, 0)} play money` : 'Sign in with Steam'}</button>` : ''}
     </section>
 
     <section class="wins m-only" aria-label="Live wins">
@@ -101,7 +101,7 @@ export const lobbyView: View = {
     </section>`).join('')}
 
     <section class="free-sect" style="display:flex;flex-direction:column;gap:14px">
-      <div class="sect-head"><div><p class="eyebrow">Free Frags</p><h2 class="h-sect" style="font-size:22px">Get free Frags</h2></div><p>${c.cfg.demo ? 'Play money' : 'Frags'} from levels, the daily crate, the rain and codes. No stake needed.</p></div>
+      <div class="sect-head"><div><p class="eyebrow">Free Scrap</p><h2 class="h-sect" style="font-size:22px">Get free Scrap</h2></div><p>${c.cfg.demo ? 'Play money' : 'Scrap'} from levels, the daily crate, the rain and codes. No stake needed.</p></div>
       <div class="free">${FREE.filter((f) => !f.demoOnly || c.cfg.demo).map((f) => `<a class="free-card" href="${f.href}"><span class="fc-ico">${icon(f.icon)}</span><b>${f.title}</b><span>${f.text}</span></a>`).join('')}</div>
     </section>
 
@@ -170,7 +170,7 @@ function mountFeed(root: HTMLElement, me: string): () => void {
     const body = root.querySelector('#feed');
     if (!body) return;
     const html = rows.length ? rows.slice(0, 12).map((r) => `<tr><td>${esc(r.gameName)}</td><td class="${r.name === 'Hidden player' ? 'muted' : ''}">${esc(r.name)}</td><td class="num muted hide-xs" style="font-size:12px">${ago(r.at)}</td>
-        <td class="r num hide-xs">${frags(r.stake)}</td><td class="r num ${r.multiplier >= 5 ? 'pos' : ''}">${r.multiplier.toFixed(2)}×</td><td class="r num ${r.payout > r.stake ? 'pos' : 'muted'}">${frags(r.payout)}</td></tr>`).join('')
+        <td class="r num hide-xs">${scrap(r.stake)}</td><td class="r num ${r.multiplier >= 5 ? 'pos' : ''}">${r.multiplier.toFixed(2)}×</td><td class="r num ${r.payout > r.stake ? 'pos' : 'muted'}">${scrap(r.payout)}</td></tr>`).join('')
       : `<tr><td colspan="6" class="muted">${kind === 'high' ? 'No win of 5× or more in the last 24 hours yet.' : 'No rounds yet. Play one and it shows up here.'}</td></tr>`;
     if (html !== sig) { sig = html; body.innerHTML = html; }
   };
@@ -236,7 +236,7 @@ function mountLive(root: HTMLElement): () => void {
     if (wheel && !wheel.round) set('lv-wheel-sub', 'First spin starts in a moment');
     if (wheel?.round) {
       const r = wheel.round, now = Date.now() + wheelSkew;
-      if (now < r.bettingEndsAt) { set('lv-wheel', `${Math.ceil((r.bettingEndsAt - now) / 1000)} s`, ''); set('lv-wheel-sub', `Next spin · ${frags(Object.values(wheel.totals).reduce((a, b) => a + b, 0), 0)} Frags on the board`); }
+      if (now < r.bettingEndsAt) { set('lv-wheel', `${Math.ceil((r.bettingEndsAt - now) / 1000)} s`, ''); set('lv-wheel-sub', `Next spin · ${frags(Object.values(wheel.totals).reduce((a, b) => a + b, 0), 0)} Scrap on the board`); }
       else if (r.field === null || now < r.spinEndsAt) { set('lv-wheel', 'Spinning', ''); set('lv-wheel-sub', 'Bets closed'); }
       else { set('lv-wheel', `${r.field} → ${wheel.payouts[r.field]}×`, r.field >= 10 ? 'ok' : ''); set('lv-wheel-sub', 'Landed · next round soon'); }
     }
@@ -289,7 +289,7 @@ function mountWins(root: HTMLElement): () => void {
     if (!box) return;
     const wins = rows.filter((r) => r.payout > r.stake).slice(0, 12);
     const html = wins.length ? wins.map((r) => `<a class="win-card ${r.multiplier >= 10 ? 'gold' : r.multiplier >= 2 ? 'hot' : ''}" href="#/${GAMES.find((g) => g.id === r.game)?.path ?? ''}">
-        <span class="wc-ico">${icon(iconOf(r.game))}</span><span class="wc-txt"><b class="num">${frags(r.payout)}</b><span>${esc(r.name)}</span><small>${esc(gameName(r.game))} · ${r.multiplier.toFixed(2)}×</small></span></a>`).join('')
+        <span class="wc-ico">${icon(iconOf(r.game))}</span><span class="wc-txt"><b class="num">${scrap(r.payout)}</b><span>${esc(r.name)}</span><small>${esc(gameName(r.game))} · ${r.multiplier.toFixed(2)}×</small></span></a>`).join('')
       : '<p class="muted" style="font-size:13px">No wins yet today. The first one shows up here.</p>';
     if (html !== sig) { sig = html; box.innerHTML = html; }
   };

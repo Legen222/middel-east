@@ -85,7 +85,7 @@ export const wheelView: View = {
         const mine = st.bets.filter((b) => b.you);
         if (mine.length) {
           const won = mine.reduce((a, b) => a + (b.payout ?? 0), 0);
-          status(won > 0 ? `${r.field}: +${frags(won)} Frags.` : `${r.field}. No win this spin.`, won > 0 ? 'win' : 'lose');
+          status(won > 0 ? `${r.field}: +${frags(won)} Scrap.` : `${r.field}. No win this spin.`, won > 0 ? 'win' : 'lose');
           await c.refresh();
         }
       }

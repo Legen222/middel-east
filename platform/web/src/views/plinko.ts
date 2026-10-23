@@ -65,7 +65,7 @@ export const plinkoView: View = {
       $$('.bucket', root).forEach((b) => b.classList.toggle('hit', Number(b.dataset.b) === bet.result!.bucket));
       const m = $('#mult', root); m.textContent = mult(bet.multiplier); m.className = `big-mult ${bet.multiplier >= 1 ? 'win' : 'lose'}`;
       const s = $('#status', root);
-      s.textContent = `Bucket ${bet.result!.bucket} · ${bet.payout >= bet.stake ? '+' : '−'}${frags(Math.abs(bet.payout - bet.stake))} Frags`;
+      s.textContent = `Bucket ${bet.result!.bucket} · ${bet.payout >= bet.stake ? '+' : '−'}${frags(Math.abs(bet.payout - bet.stake))} Scrap`;
       s.className = `status ${bet.payout >= bet.stake ? 'win' : 'lose'}`;
       $('#fair', root).innerHTML = fairBox(bet.fairness);
       await c.refresh();

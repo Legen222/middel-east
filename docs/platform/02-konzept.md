@@ -102,7 +102,7 @@ Crash („Schrottpresse“) · Mines („Minenfeld“) · Plinko („Schrottruts
 **Später:** Raid Battle · Jackpot („Loot-Haufen“) · Wheel („Bandit-Rad“-Variante, eigene faire Verteilung) · Towers · Blackjack · Hi-Lo
 
 ### Retention & Economy
-- **Währung:** *Frags* (1 Frag = 0,01 $ Anzeige-Äquivalent, $-Wert immer daneben).
+- **Währung:** *Scrap* (1 Scrap = 0,01 $ Anzeige-Äquivalent, $-Wert immer daneben).
 - **Level:** „Werkbank-Stufe 1–3“ als Meta-Ränge (je 33 Level), XP gewichtet nach erwartetem Verlust, damit Spiele mit niedriger Edge nicht zum XP-Farmen taugen.
 - **Rakeback:** % des *erwarteten Verlusts*, nicht des Einsatzes (siehe „Gemeinsames Fundament“).
 - **Daily:** „Schrottkiste“ – 1 Gratis-Case pro 24 h ab Level 2.

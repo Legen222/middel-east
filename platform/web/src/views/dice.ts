@@ -73,7 +73,7 @@ export const diceView: View = {
       });
       out.className = `big-mult num ${win ? 'win' : 'lose'}`;
       const s = $('#status', root);
-      s.textContent = win ? `Won: +${frags(bet.payout - bet.stake)} Frags (${mult(bet.multiplier)})` : `Lost: −${frags(bet.stake)} Frags`;
+      s.textContent = win ? `Won: +${frags(bet.payout - bet.stake)} Scrap (${mult(bet.multiplier)})` : `Lost: −${frags(bet.stake)} Scrap`;
       s.className = `status ${win ? 'win' : 'lose'}`;
       hist.unshift({ roll, win }); hist.length = Math.min(hist.length, 12);
       $('#hist', root).innerHTML = hist.map((h) => `<span class="chip ${h.win ? 'win' : 'lose'}">${h.roll.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>`).join('');

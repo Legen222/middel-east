@@ -1,6 +1,6 @@
 import { api } from '../api';
 import type { View } from '../main';
-import { $, $$, esc, frags, guard, pct, readNum } from '../ui';
+import { $, $$, SCRAP_SYM, esc, frags, guard, pct, readNum, scrap } from '../ui';
 
 type Room = 'high' | 'low';
 interface Pot {
@@ -24,8 +24,8 @@ export const jackpotView: View = {
     <div class="game-stage">
       <div class="game-head">
         <div><p class="eyebrow">Live · PvP</p><h1 class="h-display">Jackpot</h1>
-          <p>Everyone throws Frags into one pot; your chance to take it all is your share of the pot. The house keeps 4 % of the pot, nothing else. The draw uses a beacon round fixed when the pot closes.</p></div>
-        <div style="text-align:right"><div class="big-mult num" id="total">0.00</div><div class="eyebrow" id="phase">Frags in the pot</div></div>
+          <p>Everyone throws Scrap into one pot; your chance to take it all is your share of the pot. The house keeps 4 % of the pot, nothing else. The draw uses a beacon round fixed when the pot closes.</p></div>
+        <div style="text-align:right"><div class="big-mult num" id="total">0.00</div><div class="eyebrow" id="phase">Scrap in the pot</div></div>
       </div>
       <div class="seg" role="group" aria-label="Room" id="rooms"><button type="button" data-room="high" aria-pressed="true">High Rollers</button><button type="button" data-room="low" aria-pressed="false">Low Ballers</button></div>
       <div class="potbar" id="bar" aria-hidden="true"></div>
@@ -34,13 +34,13 @@ export const jackpotView: View = {
       <div class="tablewrap"><table><thead><tr><th>Winner</th><th class="r">Pot</th><th class="r">Chance</th><th class="r">Paid</th></tr></thead><tbody id="hist"></tbody></table></div>
     </div>
     <aside class="game-side">
-      <label class="field">Amount (Frags)<input id="amount" inputmode="decimal" value="10"></label>
+      <label class="field">Amount ${SCRAP_SYM}<input id="amount" inputmode="decimal" value="10"></label>
       <p class="muted" style="font-size:13px" id="range"></p>
       <button class="btn block" id="enter" type="button">Join the pot</button>
       <button class="btn ghost block" id="bot" type="button" hidden>Add a demo bot</button>
       <p class="status" id="status" role="status">&nbsp;</p>
       <dl class="fairbox" id="fair"></dl>
-      <p class="muted" style="font-size:12px">Tickets: one per milli-Frag, in order of entry. Winning ticket = ⌊f · total⌋ with f from HMAC(pot seed, beacon value). The pot seed's hash is shown from the start; the seed is revealed after the draw.</p>
+      <p class="muted" style="font-size:12px">Tickets: one per milli-Scrap, in order of entry. Winning ticket = ⌊f · total⌋ with f from HMAC(pot seed, beacon value). The pot seed's hash is shown from the start; the seed is revealed after the draw.</p>
     </aside>
   </section>`,
   mount: (root, c) => {
@@ -62,7 +62,7 @@ export const jackpotView: View = {
       const lastId = st.last?.id ?? '';
       if (lastSeen !== undefined && lastId !== lastSeen && st.last?.winner && st.last.entries.some((e) => e.you)) {
         const w = st.last.winner;
-        status(w.you ? `You won the pot: +${frags(w.payout)} Frags (${pct(w.chance, 1)} chance).` : `${w.name} won with ${pct(w.chance, 1)}.`, w.you ? 'win' : 'lose');
+        status(w.you ? `You won the pot: +${frags(w.payout)} Scrap (${pct(w.chance, 1)} chance).` : `${w.name} won with ${pct(w.chance, 1)}.`, w.you ? 'win' : 'lose');
         await c.refresh();
       }
       lastSeen = lastId;
@@ -74,15 +74,15 @@ export const jackpotView: View = {
       const pot = st.current;
       const entries = pot?.entries ?? [];
       $('#total', root).textContent = frags(pot?.total ?? 0);
-      $('#range', root).textContent = `${st.label}: ${frags(st.min)} to ${Number.isFinite(st.max) ? frags(st.max) : 'max stake'} Frags per entry, up to 5 entries each, ${st.maxEntries} per pot.`;
+      $('#range', root).textContent = `${st.label}: ${frags(st.min)} to ${Number.isFinite(st.max) ? frags(st.max) : 'max stake'} Scrap per entry, up to 5 entries each, ${st.maxEntries} per pot.`;
       $('#bar', root).innerHTML = entries.map((e, i) => `<i style="width:${e.chance * 100}%;background:${PALETTE[i % PALETTE.length]}" title="${esc(e.name)} ${pct(e.chance, 1)}"></i>`).join('');
       $('#entries', root).innerHTML = entries.length
-        ? entries.map((e, i) => `<li class="${e.you ? 'you' : ''}"><span class="sw" style="background:${PALETTE[i % PALETTE.length]}"></span><span>${esc(e.name)}${e.you ? ' (you)' : ''}</span><span class="num">${frags(e.amount)}</span><span class="num muted">${pct(e.chance, 1)}</span></li>`).join('')
+        ? entries.map((e, i) => `<li class="${e.you ? 'you' : ''}"><span class="sw" style="background:${PALETTE[i % PALETTE.length]}"></span><span>${esc(e.name)}${e.you ? ' (you)' : ''}</span><span class="num">${scrap(e.amount)}</span><span class="num muted">${pct(e.chance, 1)}</span></li>`).join('')
         : '<li><span></span><span class="muted">Empty pot. The first entry opens it; the countdown starts with the second player.</span><span></span><span></span></li>';
       const last = st.last;
       const lastBox = $('#last', root);
       lastBox.hidden = !last;
-      if (last?.winner) lastBox.innerHTML = `<p class="eyebrow">Last pot</p><p><b>${esc(last.winner.name)}</b> took <b class="num">${frags(last.winner.payout)}</b> Frags with a ${pct(last.winner.chance, 1)} chance · ticket <span class="num">${last.winner.ticket}</span> of <span class="num">${Math.round(last.total * 1000)}</span>.</p>`;
+      if (last?.winner) lastBox.innerHTML = `<p class="eyebrow">Last pot</p><p><b>${esc(last.winner.name)}</b> took <b class="num">${scrap(last.winner.payout)}</b> with a ${pct(last.winner.chance, 1)} chance · ticket <span class="num">${last.winner.ticket}</span> of <span class="num">${Math.round(last.total * 1000)}</span>.</p>`;
       $('#hist', root).innerHTML = st.history.length ? st.history.map((h) => `<tr><td>${esc(h.name)}</td><td class="r num">${frags(h.total)}</td><td class="r num">${pct(h.chance, 1)}</td><td class="r num pos">${frags(h.payout)}</td></tr>`).join('') : '<tr><td colspan="4" class="muted">No pots drawn yet.</td></tr>';
       const f = pot?.fairness ?? last?.fairness;
       $('#fair', root).innerHTML = f ? `
@@ -99,7 +99,7 @@ export const jackpotView: View = {
       raf = requestAnimationFrame(clock);
       const pot = st?.current;
       const ph = $('#phase', root);
-      if (!pot) { ph.textContent = 'Frags in the pot'; return; }
+      if (!pot) { ph.textContent = 'Scrap in the pot'; return; }
       if (pot.status === 'open') ph.textContent = 'Waiting for a second player';
       else if (pot.status === 'counting') ph.textContent = `Closes in ${Math.max(0, ((pot.countdownEndsAt ?? 0) - serverNow()) / 1000).toFixed(1)} s`;
       else ph.textContent = 'Drawing …';

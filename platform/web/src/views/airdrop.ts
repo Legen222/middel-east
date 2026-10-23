@@ -1,6 +1,6 @@
 import { type Bet, api } from '../api';
 import type { View } from '../main';
-import { $, bindStake, fairBox, frags, guard, mult, pctShort, readNum, reducedMotion, stakeField } from '../ui';
+import { $, SCRAP_SYM, bindStake, fairBox, frags, guard, mult, pctShort, readNum, reducedMotion, stakeField } from '../ui';
 
 const E = 0.02;
 const MAX_TARGET = 10_000;
@@ -17,7 +17,7 @@ export const airdropView: View = {
       </div>
       <div class="kpis">
         <div class="kpi"><span class="eyebrow">Win chance</span><b class="num" id="chance"></b></div>
-        <div class="kpi"><span class="eyebrow">Payout on win</span><b class="num" id="win"></b><span class="muted">Frags</span></div>
+        <div class="kpi"><span class="eyebrow">Payout on win</span><b class="num">${SCRAP_SYM}<span id="win"></span></b></div>
       </div>
       <div class="chips" id="hist" aria-label="Recent drops"></div>
       <p class="status" id="status" role="status">Set a target between 1.01× and 10,000×.</p>
@@ -68,7 +68,7 @@ export const airdropView: View = {
       const bet = await api<Bet<{ landing: number; win: boolean }>>('POST', '/bets/airdrop', { stake: readNum(stake.value), params: { target: t } });
       const r = bet.result!;
       await count(r.landing, r.win ? 'win' : 'lose');
-      status(r.win ? `Landed at ${mult(r.landing)}: +${frags(bet.payout)} Frags.` : `Landed at ${mult(r.landing)}, short of ${mult(t)}.`, r.win ? 'win' : 'lose');
+      status(r.win ? `Landed at ${mult(r.landing)}: +${frags(bet.payout)} Scrap.` : `Landed at ${mult(r.landing)}, short of ${mult(t)}.`, r.win ? 'win' : 'lose');
       hist.unshift(r.landing);
       $('#hist', root).innerHTML = hist.slice(0, 20).map((h) => `<span class="chip ${h >= t ? 'win' : 'lose'}">${mult(h)}</span>`).join('');
       $('#fair', root).innerHTML = fairBox(bet.fairness);

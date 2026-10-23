@@ -110,8 +110,8 @@ export class WheelService {
       if (!WHEEL_FIELDS.includes(field)) fail('invalid_params', 'Field: 1, 3, 5, 10 or 20.');
       const r = await currentOf(db);
       if (!r || r.status !== 'betting' || now >= r.betting_ends_at) fail('not_betting', 'Betting is closed. Wait for the next spin.', 409);
-      if (!Number.isSafeInteger(stake) || stake < cfg.minStake || stake > cfg.maxStake) fail('invalid_stake', `Stake: ${cfg.minStake / MF_PER_FRAG} to ${cfg.maxStake / MF_PER_FRAG} Frags.`);
-      if (stake * wheelPayout(field) > cfg.maxWin) fail('max_win', `Max win is ${cfg.maxWin / MF_PER_FRAG} Frags: lower the stake.`);
+      if (!Number.isSafeInteger(stake) || stake < cfg.minStake || stake > cfg.maxStake) fail('invalid_stake', `Stake: ${cfg.minStake / MF_PER_FRAG} to ${cfg.maxStake / MF_PER_FRAG} Scrap.`);
+      if (stake * wheelPayout(field) > cfg.maxWin) fail('max_win', `Max win is ${cfg.maxWin / MF_PER_FRAG} Scrap: lower the stake.`);
       if (await db.prepare('SELECT 1 FROM wheel_bets WHERE round_id = ? AND user_id = ? AND field = ?').get(r!.id, userId, field)) fail('already_bet', 'You already bet on this field this round.', 409);
       await checkBet(db, userId, stake, now);
       const id = randomBytes(10).toString('hex');

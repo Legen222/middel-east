@@ -130,8 +130,8 @@ export class CrashService {
       const r = await currentOf(db);
       if (!r || r.status !== 'betting' || now >= r.betting_ends_at) fail('not_betting', 'Betting is closed. Wait for the next round.', 409);
       if (!Number.isInteger(target) || target < MIN_TARGET || target > MAX_TARGET) fail('invalid_params', 'Auto cash-out: 1.01× to 10,000×.');
-      if (!Number.isSafeInteger(stake) || stake < cfg.minStake || stake > cfg.maxStake) fail('invalid_stake', `Stake: ${cfg.minStake / MF_PER_FRAG} to ${cfg.maxStake / MF_PER_FRAG} Frags.`);
-      if ((stake * target) / 100 > cfg.maxWin) fail('max_win', `Max win is ${cfg.maxWin / MF_PER_FRAG} Frags: lower the stake or the auto cash-out.`);
+      if (!Number.isSafeInteger(stake) || stake < cfg.minStake || stake > cfg.maxStake) fail('invalid_stake', `Stake: ${cfg.minStake / MF_PER_FRAG} to ${cfg.maxStake / MF_PER_FRAG} Scrap.`);
+      if ((stake * target) / 100 > cfg.maxWin) fail('max_win', `Max win is ${cfg.maxWin / MF_PER_FRAG} Scrap: lower the stake or the auto cash-out.`);
       if (await db.prepare('SELECT 1 FROM crash_bets WHERE round_id = ? AND user_id = ?').get(r!.id, userId)) fail('already_bet', 'You already placed a bet this round.', 409);
       await checkBet(db, userId, stake, now);
       const id = randomBytes(10).toString('hex');

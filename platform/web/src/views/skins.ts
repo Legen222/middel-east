@@ -1,7 +1,7 @@
 import { api } from '../api';
 import { icon } from '../icons';
 import type { Ctx, View } from '../main';
-import { $, $$, errorText, esc, frags, guard, toast } from '../ui';
+import { $, $$, SCRAP_SYM, errorText, esc, frags, guard, scrap, toast } from '../ui';
 
 /* Skin deposits (Steam trade bot) and withdrawals (beta: an operator sends the offer). Real-money mode only. */
 
@@ -17,7 +17,7 @@ const when = (t: number) => new Date(t).toLocaleString('en-US', { dateStyle: 'sh
 const DEP_STATUS: Record<string, string> = {
   requested: 'Bot is sending the offer', sent: 'Offer sent – accept it in Steam', accepted: 'Credited', declined: 'Declined', canceled: 'Canceled', expired: 'Expired', failed: 'Failed',
 };
-const W_STATUS: Record<string, string> = { pending: 'Waiting for an operator', sent: 'Sent to your Steam', canceled: 'Canceled, Frags refunded' };
+const W_STATUS: Record<string, string> = { pending: 'Waiting for an operator', sent: 'Sent to your Steam', canceled: 'Canceled, Scrap refunded' };
 const chip = (s: string) => (['accepted', 'sent'].includes(s) ? 'win' : ['declined', 'canceled', 'expired', 'failed'].includes(s) ? 'lose' : '');
 
 const card = (i: { assetId: string; name: string; icon: string | null; color?: string | null }, price: string, off: string | null) => `
@@ -63,8 +63,8 @@ export const depositView: View = {
   html: (c) => gate(c, 'deposit') ?? `
   <section class="card">
     <div class="sect-head"><div><p class="eyebrow">Wallet · Steam</p><h1 class="h-display">Deposit skins</h1>
-      <p class="muted">Pick Rust items from your Steam inventory. Our bot sends you a trade offer that only <b>asks</b> for these items; you accept it in Steam and the Frags arrive straight away.
-      Credit: ${Math.round((c.cfg.skins!.depositRate) * 100)} % of the market price, items from ${frags(c.cfg.skins!.minItem, 0)} Frags.</p></div>
+      <p class="muted">Pick Rust items from your Steam inventory. Our bot sends you a trade offer that only <b>asks</b> for these items; you accept it in Steam and the Scrap arrives straight away.
+      Credit: ${Math.round((c.cfg.skins!.depositRate) * 100)} % of the market price, items from ${frags(c.cfg.skins!.minItem, 0)} Scrap.</p></div>
       <div class="row"><a class="btn ghost" href="#/withdraw">${icon('upgrade')} Withdraw</a><a class="btn ghost" href="#/wallet">${icon('pot')} Wallet</a></div></div>
     <ul class="checks">
       <li class="ok"><b>Security code</b> The offer message shows a code. Accept only if it matches the one on this page.</li>
@@ -79,10 +79,10 @@ export const depositView: View = {
       <div class="row"><span class="chip" id="bot-chip">Bot …</span><button class="btn ghost small" type="button" id="inv-refresh">Refresh</button></div></div>
     <div class="skin-grid" id="inv"><p class="muted">Loading your Steam inventory …</p></div>
   </section>
-  <div class="depbar" id="depbar" hidden><span><b id="sel-n">0</b> selected · <b class="num" id="sel-v">0.00</b> Frags</span><button class="btn" type="button" id="dep-go">Deposit</button></div>
+  <div class="depbar" id="depbar" hidden><span><b id="sel-n">0</b> selected · <b class="num">${SCRAP_SYM}<span id="sel-v">0.00</span></b></span><button class="btn" type="button" id="dep-go">Deposit</button></div>
   <section class="card">
     <h2 class="h-sect">Recent deposits</h2>
-    <div class="tablewrap"><table><thead><tr><th>Time</th><th>Items</th><th>Status</th><th class="r">Frags</th></tr></thead><tbody id="dep-rows"><tr><td colspan="4" class="muted">Loading …</td></tr></tbody></table></div>
+    <div class="tablewrap"><table><thead><tr><th>Time</th><th>Items</th><th>Status</th><th class="r">Value</th></tr></thead><tbody id="dep-rows"><tr><td colspan="4" class="muted">Loading …</td></tr></tbody></table></div>
   </section>`,
   mount: (root, c) => {
     if (gate(c, 'deposit')) return;
@@ -106,7 +106,7 @@ export const depositView: View = {
         bot.textContent = r.botOnline ? 'Bot online' : 'Bot offline';
         bot.className = `chip ${r.botOnline ? 'win' : 'lose'}`;
         picked.clear();
-        grid.innerHTML = items.length ? items.map((i) => card(i, i.value === null ? '–' : frags(i.value), i.reason)).join('') : '<p class="muted">No Rust items in your Steam inventory.</p>';
+        grid.innerHTML = items.length ? items.map((i) => card(i, i.value === null ? '–' : scrap(i.value), i.reason)).join('') : '<p class="muted">No Rust items in your Steam inventory.</p>';
         paintBar();
       } catch (e) {
         grid.innerHTML = `<p class="status lose">${esc(errorText(e))}</p>`;
@@ -130,7 +130,7 @@ export const depositView: View = {
       box.hidden = !open;
       if (!open) return;
       box.innerHTML = `<div class="sect-head"><div><p class="eyebrow">Open deposit</p><h2 class="h-sect">${esc(DEP_STATUS[d!.status])}</h2>
-        <p class="muted">${d!.items.length} item${d!.items.length === 1 ? '' : 's'} · <b class="num">${frags(d!.value)}</b> Frags on acceptance. The offer is canceled if it is not accepted within 10 minutes.</p></div>
+        <p class="muted">${d!.items.length} item${d!.items.length === 1 ? '' : 's'} · <b class="num">${scrap(d!.value)}</b> on acceptance. The offer is canceled if it is not accepted within 10 minutes.</p></div>
         <div class="sec-code"><span class="muted">Security code</span><b class="num">${esc(d!.securityCode)}</b></div></div>
         ${d!.offerUrl ? `<div class="row"><a class="btn" href="${esc(d!.offerUrl)}" target="_blank" rel="noopener noreferrer">${icon('upgrade')} Open the offer in Steam</a></div>` : '<p class="muted">The bot is preparing the offer …</p>'}`;
     };
@@ -140,7 +140,7 @@ export const depositView: View = {
       $('#dep-rows', root).innerHTML = list.map((d) => `<tr><td class="num" style="font-size:12px;white-space:nowrap">${when(d.createdAt)}</td>
         <td style="font-size:13px">${d.items.map((i) => esc(i.name)).join(', ')}</td>
         <td><span class="chip ${chip(d.status)}">${esc(DEP_STATUS[d.status] ?? d.status)}</span>${d.reason ? `<br><span class="muted" style="font-size:12px">${esc(d.reason)}</span>` : ''}</td>
-        <td class="r num">${d.status === 'accepted' ? '+' : ''}${frags(d.value)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">No deposits yet.</td></tr>';
+        <td class="r num">${d.status === 'accepted' ? '+' : ''}${scrap(d.value)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">No deposits yet.</td></tr>';
       const open = list[0] && (list[0].status === 'requested' || list[0].status === 'sent');
       clearTimeout(poll);
       if (open) poll = window.setTimeout(() => void loadDeposits().catch(() => null), 3000);
@@ -168,7 +168,7 @@ export const withdrawView: View = {
   html: (c) => gate(c, 'withdraw') ?? `
   <section class="card">
     <div class="sect-head"><div><p class="eyebrow">Wallet · Steam</p><h1 class="h-display">Withdraw skins</h1>
-      <p class="muted">Pick items from our stock and pay with Frags. During the beta an operator sends the trade offer by hand, usually within a few hours; you can cancel until then and get the Frags back.
+      <p class="muted">Pick items from our stock and pay with Scrap. During the beta an operator sends the trade offer by hand, usually within a few hours; you can cancel until then and get the Scrap back.
       Withdrawals need a verified identity and wagering of at least your deposits since the last withdrawal.</p></div>
       <div class="row"><a class="btn ghost" href="#/deposit">${icon('pot')} Deposit</a><a class="btn ghost" href="#/wallet">Wallet</a></div></div>
   </section>
@@ -179,7 +179,7 @@ export const withdrawView: View = {
       <input class="input" id="shop-q" type="search" placeholder="Search items" aria-label="Search items" style="max-width:240px"></div>
     <div class="skin-grid" id="shop"><p class="muted">Loading …</p></div>
   </section>
-  <div class="depbar" id="wbar" hidden><span><b id="w-n">0</b> selected · <b class="num" id="w-v">0.00</b> Frags</span><button class="btn" type="button" id="w-go">Withdraw</button></div>`,
+  <div class="depbar" id="wbar" hidden><span><b id="w-n">0</b> selected · <b class="num">${SCRAP_SYM}<span id="w-v">0.00</span></b></span><button class="btn" type="button" id="w-go">Withdraw</button></div>`,
   mount: (root, c) => {
     if (gate(c, 'withdraw')) return;
     bindTradeUrl(root, c);
@@ -195,11 +195,11 @@ export const withdrawView: View = {
       $('#w-n', root).textContent = String(picked.size);
       $('#w-v', root).textContent = frags(total);
       $<HTMLButtonElement>('#w-go', root).disabled = total > c.me.balance;
-      $<HTMLButtonElement>('#w-go', root).textContent = total > c.me.balance ? 'Not enough Frags' : 'Withdraw';
+      $<HTMLButtonElement>('#w-go', root).textContent = total > c.me.balance ? 'Not enough Scrap' : 'Withdraw';
     };
     const loadShop = async () => {
       stock = await api<ShopItem[]>('GET', `/skins/shop?q=${encodeURIComponent(q)}`);
-      $('#shop', root).innerHTML = stock.length ? stock.map((i) => card(i, frags(i.price), null)).join('') : '<p class="muted">Nothing in stock right now.</p>';
+      $('#shop', root).innerHTML = stock.length ? stock.map((i) => card(i, scrap(i.price), null)).join('') : '<p class="muted">Nothing in stock right now.</p>';
       for (const id of [...picked.keys()]) if (!stock.some((s) => s.assetId === id)) picked.delete(id);
       $$<HTMLButtonElement>('.skin', root).forEach((b) => { const on = picked.has(b.dataset.asset!); b.classList.toggle('sel', on); b.setAttribute('aria-pressed', String(on)); });
       paintBar();
@@ -208,14 +208,14 @@ export const withdrawView: View = {
       const list = await api<Withdrawal[]>('GET', '/withdrawals');
       const box = $('#w-mine', root);
       box.hidden = !list.length;
-      box.innerHTML = `<h2 class="h-sect">Your withdrawals</h2><div class="tablewrap"><table><thead><tr><th>Time</th><th>Items</th><th>Status</th><th class="r">Frags</th><th></th></tr></thead><tbody>
+      box.innerHTML = `<h2 class="h-sect">Your withdrawals</h2><div class="tablewrap"><table><thead><tr><th>Time</th><th>Items</th><th>Status</th><th class="r">Value</th><th></th></tr></thead><tbody>
         ${list.map((w) => `<tr><td class="num" style="font-size:12px;white-space:nowrap">${when(w.createdAt)}</td><td style="font-size:13px">${w.items.map((i) => esc(i.name)).join(', ')}</td>
           <td><span class="chip ${w.status === 'sent' ? 'win' : w.status === 'canceled' ? 'lose' : ''}">${esc(W_STATUS[w.status] ?? w.status)}</span>${w.note ? `<br><span class="muted" style="font-size:12px">${esc(w.note)}</span>` : ''}</td>
-          <td class="r num">−${frags(w.value)}</td><td>${w.status === 'pending' ? `<button class="btn ghost small" type="button" data-cancel="${esc(w.id)}">Cancel</button>` : ''}</td></tr>`).join('')}</tbody></table></div>`;
+          <td class="r num">−${scrap(w.value)}</td><td>${w.status === 'pending' ? `<button class="btn ghost small" type="button" data-cancel="${esc(w.id)}">Cancel</button>` : ''}</td></tr>`).join('')}</tbody></table></div>`;
       $$<HTMLButtonElement>('[data-cancel]', box).forEach((b) => b.addEventListener('click', () => guard(b, async () => {
         await api('POST', `/withdrawals/${b.dataset.cancel}/cancel`);
         await c.refresh();
-        toast('Withdrawal canceled, Frags refunded.');
+        toast('Withdrawal canceled, Scrap refunded.');
         await Promise.all([loadMine(), loadShop()]);
       })));
     };

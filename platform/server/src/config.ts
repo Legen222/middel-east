@@ -1,6 +1,6 @@
 /**
- * Money: all amounts are integer milli-Frags (mF). 1 Frag = 1 000 mF = 0.01 $.
- * Payouts are floored to whole mF, so rounding never favours the player and costs at most 0.001 Frag per bet.
+ * Money: all amounts are integer milli-Scrap (mF). 1 Scrap = 1 000 mF = 0.01 $.
+ * Payouts are floored to whole mF, so rounding never favours the player and costs at most 0.001 Scrap per bet.
  */
 export const MF_PER_FRAG = 1000;
 export const frags = (n: number): number => Math.round(n * MF_PER_FRAG);
@@ -53,7 +53,7 @@ export interface SkinConfig {
   depositRate: number;
   /** Price factor for items taken out of the site's stock (1 = market price). */
   withdrawRate: number;
-  /** Items below this price (Frags) are not accepted. */
+  /** Items below this price (Scrap) are not accepted. */
   minItemFrags: number;
   /** Items with fewer market listings than this are too illiquid to price. */
   minVolume: number;

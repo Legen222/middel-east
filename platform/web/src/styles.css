@@ -975,3 +975,10 @@ body.drawer-open{overflow:hidden}
 .rep-body{margin:0;padding:6px 8px;border-left:2px solid var(--lose);background:var(--lose-dim);border-radius:0 6px 6px 0;font-size:14px;overflow-wrap:anywhere}
 .msg .mod button[data-report]:hover{border-color:var(--brass);color:var(--brass)}
 .field textarea{font:13px/1.4 var(--mono);background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:var(--r);padding:8px 10px;resize:vertical}
+
+/* ---------- Scrap currency symbol ---------- */
+.cur{display:inline-block;width:1.05em;height:1.05em;vertical-align:-.18em;margin-right:.28em;flex:none;filter:drop-shadow(0 1px 1px rgba(0,0,0,.45))}
+.amt{white-space:nowrap}
+.wallet .bal .cur{width:17px;height:17px;margin-right:0;align-self:center}
+th .cur{width:13px;height:13px;margin:0 0 0 2px;vertical-align:-2px}
+.h-sect .cur{width:.9em;height:.9em}

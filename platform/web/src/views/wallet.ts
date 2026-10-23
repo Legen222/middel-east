@@ -1,13 +1,13 @@
 import { api } from '../api';
 import { icon } from '../icons';
 import type { View } from '../main';
-import { $, errorText, esc, frags, guard, toast } from '../ui';
+import { $, SCRAP_SYM, errorText, esc, frags, guard, toast } from '../ui';
 
 interface Tx { id: number; kind: string; amount: number; ref: string | null; game: string | null; gameName: string | null; createdAt: number }
 
 /** How each ledger kind reads to a player. */
 const KIND: Record<string, string> = {
-  stake: 'Stake', payout: 'Payout', refund: 'Refund', demo_grant: 'Demo Frags', deposit: 'Deposit', withdrawal: 'Withdrawal',
+  stake: 'Stake', payout: 'Payout', refund: 'Refund', demo_grant: 'Demo Scrap', deposit: 'Deposit', withdrawal: 'Withdrawal',
   rakeback: 'Reward', promo: 'Promo code', affiliate: 'Crew reward', adjustment: 'Adjustment by support',
 };
 const when = (t: number) => new Date(t).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'medium' });
@@ -19,7 +19,7 @@ export const walletView: View = {
     <div class="sect-head"><div><p class="eyebrow">Account</p><h1 class="h-display">Wallet</h1>
       <p class="muted">Your balance and every change to it: stakes, payouts, rewards, refills and adjustments.</p></div></div>
     <div class="wallet-hero">
-      <div><span class="muted">Balance</span><b class="num" id="w-bal">${frags(c.me.balance)}</b><small class="muted">Frags · 100 Frags = 1 $ ${c.cfg.demo ? 'play money' : ''}</small></div>
+      <div><span class="muted">Balance</span><b class="num">${SCRAP_SYM}<span id="w-bal">${frags(c.me.balance)}</span></b><small class="muted">Scrap · 100 Scrap = 1 $ ${c.cfg.demo ? 'play money' : ''}</small></div>
       ${c.cfg.demo ? `<button class="btn" type="button" id="w-refill">${icon('upgrade')} Refill demo balance</button>` : ''}
     </div>
   </section>
@@ -33,9 +33,9 @@ export const walletView: View = {
     <section class="card">
       <h2 class="h-sect">${icon('pot')} Deposit</h2>
       ${c.cfg.skins?.enabled
-        ? `<p class="muted">Deposit Rust skins from your Steam inventory: our bot sends a trade offer with a security code, you accept it in Steam, the Frags arrive at once.</p><div class="row"><a class="btn" href="#/deposit">${icon('crate')} Deposit skins</a></div>`
+        ? `<p class="muted">Deposit Rust skins from your Steam inventory: our bot sends a trade offer with a security code, you accept it in Steam, the Scrap arrives at once.</p><div class="row"><a class="btn" href="#/deposit">${icon('crate')} Deposit skins</a></div>`
         : c.cfg.demo
-        ? `<p class="muted">This is a play-money demo: Frags have no cash value and cannot be bought. When the balance runs low you can refill it once a day, back to ${frags(c.cfg.demoStartBalance ?? 0, 0)} Frags.</p>`
+        ? `<p class="muted">This is a play-money demo: Scrap has no cash value and cannot be bought. When the balance runs low you can refill it once a day, back to ${frags(c.cfg.demoStartBalance ?? 0, 0)} Scrap.</p>`
         : '<p class="muted">Deposits open with the licence: Rust skins via Steam trade, crypto and cards, each with its own checks. Until then nothing can be deposited.</p>'}
     </section>
     <section class="card">
@@ -48,7 +48,7 @@ export const walletView: View = {
   <section class="card">
     <div class="sect-head"><h2 class="h-sect">Transactions</h2>
       <label class="field" style="min-width:200px">Type<select id="w-kind"><option value="">All</option>${Object.entries(KIND).map(([k, l]) => `<option value="${k}">${esc(l)}</option>`).join('')}</select></label></div>
-    <div class="tablewrap"><table><thead><tr><th>Time</th><th>Type</th><th>Game / reference</th><th class="r">Amount</th></tr></thead><tbody id="w-rows"><tr><td colspan="4" class="muted">Loading …</td></tr></tbody></table></div>
+    <div class="tablewrap"><table><thead><tr><th>Time</th><th>Type</th><th>Game / reference</th><th class="r">Amount ${SCRAP_SYM}</th></tr></thead><tbody id="w-rows"><tr><td colspan="4" class="muted">Loading …</td></tr></tbody></table></div>
     <div class="row"><button class="btn ghost" type="button" id="w-more" hidden>Load more</button></div>
   </section>`,
   mount: (root, c) => {

@@ -100,7 +100,7 @@ export const VERIFY_GAMES: Record<string, { label: string; fields: string; run: 
   },
   cases: {
     label: 'Cases',
-    fields: `<label>Case<select id="p-case">${SAMPLE_CASES.map((c) => `<option value="${c.id}">${c.name} · ${priceCase(c)} Frags</option>`).join('')}</select></label>
+    fields: `<label>Case<select id="p-case">${SAMPLE_CASES.map((c) => `<option value="${c.id}">${c.name} · ${priceCase(c)} Scrap</option>`).join('')}</select></label>
       <label>Contents of this case version (JSON, optional)<textarea id="p-items" rows="3" placeholder='[{"name":"Rusty Screw","value":1,"weight":50000}, …]'></textarea></label>
       <small>The bet page shows the exact contents of the case version you opened; paste them here for edited or new cases.</small>`,
     run: (s) => {
@@ -108,7 +108,7 @@ export const VERIFY_GAMES: Record<string, { label: string; fields: string; run: 
       const c: CaseDef = custom ? { id: 'custom', name: 'Custom case', items: JSON.parse(custom) } : SAMPLE_CASES.find((x) => x.id === val('p-case'))!;
       const o = openCase(s, c);
       const W = c.items.reduce((a, i) => a + i.weight, 0);
-      return { headline: `${o.item.name} · ${o.item.value} Frags`, tone: o.item.value >= priceCase(c) ? 'win' : 'lose', rows: [
+      return { headline: `${o.item.name} · ${o.item.value} Scrap`, tone: o.item.value >= priceCase(c) ? 'win' : 'lose', rows: [
         ['Ticket', `⌊f · ${W.toLocaleString('en-US')}⌋ = ${o.ticket.toLocaleString('en-US')}`],
         ['Contents', c.items.map((i) => `${i.name} ${fmt((i.weight / W) * 100, 3)} %`).join(' · ')]] };
     },
@@ -157,15 +157,15 @@ export const VERIFY_GAMES: Record<string, { label: string; fields: string; run: 
   },
   jackpot: {
     label: 'Jackpot (server seed + beacon value, nonce 0)',
-    fields: `<label>Entries in order (Frags, comma-separated)<input id="p-entries" value="10, 25.5, 4"></label>`,
+    fields: `<label>Entries in order (Scrap, comma-separated)<input id="p-entries" value="10, 25.5, 4"></label>`,
     run: (s) => {
       const entries = val('p-entries').split(',').map((x) => ({ amount: Math.round(Number(x.trim()) * 1000) }));
       const ranges = jackpotTicketRanges(entries);
       const o = drawJackpot(s, entries);
       return { headline: `Winning ticket ${o.ticket.toLocaleString('en-US')} → entry ${o.winner + 1}`, tone: 'neutral', rows: [
-        ['Formula', `ticket = ⌊f · ${o.total.toLocaleString('en-US')}⌋ (1 ticket = 0.001 Frag)`],
+        ['Formula', `ticket = ⌊f · ${o.total.toLocaleString('en-US')}⌋ (1 ticket = 0.001 Scrap)`],
         ...ranges.map((r, i) => [`Entry ${i + 1}`, `tickets ${r.from.toLocaleString('en-US')} – ${(r.to - 1).toLocaleString('en-US')} · ${fmt(((r.to - r.from) / o.total) * 100)} %`] as Row),
-        ['Winner receives', `${fmt(o.payout / 1000)} Frags (pot − 4 %)`]] };
+        ['Winner receives', `${fmt(o.payout / 1000)} Scrap (pot − 4 %)`]] };
     },
   },
   airdrop: {

@@ -135,7 +135,7 @@ export const gameArt = (id: string) => svg((ART[id] ?? ART.cases)());
 
 /** A crate drawn to scale with its price as the dimension (case picker). */
 export const caseArt = (price: number) => svg(`<path d="M120 18L182 46L120 74L58 46Z"/><path d="M58 46V104L120 132V74M182 46V104L120 132"/>
-  <path d="M89 32L151 60M58 66L120 94M182 66L120 94" opacity=".55"/><path class="brass" d="M113 100h14v16h-14z"/>${dimH(58, 182, 146, `${price.toLocaleString('en-US')} Frags`)}`);
+  <path d="M89 32L151 60M58 66L120 94M182 66L120 94" opacity=".55"/><path class="brass" d="M113 100h14v16h-14z"/>${dimH(58, 182, 146, `${price.toLocaleString('en-US')} Scrap`)}`);
 
 /** The large sheet for the lobby hero and the sign-up page: a Monument Run run drawn as a technical drawing. */
 export function heroSheet() {

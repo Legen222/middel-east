@@ -2,7 +2,7 @@ import { type Bet, api } from '../api';
 import { icon } from '../icons';
 import { itemArt } from '../loot-art';
 import type { View } from '../main';
-import { $, $$, bindStake, esc, fairBox, frags, guard, mult, pct, readNum, reducedMotion, stakeField } from '../ui';
+import { $, $$, SCRAP_SYM, bindStake, esc, fairBox, frags, guard, mult, pct, readNum, reducedMotion, stakeField } from '../ui';
 
 const E = 0.05;
 const MIN_CHANCE = 0.01;
@@ -50,13 +50,13 @@ export const upgraderView: View = {
     <div class="game-stage">
       <div class="game-head">
         <div><p class="eyebrow">Original · Upgrader</p><h1 class="h-display">Workbench</h1>
-          <p>Put in Frags, pick a target, then drag the green zone anywhere on the ring. The needle spins to your roll: inside the zone, you get the target. The zone is always exactly as large as your chance (stake ÷ target · 0.95), so where you put it never changes the odds.</p></div>
+          <p>Put in Scrap, pick a target, then drag the green zone anywhere on the ring. The needle spins to your roll: inside the zone, you get the target. The zone is always exactly as large as your chance (stake ÷ target · 0.95), so where you put it never changes the odds.</p></div>
         <div class="big-mult" id="res"></div>
       </div>
       <div class="upg-bar">
-        <div><span class="eyebrow">You put in</span><b class="num" id="in-val">10.00</b><span class="muted">Frags</span></div>
+        <div><span class="eyebrow">You put in</span><b class="num">${SCRAP_SYM}<span id="in-val">10.00</span></b></div>
         <span class="arrow">${icon('upgrade')}</span>
-        <div><span class="eyebrow">You get</span><b id="out-name">2.00× stake</b><span class="muted num" id="out-val">20.00 Frags</span></div>
+        <div><span class="eyebrow">You get</span><b id="out-name">2.00× stake</b><span class="muted num" id="out-val">20.00 Scrap</span></div>
       </div>
       <div class="upg-stage">${ring()}</div>
       <div class="upg-controls">
@@ -127,7 +127,7 @@ export const upgraderView: View = {
       svg.setAttribute('aria-valuetext', ok ? `Zone from ${pct(start)} to ${pct((start + ch) % 1)}` : 'No valid target');
       $('#in-val', root).textContent = frags(stake() || 0);
       $('#out-name', root).textContent = mode === 'skin' ? (skin ? skin.name : 'Pick a skin') : Number.isFinite(m) ? `${mult(m)} stake` : '–';
-      $('#out-val', root).textContent = Number.isFinite(m) && stake() > 0 ? `${frags(stake() * m)} Frags` : '–';
+      $('#out-val', root).textContent = Number.isFinite(m) && stake() > 0 ? `${frags(stake() * m)} Scrap` : '–';
       const go = $<HTMLButtonElement>('#go', root);
       go.disabled = !ok || spinning;
       go.textContent = ok ? `Upgrade · ${pct(ch)}` : mode === 'skin' && !skin ? 'Pick a target skin' : 'Chance must be 1–80 %';
@@ -235,7 +235,7 @@ export const upgraderView: View = {
         res.textContent = win ? `+${frags(bet.payout - bet.stake)}` : `−${frags(bet.stake)}`;
         res.className = `big-mult ${win ? 'win' : 'lose'}`;
         const what = mode === 'skin' && skin ? skin.name : `${mult(m)} stake`;
-        status(win ? `Upgraded to ${what}: ${frags(bet.payout)} Frags.` : `The needle stopped at ${(roll * 100).toFixed(2)} %, outside your zone.`, win ? 'win' : 'lose');
+        status(win ? `Upgraded to ${what}: ${frags(bet.payout)} Scrap.` : `The needle stopped at ${(roll * 100).toFixed(2)} %, outside your zone.`, win ? 'win' : 'lose');
         hist.unshift({ win, m });
         $('#hist', root).innerHTML = hist.slice(0, 16).map((h) => `<span class="chip ${h.win ? 'win' : 'lose'}">${h.win ? '✓' : '✗'} ${mult(h.m)}</span>`).join('');
         $('#fair', root).innerHTML = fairBox(bet.fairness);

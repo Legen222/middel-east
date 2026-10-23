@@ -541,7 +541,7 @@ describe('rewards (level, rakeback, Scrap Crate, Oil Rain, crew codes)', () => {
     const before = await bal(db, userId);
     await rainTick(db, cfg, slot + RAIN_WINDOW_MS);
     const pot = await rainState(db, userId, slot + RAIN_WINDOW_MS + 1);
-    assert.equal(await bal(db, userId) - before, frags(500), 'single joiner gets the whole demo pot (500 Frags minimum)');
+    assert.equal(await bal(db, userId) - before, frags(500), 'single joiner gets the whole demo pot (500 Scrap minimum)');
     assert.equal(await code(() => joinRain(db, userId, slot + RAIN_WINDOW_MS + 10)), 'rain_closed');
     assert.ok(pot.nextAt > slot);
     assert.deepEqual(await ledgerIntegrity(db), { sum: 0, mismatched: [] });
@@ -633,9 +633,9 @@ describe('operations: chat', () => {
     const end = t + 2000;
     while (!(await listMessages(db, null)).some((m) => m.kind === 'win') && t < end) await playInstant(db, cfg, userId, 'dice', frags(10), { chance: 9.8, direction: 'under' }, t++);
     const kinds = (await listMessages(db, null)).map((m) => `${m.kind}:${m.body}`);
-    assert.ok(kinds[0].startsWith('rain:Oil Rain is open for 2 minutes: 500.00 Frags pot'), kinds[0]);
-    assert.equal(kinds[1], 'rain:Oil Rain paid 500.00 Frags each to 1 player.');
-    assert.equal(kinds[kinds.length - 1], 'win:Tester hit 10× on Dice: +100.00 Frags');
+    assert.ok(kinds[0].startsWith('rain:Oil Rain is open for 2 minutes: 500.00 Scrap pot'), kinds[0]);
+    assert.equal(kinds[1], 'rain:Oil Rain paid 500.00 Scrap each to 1 player.');
+    assert.equal(kinds[kinds.length - 1], 'win:Tester hit 10× on Dice: +100.00 Scrap');
     assert.equal(kinds.filter((k) => k.startsWith('win:')).length, 1, 'the 2× upgrader win stays quiet, the first 10× dice win is announced');
   });
 });
@@ -1000,7 +1000,7 @@ describe('new originals (phase 11)', () => {
     assert.equal(await balanceOf(db, JACKPOT_ESCROW), 0);
     // RG limits apply to entries
     await setLimit(db, cfg, userId, 'wager', 'day', frags(70), T0 + 200_000);
-    assert.equal(await code(() => jp.enter(userId, 'low', frags(25), T0 + 200_001)), 'rg_limit', '50 Frags already in jackpots today + 25 > 70');
+    assert.equal(await code(() => jp.enter(userId, 'low', frags(25), T0 + 200_001)), 'rg_limit', '50 Scrap already in jackpots today + 25 > 70');
     assert.deepEqual(await ledgerIntegrity(db), { sum: 0, mismatched: [] });
   });
 

@@ -120,8 +120,8 @@ Damit ist Punkt 4 aus Phase 3 umgesetzt.
 
 ## 3. Geld und Ledger
 
-- **Einheit:** Milli-Frags als Ganzzahl (1 Frag = 1 000 mF = 0,01 $). Auszahlungen werden abgerundet.
-  Die Rundung kostet höchstens 0,001 Frag pro Wette (Punkt 5 aus Phase 3).
+- **Einheit:** Milli-Scrap als Ganzzahl (1 Scrap = 1 000 mF = 0,01 $). Auszahlungen werden abgerundet.
+  Die Rundung kostet höchstens 0,001 Scrap pro Wette (Punkt 5 aus Phase 3).
 - **Doppelte Buchführung:** Jede Buchung schreibt zwei Zeilen, deren Summe null ist. Konten: `user:<id>`,
   `house:bankroll`, `house:demo-faucet`. Spielerkonten können nie ins Minus gehen.
 - **Invariante:** `Σ ledger = 0`, und jeder zwischengespeicherte Saldo entspricht der Ledger-Summe (`ledgerIntegrity()`).
@@ -140,7 +140,7 @@ Damit ist Punkt 4 aus Phase 3 umgesetzt.
 | Live-RTP | `GET /stats/rtp?days=30` | tatsächlicher RTP je Spiel (Grundlage für das Fair-Ledger aus Phase 2) |
 
 Ein Test spielt 40 gemischte Wetten, rotiert und rechnet jede Wette mit der Engine aus dem offengelegten Seed nach.
-Alle Auszahlungen stimmen auf die Milli-Frag. Die öffentliche Prüfer-Seite aus Phase 3 nutzt dieselbe Rechnung.
+Alle Auszahlungen stimmen auf die Milli-Scrap. Die öffentliche Prüfer-Seite aus Phase 3 nutzt dieselbe Rechnung.
 
 ---
 
@@ -219,7 +219,7 @@ Der gültige Fall und fünf Angriffsfälle sind getestet.
 | GET/PUT | `/admin/skins`, `/admin/withdrawals/:id` | Bot-Status, Bestand, Preise, Warteschlange; „sent“ mit Angebotsnummer oder „cancel“ mit Erstattung |
 | PUT | `/admin/players/:id/kyc` | Identitätsstufe 0–2 setzen, mit Pflichtnotiz fürs Audit |
 
-Einsätze gibt die API in Frags an, gespeichert werden Milli-Frags. Fehler haben immer die Form
+Einsätze gibt die API in Scrap an, gespeichert werden Milli-Scrap. Fehler haben immer die Form
 `{ error, message, details }` mit deutscher Meldung. Jede Anfrage durchläuft Rate-Limit (20/s, Burst 40 je IP),
 Größenlimit (16 KB) und Geo-Prüfung.
 

@@ -3,7 +3,7 @@ import { LOGO_MARK } from './art';
 import { chatPanelHtml, chatView, mountChatPanel } from './chatpanel';
 import { CATEGORIES, GAMES, gameByPath } from './games';
 import { SPRITE, icon } from './icons';
-import { $, $$, animateNumber, errorText, esc, frags, guard, modal, toast } from './ui';
+import { $, $$, SCRAP_SYM, animateNumber, errorText, esc, frags, guard, modal, scrap, toast } from './ui';
 import { adminView } from './views/admin';
 import { airdropView } from './views/airdrop';
 import { blackjackView } from './views/blackjack';
@@ -160,14 +160,14 @@ function openSignup() {
   const m = modal(`<form class="signup" id="gate" novalidate>
       <div class="su-head"><a class="logo" href="#/">${LOGO_MARK}<span>SCRAPLINE</span></a><button class="iconbtn" type="button" data-close aria-label="Close">✕</button></div>
       <div><p class="eyebrow">${cfg.demo ? 'Play-money demo' : 'Account'} · 18+</p><h2 class="su-title">Every round with an <em>open blueprint.</em></h2></div>
-      <ul class="su-facts"><li><b>${GAMES.length}</b>games with a proof</li>${cfg.demo ? `<li><b>${frags(cfg.demoStartBalance ?? 0, 0)}</b>Frags to start</li>` : '<li><b>Steam</b>sign-in, skins in and out</li>'}<li><b>100 %</b>rounds verifiable</li></ul>
+      <ul class="su-facts"><li><b>${GAMES.length}</b>games with a proof</li>${cfg.demo ? `<li><b>${scrap(cfg.demoStartBalance ?? 0, 0)}</b>Scrap to start</li>` : '<li><b>Steam</b>sign-in, skins in and out</li>'}<li><b>100 %</b>rounds verifiable</li></ul>
       ${site.registrationOpen ? '' : '<p class="status lose">New sign-ups are paused right now. Please try again later.</p>'}
       <label class="check"><input type="checkbox" id="age"> <span>I am at least 18 years old. I understand that gambling can be addictive.</span></label>
       ${cfg.steamLogin ? `<button class="btn block steam-btn" type="button" id="steam">${icon('user')} Sign in with Steam</button>
         <p class="muted" style="font-size:12px;margin-top:-6px">Your Steam name and avatar become your profile. We never see your Steam password.</p>` : ''}
       ${cfg.demo ? `${cfg.steamLogin ? '<p class="su-or"><span>or play with a name</span></p>' : ''}
       <label class="field">Display name<input id="name" autocomplete="nickname" maxlength="24" required placeholder="e.g. Rust Rat"></label>
-      <button class="btn ${cfg.steamLogin ? 'ghost ' : ''}block" type="submit" data-create>Create account · ${frags(cfg.demoStartBalance ?? 0, 0)} Frags play money</button>`
+      <button class="btn ${cfg.steamLogin ? 'ghost ' : ''}block" type="submit" data-create>Create account · ${scrap(cfg.demoStartBalance ?? 0, 0)} play money</button>`
       : cfg.steamLogin ? '' : '<p class="muted">Sign-up opens soon.</p>'}
       <p class="muted" style="font-size:12px">${cfg.demo ? 'Play money has no cash value and cannot be withdrawn. ' : ''}Help with gambling problems: ${HELP_LINES}</p>
     </form>`);
@@ -205,7 +205,7 @@ function renderShell() {
   const showAdmin = !c.guest && (c.cfg.demo || c.me.role !== 'player');
   const account = c.guest
     ? `<button class="btn cta" type="button" data-signup>${icon('user')}<span>${c.cfg.demo ? 'Sign up<span class="hide-xs"> · play free</span>' : 'Sign in<span class="hide-xs"> with Steam</span>'}</span></button>`
-    : `<div class="wallet"><span class="bal">${c.cfg.demo ? '<span class="tag-demo">DEMO</span>' : ''}<span id="balance">${frags(c.me.balance)}</span><small>Frags</small></span>${c.cfg.demo ? '<button type="button" class="hide-s" data-refill>Refill</button>' : ''}<a class="wallet-plus" href="#/wallet" aria-label="Wallet">+</a></div>
+    : `<div class="wallet"><span class="bal">${c.cfg.demo ? '<span class="tag-demo">DEMO</span>' : ''}${SCRAP_SYM}<span id="balance">${frags(c.me.balance)}</span></span>${c.cfg.demo ? '<button type="button" class="hide-s" data-refill>Refill</button>' : ''}<a class="wallet-plus" href="#/wallet" aria-label="Wallet">+</a></div>
       <button class="iconbtn hide-s" id="chat-toggle" type="button" aria-pressed="false" aria-label="Show chat">${icon('chat')}</button>
       <div class="menuwrap hide-s">
         <button class="iconbtn ${avatar(c) ? 'has-avatar' : ''}" id="acct" type="button" aria-expanded="false" aria-haspopup="menu" aria-label="Account">${avatar(c) || icon('user')}</button>
@@ -228,7 +228,7 @@ function renderShell() {
       </div>`;
   const bottom: [string, string, string, string][] = [
     ['games', 'Games', 'dice', ''], ['chat', 'Chat', 'chat', '#/chat'],
-    ['free', 'Free Frags', 'trophy', '#/rewards'], ['me', c.guest ? 'Sign up' : 'Account', 'user', '#/profile'],
+    ['free', 'Free Scrap', 'trophy', '#/rewards'], ['me', c.guest ? 'Sign up' : 'Account', 'user', '#/profile'],
   ];
   app.innerHTML = `
   <div id="banner-slot">${bannerHtml()}</div>
@@ -250,7 +250,7 @@ function renderShell() {
     <footer class="sitefoot">
       <div class="sf-top"><a class="logo" href="#/">${LOGO_MARK}<span>SCRAPLINE</span></a>
         <nav aria-label="Footer">${FOOT_NAV.map(([p, l]) => `<a href="#/${p}">${l}</a>`).join('')}</nav></div>
-      <p><span class="age">18+</span> ${c.cfg.demo ? 'Play-money demo: Frags have no cash value and cannot be withdrawn.' : 'Licensed real-money play.'} Gambling can be addictive. Help: ${HELP_LINES}</p>
+      <p><span class="age">18+</span> ${c.cfg.demo ? 'Play-money demo: Scrap has no cash value and cannot be withdrawn.' : 'Licensed real-money play.'} Gambling can be addictive. Help: ${HELP_LINES}</p>
       <p class="sf-legal">SCRAPLINE is not affiliated with, endorsed by or in any way associated with Rust, Facepunch Studios, Steam or Valve. Rust item and skin names identify the items only; all brands belong to their owners. The drawings on this site are our own.</p>
     </footer>
     <nav class="bottomnav" aria-label="Navigation">${bottom.map(([k, l, ic, href]) => k === 'games'
@@ -295,9 +295,9 @@ function drawerHtml(c: Ctx, showAdmin: boolean) {
   return `
     <div class="dr-head"><a class="logo" href="#/">${LOGO_MARK}<span>SCRAPLINE</span></a><button class="iconbtn" type="button" data-close aria-label="Close menu">✕</button></div>
     ${c.guest
-      ? `<div class="dr-card"><p class="muted">${c.cfg.demo ? `Sign up in ten seconds: ${frags(c.cfg.demoStartBalance ?? 0, 0)} Frags of play money, every round verifiable.` : 'Sign in with Steam: deposit Rust skins, every round verifiable.'}</p><button class="btn block" type="button" data-signup>${c.cfg.demo ? 'Sign up · play free' : 'Sign in with Steam'}</button></div>`
+      ? `<div class="dr-card"><p class="muted">${c.cfg.demo ? `Sign up in ten seconds: ${frags(c.cfg.demoStartBalance ?? 0, 0)} Scrap of play money, every round verifiable.` : 'Sign in with Steam: deposit Rust skins, every round verifiable.'}</p><button class="btn block" type="button" data-signup>${c.cfg.demo ? 'Sign up · play free' : 'Sign in with Steam'}</button></div>`
       : `<div class="dr-card"><div class="dr-me"><span class="${avatar(c) ? 'has-avatar' : ''}">${avatar(c) || icon('user')}</span><div><b>${esc(c.me.displayName)}</b><small class="muted">Level ${c.me.level}</small></div></div>
-          <div class="dr-bal"><span class="muted">Balance</span><b class="num" id="dr-balance">${frags(c.me.balance)}</b>${c.cfg.demo ? '<button class="btn small" type="button" data-refill>Refill</button>' : ''}</div></div>`}
+          <div class="dr-bal"><span class="muted">Balance</span><b class="num">${SCRAP_SYM}<span id="dr-balance">${frags(c.me.balance)}</span></b>${c.cfg.demo ? '<button class="btn small" type="button" data-refill>Refill</button>' : ''}</div></div>`}
     <nav class="dr-sect" id="dr-games" aria-label="Games">${CATEGORIES.map(([cat, label]) => `<p class="dr-cat">${label}</p>${GAMES.filter((g) => g.cat === cat)
       .map((g) => `<a class="dgame" href="#/${g.path}" data-game="${g.id}">${icon(g.icon)}<span>${g.name}</span>${g.tag ? `<em class="${g.tag}">${g.tag === 'SIGNATURE' ? 'TOP' : g.tag}</em>` : ''}</a>`).join('')}`).join('')}</nav>
     ${c.guest ? '' : `<nav class="dr-sect" aria-label="Account"><p class="dr-cat">Account</p>
@@ -442,7 +442,7 @@ function scheduleRealityCheck() {
     await refresh().catch(() => null);
     const s = ctx!.me.session;
     const m = modal(`<p class="eyebrow">Reality check</p><h2 class="h-sect" style="font-size:20px">You have been playing for ${Math.round(s.elapsedMs / 60000)} minutes</h2>
-      <p>Wagered this session: <b class="num">${frags(s.wagered)}</b> Frags · Result: <b class="num ${s.net < 0 ? 'neg' : 'pos'}">${s.net > 0 ? '+' : ''}${frags(s.net)}</b> Frags · ${s.bets} bets.</p>
+      <p>Wagered this session: <b class="num">${frags(s.wagered)}</b> Scrap · Result: <b class="num ${s.net < 0 ? 'neg' : 'pos'}">${s.net > 0 ? '+' : ''}${frags(s.net)}</b> Scrap · ${s.bets} bets.</p>
       <div class="row"><button class="btn" data-a="go" type="button">Keep playing</button><a class="btn ghost" href="#/limits" data-a="limits">Limits &amp; breaks</a></div>`);
     m.root.querySelectorAll('[data-a]').forEach((b) => b.addEventListener('click', () => { m.close(); scheduleRealityCheck(); }));
   }, Math.min(wait, 2 ** 31 - 1));

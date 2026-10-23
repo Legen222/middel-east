@@ -87,7 +87,7 @@ Den Login schaltet `STEAM_LOGIN` an. Standard: an, sobald `STEAM_API_KEY` gesetz
 4. Der Bot prüft, ob das Konto des Spielers eine Handelssperre (Trade Hold) hätte.
 5. Dann schickt er ein Angebot, das **nur fordert** und nichts gibt. Code und Einzahlungsnummer stehen in der Nachricht.
 6. Der Spieler nimmt in Steam an.
-7. Der Bot erkennt die Annahme und schreibt die Frags gut.
+7. Der Bot erkennt die Annahme und schreibt die Scrap gut.
 
 **Absicherungen:**
 - **Genau eine Gutschrift:** Der Statuswechsel und die Buchung stehen in derselben Transaktion.
@@ -124,7 +124,7 @@ Den Login schaltet `STEAM_LOGIN` an. Standard: an, sobald `STEAM_API_KEY` gesetz
    Eine stornierte Auszahlung setzt diese Regel nicht zurück. Der Fehler dazu ist behoben.
 3. Im **Backoffice → Skins** siehst du die Warteschlange: Spieler, Items, Betrag und einen Button, der die Trade-URL öffnet.
 4. Du schickst das Angebot vom Bot-Konto in der Steam-App und trägst die Angebotsnummer ein: „Mark sent“.
-5. „Cancel“ mit Begründung erstattet die Frags und legt die Items zurück. Der Spieler kann selbst stornieren, solange nichts verschickt ist.
+5. „Cancel“ mit Begründung erstattet die Scrap und legt die Items zurück. Der Spieler kann selbst stornieren, solange nichts verschickt ist.
 
 ### Identitätsprüfung (Beta)
 

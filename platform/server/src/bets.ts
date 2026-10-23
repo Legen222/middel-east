@@ -43,12 +43,12 @@ const payoutFor = (stake: number, mult: number) => Math.floor(stake * mult + 1e-
 
 export function checkStake(cfg: Config, stake: number): void {
   if (!Number.isSafeInteger(stake) || stake < cfg.minStake || stake > cfg.maxStake) {
-    fail('invalid_stake', `Stake: ${cfg.minStake / MF_PER_FRAG} to ${cfg.maxStake / MF_PER_FRAG} Frags.`, 400, { min: cfg.minStake, max: cfg.maxStake });
+    fail('invalid_stake', `Stake: ${cfg.minStake / MF_PER_FRAG} to ${cfg.maxStake / MF_PER_FRAG} Scrap.`, 400, { min: cfg.minStake, max: cfg.maxStake });
   }
 }
 export function checkMaxWin(cfg: Config, stake: number, maxMult: number): void {
   if (stake * maxMult > cfg.maxWin) {
-    fail('max_win', `Max win per bet is ${cfg.maxWin / MF_PER_FRAG} Frags. Highest stake here: ${Math.floor(cfg.maxWin / maxMult / MF_PER_FRAG)} Frags.`, 400, { maxWin: cfg.maxWin, maxStake: Math.floor(cfg.maxWin / maxMult) });
+    fail('max_win', `Max win per bet is ${cfg.maxWin / MF_PER_FRAG} Scrap. Highest stake here: ${Math.floor(cfg.maxWin / maxMult / MF_PER_FRAG)} Scrap.`, 400, { maxWin: cfg.maxWin, maxStake: Math.floor(cfg.maxWin / maxMult) });
   }
 }
 
@@ -63,7 +63,7 @@ export async function open(db: DB, userId: string, game: Game, stake: number, pa
   return { bet: id, seed, nonce };
 }
 
-/** Wins announced in chat: at least 10× and 100 Frags. */
+/** Wins announced in chat: at least 10× and 100 Scrap. */
 export const BIG_WIN = { minMultiple: 10, minPayout: 100 * MF_PER_FRAG };
 
 export async function settle(db: DB, betId: string, userId: string, stake: number, mult: number, result: unknown, now: number): Promise<BetRow> {
@@ -73,7 +73,7 @@ export async function settle(db: DB, betId: string, userId: string, stake: numbe
     .run(payout, mult, JSON.stringify(result), now, betId);
   if (payout >= BIG_WIN.minPayout && payout >= stake * BIG_WIN.minMultiple) {
     const b = (await db.prepare(`SELECT ${PUBLIC_NAME} AS name, b.game FROM bets b JOIN users u ON u.id = b.user_id WHERE b.id = ?`).get(betId)) as { name: string; game: GameId };
-    await systemMessage(db, 'win', `${b.name} hit ${+(payout / stake).toFixed(2)}× on ${GAME_NAME[b.game] ?? b.game}: +${fmtFrags(payout)} Frags`, now);
+    await systemMessage(db, 'win', `${b.name} hit ${+(payout / stake).toFixed(2)}× on ${GAME_NAME[b.game] ?? b.game}: +${fmtFrags(payout)} Scrap`, now);
   }
   return (await getBet(db, betId))!;
 }

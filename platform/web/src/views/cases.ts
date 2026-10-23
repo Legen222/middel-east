@@ -1,13 +1,13 @@
 import { type Bet, type CaseInfo, api } from '../api';
 import { crateArt, itemArt } from '../loot-art';
 import type { View } from '../main';
-import { $, $$, esc, fairBox, frags, guard, pct, pctShort, reducedMotion } from '../ui';
+import { $, $$, SCRAP_SYM, esc, fairBox, frags, guard, pct, pctShort, reducedMotion, scrap } from '../ui';
 
 /** Rarity colour from value relative to the case price. */
 const rarity = (value: number, price: number) =>
   value >= price * 20 ? '#C9A45C' : value >= price * 5 ? '#E5534B' : value >= price * 2 ? '#4C8DF6' : value >= price ? '#3FB950' : '#6B747D';
 
-/** Frags → "$1,500" (play money; 100 Frags = 1 $). */
+/** Scrap → "$1,500" (play money; 100 Scrap = 1 $). */
 const usd = (f: number, perDollar: number) => `$${(f / perDollar).toLocaleString('en-US', { minimumFractionDigits: f % perDollar ? 2 : 0, maximumFractionDigits: 2 })}`;
 
 const REEL_LEN = 60;
@@ -23,12 +23,12 @@ export const casesView: View = {
     return `
   <section class="card" style="gap:16px">
     <div class="game-head"><div><p class="eyebrow">Original · Crates</p><h1 class="h-display">Crate opening</h1>
-      <p>Twenty crates from ${usd(cases[0]?.price ?? 0, c.cfg.fragsPerDollar)} to ${usd(cases[cases.length - 1]?.price ?? 0, c.cfg.fragsPerDollar)}, named after Rust's loot containers and monuments. Open up to five at once. Every crate lists all items with their drop chance; the price is the expected value ÷ 0.93, rounded up to whole Frags. Each crate is its own round with its own nonce.</p></div></div>
+      <p>Twenty crates from ${usd(cases[0]?.price ?? 0, c.cfg.fragsPerDollar)} to ${usd(cases[cases.length - 1]?.price ?? 0, c.cfg.fragsPerDollar)}, named after Rust's loot containers and monuments. Open up to five at once. Every crate lists all items with their drop chance; the price is the expected value ÷ 0.93, rounded up to whole Scrap. Each crate is its own round with its own nonce.</p></div></div>
     <div class="cases" id="cases">${cases.map((k, i) => `
       <button type="button" class="case" data-id="${k.id}" aria-pressed="${i === 0}">
         <span class="art">${crateArt(k.id, k.price)}</span>
         <b>${esc(k.name)}</b>
-        <span class="price"><span class="num">${frags(k.price, 0)} Frags</span><span class="muted num" style="font-size:12px">≈ ${usd(k.price, c.cfg.fragsPerDollar)} · RTP ${pct(k.rtp)}</span></span>
+        <span class="price"><span class="num">${scrap(k.price, 0)}</span><span class="muted num" style="font-size:12px">≈ ${usd(k.price, c.cfg.fragsPerDollar)} · RTP ${pct(k.rtp)}</span></span>
       </button>`).join('')}</div>
   </section>
   <section class="card" style="gap:14px">
@@ -46,7 +46,7 @@ export const casesView: View = {
   <div class="admin-grid">
     <section class="card">
       <h2 class="h-sect" id="odds-title">Contents</h2>
-      <div class="tablewrap"><table><thead><tr><th>Item</th><th class="r">Value (Frags)</th><th class="r">Chance</th></tr></thead><tbody id="odds"></tbody></table></div>
+      <div class="tablewrap"><table><thead><tr><th>Item</th><th class="r">Value ${SCRAP_SYM}</th><th class="r">Chance</th></tr></thead><tbody id="odds"></tbody></table></div>
     </section>
     <section class="card">
       <h2 class="h-sect">Your drops this session</h2>
@@ -69,8 +69,8 @@ export const casesView: View = {
     const layout = () => {
       $('#reels', root).innerHTML = Array.from({ length: count }, (_, i) => `<div class="reel ${count > 2 ? 'compact' : ''}" aria-hidden="true"><div class="reel-track" data-track="${i}">${reelHtml(current)}</div></div>`).join('');
       $('#cur-name', root).textContent = current.name;
-      $('#cur-cost', root).textContent = `${count} × ${frags(current.price, 0)} = ${frags(current.price * count, 0)} Frags`;
-      $('#open', root).textContent = `Open ${count} · ${frags(current.price * count, 0)} Frags`;
+      $('#cur-cost', root).textContent = `${count} × ${frags(current.price, 0)} = ${frags(current.price * count, 0)} Scrap`;
+      $('#open', root).textContent = `Open ${count} · ${frags(current.price * count, 0)} Scrap`;
     };
     const showCase = (k: CaseInfo) => {
       if (busy) return;
@@ -97,7 +97,7 @@ export const casesView: View = {
       $('#session', root).innerHTML = session.slice(0, 40).map((d) => `<span class="chip" style="border-color:${rarity(d.value, d.price)};color:${rarity(d.value, d.price)}">${esc(d.name)} · ${frags(d.value, 0)}</span>`).join('');
       const spent = session.reduce((s, d) => s + d.price, 0);
       const got = session.reduce((s, d) => s + d.value, 0);
-      $('#session-sum', root).textContent = `${session.length} crates · spent ${frags(spent, 0)} · dropped ${frags(got, 0)} Frags (${got >= spent ? '+' : '−'}${frags(Math.abs(got - spent), 0)})`;
+      $('#session-sum', root).textContent = `${session.length} crates · spent ${frags(spent, 0)} · dropped ${frags(got, 0)} Scrap (${got >= spent ? '+' : '−'}${frags(Math.abs(got - spent), 0)})`;
     };
 
     $('#open', root).addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {
@@ -131,7 +131,7 @@ export const casesView: View = {
         box.innerHTML = drops.map((d) => `<div class="drop" style="--rc:${rarity(d.value, k.price)}">${itemArt(d.name)}<b>${esc(d.name)}</b><span class="num">${frags(d.value, 0)}</span></div>`).join('')
           + `<div class="drop sum ${total >= cost ? 'win' : 'lose'}"><span class="eyebrow">Total</span><b class="num">${frags(total, 0)}</b><span class="num">${total >= cost ? '+' : '−'}${frags(Math.abs(total - cost), 0)}</span></div>`;
         box.hidden = false;
-        status(drops.length === 1 ? `${drops[0].name} · ${frags(drops[0].value, 0)} Frags` : `${drops.length} crates: ${frags(total, 0)} Frags for ${frags(cost, 0)}.`, total >= cost ? 'win' : 'lose');
+        status(drops.length === 1 ? `${drops[0].name} · ${frags(drops[0].value, 0)} Scrap` : `${drops.length} crates: ${frags(total, 0)} Scrap for ${frags(cost, 0)}.`, total >= cost ? 'win' : 'lose');
         session.unshift(...drops.map((d) => ({ ...d, price: k.price })));
         paintSession();
         $('#fair', root).innerHTML = fairBox(bets[bets.length - 1].fairness) + (bets.length > 1 ? `<p class="muted" style="font-size:12px;margin-top:6px">Nonces ${bets.map((b) => b.fairness.nonce).join(', ')}: one round per crate.</p>` : '');

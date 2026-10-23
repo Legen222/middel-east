@@ -94,7 +94,7 @@ export const adminView: View = {
         <div class="kpis">
           ${kpi('Players', frags(o.players.total, 0), `${o.players.new24h} new · ${o.players.active24h} active`)}
           ${kpi('Bets', frags(o.last24h.bets, 0))}
-          ${kpi('Wagered', frags(o.last24h.wagered), 'Frags')}
+          ${kpi('Wagered', frags(o.last24h.wagered), 'Scrap')}
           ${kpi('GGR', signed(o.last24h.ggr), 'stakes − payouts, settled')}
           ${kpi('Bonus cost', frags(o.last24h.promoCost), 'rakeback, crates, rain, codes')}
           ${kpi('NGR', signed(o.last24h.ngr), 'GGR − bonus cost')}
@@ -113,7 +113,7 @@ export const adminView: View = {
         </section>
         <section class="card">
           <h2 class="h-sect">House accounts</h2>
-          <div class="tablewrap"><table><thead><tr><th>Account</th><th class="r">Balance (Frags)</th></tr></thead><tbody>
+          <div class="tablewrap"><table><thead><tr><th>Account</th><th class="r">Balance (Scrap)</th></tr></thead><tbody>
             ${o.house.map((h: any) => `<tr><td class="num">${esc(h.account)}</td><td class="r num ${h.balance < 0 ? 'neg' : ''}">${frags(h.balance)}</td></tr>`).join('')}
             <tr><td>Player balances (float)</td><td class="r num">${frags(o.playerFloat)}</td></tr>
           </tbody></table></div>
@@ -171,7 +171,7 @@ export const adminView: View = {
       box.innerHTML = `
       <section class="card" style="border-color:var(--bp)">
         <div class="row" style="justify-content:space-between"><div><p class="eyebrow">Player</p><h2 class="h-sect">${esc(p.name)} <span class="muted num" style="font-size:12px">${p.id}</span></h2>
-          <p class="muted" style="font-size:13px">Joined ${when(p.createdAt)} · ${esc(p.country ?? 'country unknown')} · KYC level ${p.kycLevel} · ${p.steam ? 'Steam linked' : 'no Steam'} · balance <b class="num">${frags(p.balance)}</b> Frags</p></div>
+          <p class="muted" style="font-size:13px">Joined ${when(p.createdAt)} · ${esc(p.country ?? 'country unknown')} · KYC level ${p.kycLevel} · ${p.steam ? 'Steam linked' : 'no Steam'} · balance <b class="num">${frags(p.balance)}</b> Scrap</p></div>
           <button class="btn ghost small" type="button" data-close>Close</button></div>
         <div class="kpis">${stat('Net 24 h', p.stats.h24)}${stat('Net 30 d', p.stats.d30)}${stat('Net all time', p.stats.all)}</div>
         <div class="row">
@@ -217,14 +217,14 @@ export const adminView: View = {
       });
       $('[data-adjust]', box).addEventListener('click', () => {
         const m = modal(`<h2 class="h-sect">Adjust ${esc(p.name)}'s balance</h2>
-          <p class="muted" style="font-size:13px">Positive credits, negative debits (never below zero). At most ±100,000 Frags; audited with your name. You cannot adjust your own account.</p>
-          <label class="field">Amount (Frags)<input data-a inputmode="decimal" placeholder="e.g. 50 or -20"></label>
+          <p class="muted" style="font-size:13px">Positive credits, negative debits (never below zero). At most ±100,000 Scrap; audited with your name. You cannot adjust your own account.</p>
+          <label class="field">Amount (Scrap)<input data-a inputmode="decimal" placeholder="e.g. 50 or -20"></label>
           <label class="field">Reason (audited)<input data-r maxlength="200" placeholder="e.g. goodwill after the outage on 12 Oct"></label>
           <div class="row"><button class="btn" data-ok type="button">Book adjustment</button><button class="btn ghost" data-no type="button">Cancel</button></div>`);
         m.root.querySelector('[data-no]')!.addEventListener('click', m.close);
         m.root.querySelector('[data-ok]')!.addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {
           const r = await api<{ balance: number }>('POST', `/admin/players/${p.id}/adjust`, { amount: Number((m.root.querySelector('[data-a]') as HTMLInputElement).value.replace(',', '.')), reason: (m.root.querySelector('[data-r]') as HTMLInputElement).value });
-          m.close(); toast(`Booked. New balance ${frags(r.balance)} Frags.`); await showPlayer(p.id);
+          m.close(); toast(`Booked. New balance ${frags(r.balance)} Scrap.`); await showPlayer(p.id);
         }));
       });
       $('[data-kyc]', box).addEventListener('click', () => {

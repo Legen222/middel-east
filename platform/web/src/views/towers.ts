@@ -85,7 +85,7 @@ export const towersView: View = {
       if (!bet || bet.status !== 'open') return;
       bet = await api<TowersBet>('POST', `/towers/${bet.id}/pick`, { door: Number(b.dataset.door) });
       if (bet.status === 'settled') {
-        status(bet.payout > 0 ? `Top of the monument: +${frags(bet.payout)} Frags.` : `Trap in room ${(bet.result!.trapAt ?? 0) + 1}. Run lost.`, bet.payout > 0 ? 'win' : 'lose');
+        status(bet.payout > 0 ? `Top of the monument: +${frags(bet.payout)} Scrap.` : `Trap in room ${(bet.result!.trapAt ?? 0) + 1}. Run lost.`, bet.payout > 0 ? 'win' : 'lose');
         await c.refresh();
       } else status(`Room ${bet.picks!.length} cleared. Next room: ${mult(bet.nextMultiplier ?? 1)}`);
       draw();
@@ -101,7 +101,7 @@ export const towersView: View = {
     $('#cash', root).addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {
       if (!bet) return;
       bet = await api<TowersBet>('POST', `/towers/${bet.id}/cashout`, {});
-      status(`Cashed out: ${frags(bet.payout)} Frags.`, 'win');
+      status(`Cashed out: ${frags(bet.payout)} Scrap.`, 'win');
       draw();
       await c.refresh();
     }));

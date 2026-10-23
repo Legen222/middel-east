@@ -72,10 +72,10 @@ export function createRouter(deps: AppDeps) {
     routes.push({ method, pattern, keys, handler });
   };
   const num = (v: unknown, name: string) => (typeof v === 'number' && Number.isFinite(v) ? v : fail('invalid_params', `${name} is missing or not a number.`));
-  const stakeMf = (v: unknown) => Math.round(num(v, 'stake') * MF_PER_FRAG); // API takes Frags, stores mF
+  const stakeMf = (v: unknown) => Math.round(num(v, 'stake') * MF_PER_FRAG); // API takes Scrap, stores mF
   const uid = async (c: Ctx) => (await c.auth()).user.id;
   const limitsInFrags = (l: GameLimits) => ({ minStake: l.minStake === null ? null : l.minStake / MF_PER_FRAG, maxStake: l.maxStake === null ? null : l.maxStake / MF_PER_FRAG, maxWin: l.maxWin === null ? null : l.maxWin / MF_PER_FRAG });
-  /** Stake range and max win per game after per-game limits, in Frags. */
+  /** Stake range and max win per game after per-game limits, in Scrap. */
   const effectiveLimits = async () => {
     const out: Record<string, { minStake: number; maxStake: number; maxWin: number }> = {};
     for (const g of GAME_IDS) { const e = await gameConfig(db, cfg, g); out[g] = { minStake: e.minStake / MF_PER_FRAG, maxStake: e.maxStake / MF_PER_FRAG, maxWin: e.maxWin / MF_PER_FRAG }; }
@@ -91,7 +91,7 @@ export function createRouter(deps: AppDeps) {
     return { ok: true, dialect: db.dialect, ...(deps.ready ? await deps.ready() : {}) };
   });
   route('GET', '/config', async () => ({
-    demo: cfg.demo, currency: 'Frags', fragsPerDollar: 100, minStake: cfg.minStake / MF_PER_FRAG, maxStake: cfg.maxStake / MF_PER_FRAG, maxWin: cfg.maxWin / MF_PER_FRAG,
+    demo: cfg.demo, currency: 'Scrap', fragsPerDollar: 100, minStake: cfg.minStake / MF_PER_FRAG, maxStake: cfg.maxStake / MF_PER_FRAG, maxWin: cfg.maxWin / MF_PER_FRAG,
     demoStartBalance: cfg.demoStartBalance / MF_PER_FRAG, steamLogin: cfg.steamLogin,
     skins: { enabled: cfg.skins.enabled && !cfg.demo, depositRate: cfg.skins.depositRate, withdrawRate: cfg.skins.withdrawRate, minItem: cfg.skins.minItemFrags, maxItems: cfg.skins.maxItems, kycBeforeDeposit: cfg.skins.kycBeforeDeposit },
     games: GAMES, houseEdge: EDGE, operatorMfa: cfg.requireOperatorMfa,

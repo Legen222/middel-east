@@ -6,7 +6,7 @@
  *   SKINS=true           skin deposits and withdrawals (only outside the demo, so only with LICENCE_ID)
  *   DEPOSIT_RATE=1       share of the market price credited per deposited item
  *   WITHDRAW_RATE=1      price factor for items taken from the site's stock
- *   SKIN_MIN_ITEM=10     cheapest item accepted, in Frags
+ *   SKIN_MIN_ITEM=10     cheapest item accepted, in Scrap
  *   KYC_BEFORE_DEPOSIT   default true; whether the licence allows later checks is the licence holder's call
  *   PRICE_FEED_URL       default Skinport's public Rust price list
  *   INVENTORY_URL        default Steam's community inventory endpoint ({steamid} is replaced)

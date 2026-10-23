@@ -2,7 +2,7 @@ import { type CaseInfo, api } from '../api';
 import { icon } from '../icons';
 import { crateArt, itemArt } from '../loot-art';
 import type { View } from '../main';
-import { $, $$, esc, frags, guard, reducedMotion, sleep } from '../ui';
+import { $, $$, esc, frags, guard, reducedMotion, scrap, sleep } from '../ui';
 
 type Rule = 'normal' | 'crazy' | 'terminal' | 'bonus';
 type Mode = Rule | 'team';
@@ -62,7 +62,7 @@ export const battleView: View = {
   <section class="card" style="gap:14px">
     <div class="sect-head"><div><p class="eyebrow">New battle</p><h2 class="h-sect">Pick the crates</h2></div><p class="num" id="rounds-txt">0 / ${MAX_ROUNDS} rounds</p></div>
     <div class="bpick" id="bpick">${cases.map((k) => `
-      <div class="bcase" data-case="${k.id}"><span class="art">${crateArt(k.id, k.price)}</span><b>${esc(k.name)}</b><span class="num muted">${frags(k.price, 0)} Frags</span>
+      <div class="bcase" data-case="${k.id}"><span class="art">${crateArt(k.id, k.price)}</span><b>${esc(k.name)}</b><span class="num muted">${scrap(k.price, 0)}</span>
         <div class="stepper"><button type="button" class="btn ghost small" data-minus="${k.id}" aria-label="One ${esc(k.name)} less">−</button><span class="num" data-count="${k.id}">0</span><button type="button" class="btn ghost small" data-plus="${k.id}" aria-label="One ${esc(k.name)} more">+</button></div></div>`).join('')}</div>
     <div class="chips" id="order"></div>
     <div class="row" style="align-items:flex-end;gap:12px">
@@ -103,7 +103,7 @@ function mountLobby(root: HTMLElement, c: Parameters<NonNullable<View['mount']>>
     const cost = order.reduce((s, cid) => s + (caseById.get(cid)?.price ?? 0), 0);
     const btn = $<HTMLButtonElement>('#create', root);
     btn.disabled = order.length === 0;
-    btn.innerHTML = `${icon('battle')} ${order.length ? `Create ${FORMATS[fmt][0]} · ${frags(cost, 0)} Frags per seat` : 'Add at least one crate'}`;
+    btn.innerHTML = `${icon('battle')} ${order.length ? `Create ${FORMATS[fmt][0]} · ${scrap(cost, 0)} per seat` : 'Add at least one crate'}`;
     $$<HTMLButtonElement>('[data-rule]', root).forEach((b) => { b.disabled = FORMATS[fmt][2]; });
     $('#bonus-box', root).hidden = rule !== 'bonus' || FORMATS[fmt][2];
   };
@@ -170,7 +170,7 @@ function mountRoom(root: HTMLElement, c: Parameters<NonNullable<View['mount']>>[
     const pool = b.seatStake * b.seats;
     room.innerHTML = `
       <div class="room-head">
-        <div><p class="eyebrow">${format(b)} · ${ruleName(b.params.mode)} · ${b.params.caseIds.length} round${b.params.caseIds.length === 1 ? '' : 's'}</p><h2 class="h-sect" style="font-size:20px">Pool <span class="num">${frags(pool, 0)}</span> Frags · ${frags(b.seatStake, 0)} per seat</h2></div>
+        <div><p class="eyebrow">${format(b)} · ${ruleName(b.params.mode)} · ${b.params.caseIds.length} round${b.params.caseIds.length === 1 ? '' : 's'}</p><h2 class="h-sect" style="font-size:20px">Pool <span class="num">${frags(pool, 0)}</span> Scrap · ${frags(b.seatStake, 0)} per seat</h2></div>
         <div class="row"><span class="chip" id="room-status"></span><a class="btn ghost small" href="#/battle">← Lobby</a></div>
       </div>
       ${bonus ? `<details class="bonus-legend"><summary>Bonus mode: power rounds · golden last round · jackpot drops · final spin · 10 % scrap back</summary>${bonusInfo()}</details>` : ''}
@@ -193,7 +193,7 @@ function mountRoom(root: HTMLElement, c: Parameters<NonNullable<View['mount']>>[
     const sig = `${b.status}|${b.players.length}|${inGame}|${b.mine}`;
     if (acts.dataset.sig === sig) return; // unchanged: keep the buttons (and the Fast switch) as they are
     acts.dataset.sig = sig;
-    acts.innerHTML = b.status === 'open' ? `${!inGame ? `<button class="btn" type="button" data-act="join">Join · ${frags(b.seatStake, 0)} Frags</button>` : ''}
+    acts.innerHTML = b.status === 'open' ? `${!inGame ? `<button class="btn" type="button" data-act="join">Join · ${scrap(b.seatStake, 0)}</button>` : ''}
         ${b.mine ? `<button class="btn ghost" type="button" data-act="bots">Fill with demo bots</button><button class="btn ghost" type="button" data-act="cancel">Cancel</button>` : ''}`
       : b.status === 'settled' ? `<button class="btn ghost" type="button" data-act="replay">${icon('upgrade')} Replay</button><label class="check"><input type="checkbox" id="fast"> <span>Fast</span></label>` : '';
     $$<HTMLButtonElement>('[data-act]', acts).forEach((btn) => btn.addEventListener('click', () => guard(btn, async () => {
@@ -256,7 +256,7 @@ function mountRoom(root: HTMLElement, c: Parameters<NonNullable<View['mount']>>[
     const box = room.querySelector<HTMLElement>('#spin');
     if (!box) return;
     box.hidden = false;
-    $('#spin-rest', room).textContent = `${frags(bonus.rest, 0)} Frags`;
+    $('#spin-rest', room).textContent = `${frags(bonus.rest, 0)} Scrap`;
     const LAPS = 4;
     const slices = bonus.shares.map((sh, s) => `<span style="flex:${Math.max(sh, 0.0001)};background:${SEAT_COLORS[s]}" title="${esc(nameOf(b, s))} ${pctTxt(sh)}"><b>${sh >= 0.08 ? pctTxt(sh) : ''}</b></span>`).join('');
     const strip = $('#spin-strip', room);
@@ -291,19 +291,19 @@ function mountRoom(root: HTMLElement, c: Parameters<NonNullable<View['mount']>>[
       room.querySelector(`.seat[data-seat="${s}"]`)?.classList.toggle('winner', won);
       room.querySelector(`.seat[data-seat="${s}"]`)?.classList.toggle('loser', !won && !(bonus && (p?.payout ?? 0) > 0));
       const parts = bonus ? [bonus.jackpotPaid[s] > 0 ? `jackpot ${frags(bonus.jackpotPaid[s], 0)}` : '', won ? 'spin 90 %' : 'scrap back'].filter(Boolean).join(' + ') : '';
-      $(`[data-foot="${s}"]`, room).innerHTML = (p?.payout ?? 0) > 0 ? `<span class="pos num">+${frags(p?.payout ?? 0)}</span> Frags${parts ? ` <small class="muted">${parts}</small>` : ''}` : '<span class="muted">0.00</span>';
+      $(`[data-foot="${s}"]`, room).innerHTML = (p?.payout ?? 0) > 0 ? `<span class="pos num">+${frags(p?.payout ?? 0)}</span> Scrap${parts ? ` <small class="muted">${parts}</small>` : ''}` : '<span class="muted">0.00</span>';
     }
     const me = b.players.find((p) => p.you);
     const msg = $('#room-msg', room);
     if (bonus) {
       const w = r.winners[0];
       const under = bonus.points[w] < Math.max(...bonus.points) ? ' Underdog!' : '';
-      msg.textContent = me ? (w === me.seat ? `You won the spin with ${pctTxt(bonus.shares[w])}: +${frags(me.payout)} Frags.${under}` : `${nameOf(b, w)} won the spin (${pctTxt(bonus.shares[w])}). You get ${frags(me.payout)} Frags back.`)
+      msg.textContent = me ? (w === me.seat ? `You won the spin with ${pctTxt(bonus.shares[w])}: +${frags(me.payout)} Scrap.${under}` : `${nameOf(b, w)} won the spin (${pctTxt(bonus.shares[w])}). You get ${frags(me.payout)} Scrap back.`)
         : `${nameOf(b, w)} won the spin with ${pctTxt(bonus.shares[w])}.${under}`;
       msg.className = `status ${me ? (w === me.seat ? 'win' : 'lose') : ''}`;
       return;
     }
-    msg.textContent = me ? (r.winners.includes(me.seat) ? `You won ${frags(me.payout)} Frags.` : 'Not this time.') : `${r.winners.map((w) => nameOf(b, w)).join(' & ')} won.`;
+    msg.textContent = me ? (r.winners.includes(me.seat) ? `You won ${frags(me.payout)} Scrap.` : 'Not this time.') : `${r.winners.map((w) => nameOf(b, w)).join(' & ')} won.`;
     msg.className = `status ${me ? (r.winners.includes(me.seat) ? 'win' : 'lose') : ''}`;
   };
 
@@ -391,7 +391,7 @@ function mountRoom(root: HTMLElement, c: Parameters<NonNullable<View['mount']>>[
     }
     $$('.rnd', room).forEach((x) => { x.classList.remove('cur'); x.classList.add('done'); });
     if (bonus && !stopped) {
-      banner(`Final spin · ${frags(bonus.rest, 0)} Frags · slices = share of the points`, '');
+      banner(`Final spin · ${frags(bonus.rest, 0)} Scrap · slices = share of the points`, '');
       await showSpin(b, bonus, reducedMotion() ? 0 : fast ? 1400 : 4200);
       banner(`${nameOf(b, r.winners[0])} wins the spin`, 'win');
     }

@@ -10,7 +10,7 @@
  */
 
 export interface PriceFeed {
-  /** Price in Frags for a Rust item, from several sources with outlier filtering. Null if unknown or too illiquid. */
+  /** Price in Scrap for a Rust item, from several sources with outlier filtering. Null if unknown or too illiquid. */
   price(marketHashName: string): Promise<{ frags: number; sources: number; updatedAt: number } | null>;
 }
 

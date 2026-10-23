@@ -170,7 +170,7 @@ run('coinflip', 'creator seat, random side', 1 - EDGE.coinflip, N, (r) => {
 /* ---------- Cases ---------- */
 for (const c of SAMPLE_CASES) {
   const price = priceCase(c);
-  run('cases', `${c.name} (price ${price} Frags)`, caseRtp(c), N, (r) => ({ stake: price, payout: openCase(r, c).item.value }));
+  run('cases', `${c.name} (price ${price} Scrap)`, caseRtp(c), N, (r) => ({ stake: price, payout: openCase(r, c).item.value }));
 }
 
 /* ---------- Case Battle: every seat checked ---------- */

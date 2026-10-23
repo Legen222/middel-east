@@ -205,7 +205,7 @@ async function wheelDetail(db: DB, beacon: Beacon, ref: string, now: number) {
   const o = spinWheel(new FairStream(r.seed, chain.client_seed ?? '', 0));
   checks.push({ name: 'outcome', ok: o.index === Number(r.field_index), detail: `segment ${o.index} → ${o.field}` });
   const expected = b!.field === WHEEL_LAYOUT[r.field_index] ? Math.floor(b!.stake * wheelPayout(b!.field)) : 0;
-  checks.push({ name: 'payout', ok: expected === Number(b!.payout), detail: `${expected / MF_PER_FRAG} Frags expected` });
+  checks.push({ name: 'payout', ok: expected === Number(b!.payout), detail: `${expected / MF_PER_FRAG} Scrap expected` });
   return { ...base, result: { index: Number(r.field_index), field: WHEEL_LAYOUT[r.field_index] }, fairness: { round: r.id, seed: r.seed, chainIndex: Number(r.idx), clientSeed: chain.client_seed, beaconRound: chain.beacon_round }, verification: verdict(checks) };
 }
 
@@ -234,7 +234,7 @@ async function pvpDetail(db: DB, beacon: Beacon, ref: string, now: number) {
     checks.push({ name: 'outcome', ok: same(o.totals, r.totals) && same(o.winners, r.winners), detail: `totals ${o.totals.join(' / ')}, winner seat${o.winners.length > 1 ? 's' : ''} ${o.winners.map((w) => w + 1).join(', ')}` });
     if (o.bonus) checks.push({ name: 'bonus', ok: same(o.bonus.powers, r.bonus?.powers ?? []) && o.bonus.spin === r.bonus?.spin, detail: `powers ×${o.bonus.powers.join(' ×')}, spin ${o.bonus.spin.toFixed(8)} → seat ${o.winners[0] + 1}` });
     const expected = o.payouts.map((p) => Math.floor(p * MF_PER_FRAG));
-    checks.push({ name: 'payout', ok: same(expected, seats.map((s) => Number(s.payout))), detail: `${expected.map((p) => p / MF_PER_FRAG).join(' / ')} Frags per seat` });
+    checks.push({ name: 'payout', ok: same(expected, seats.map((s) => Number(s.payout))), detail: `${expected.map((p) => p / MF_PER_FRAG).join(' / ')} Scrap per seat` });
   }
   return { ...base, result: r, fairness: { serverSeed: g!.server_seed, serverSeedHash: g!.server_hash, beaconRound: g!.beacon_round, beaconValue: g!.beacon_value }, verification: verdict(checks) };
 }
@@ -256,7 +256,7 @@ async function jackpotDetail(db: DB, beacon: Beacon, ref: string, now: number) {
     { name: 'commitment', ok: sha256Hex(r!.server_seed) === r!.server_hash, detail: 'sha256(server seed) = published hash' },
     await beaconCheck(beacon, r!.beacon_round, r!.beacon_value, now),
     { name: 'outcome', ok: o.ticket === Number(r!.ticket) && Number(entries[o.winner]?.id) === Number(r!.winner_entry), detail: `ticket ${o.ticket} of ${o.total} → entry ${o.winner + 1}` },
-    { name: 'payout', ok: o.payout === Number(r!.payout), detail: `${o.payout / MF_PER_FRAG} Frags after the fee` },
+    { name: 'payout', ok: o.payout === Number(r!.payout), detail: `${o.payout / MF_PER_FRAG} Scrap after the fee` },
   ];
   return { ...base, result: { ticket: Number(r!.ticket), winnerEntry: Number(r!.winner_entry) }, fairness: { serverSeed: r!.server_seed, serverSeedHash: r!.server_hash, beaconRound: r!.beacon_round, beaconValue: r!.beacon_value }, verification: verdict(checks) };
 }

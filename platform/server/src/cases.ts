@@ -72,7 +72,7 @@ function validateItems(cfg: Config, name: string, items: unknown): { name: strin
     const value = Number(i?.value);
     const weight = Number(i?.weight);
     if (iname.length < 1 || iname.length > 60) fail('invalid_params', `Item ${k + 1}: name 1 to 60 characters.`);
-    if (!Number.isSafeInteger(value) || value < 0 || value > 10_000_000) fail('invalid_params', `Item ${k + 1}: value must be whole Frags (0 to 10,000,000).`);
+    if (!Number.isSafeInteger(value) || value < 0 || value > 10_000_000) fail('invalid_params', `Item ${k + 1}: value must be whole Scrap (0 to 10,000,000).`);
     if (!Number.isSafeInteger(weight) || weight < 1 || weight > 1_000_000_000) fail('invalid_params', `Item ${k + 1}: weight must be a whole number of tickets (1 to 1,000,000,000).`);
     return { name: iname, value, weight };
   });
@@ -80,8 +80,8 @@ function validateItems(cfg: Config, name: string, items: unknown): { name: strin
   if (caseWeight(c) > 4_000_000_000) fail('invalid_params', 'Total weight is above 4,000,000,000 tickets.');
   const price = priceCase(c);
   if (price < 1) fail('invalid_params', 'The case has no value: every item is worth 0.');
-  if (price * MF_PER_FRAG > cfg.maxStake) fail('invalid_params', `Price ${price} Frags is above the max stake (${cfg.maxStake / MF_PER_FRAG} Frags).`);
-  if (Math.max(...out.map((i) => i.value)) * MF_PER_FRAG > cfg.maxWin) fail('invalid_params', `An item is worth more than the max win (${cfg.maxWin / MF_PER_FRAG} Frags).`);
+  if (price * MF_PER_FRAG > cfg.maxStake) fail('invalid_params', `Price ${price} Scrap is above the max stake (${cfg.maxStake / MF_PER_FRAG} Scrap).`);
+  if (Math.max(...out.map((i) => i.value)) * MF_PER_FRAG > cfg.maxWin) fail('invalid_params', `An item is worth more than the max win (${cfg.maxWin / MF_PER_FRAG} Scrap).`);
   return { name: n, items: out };
 }
 

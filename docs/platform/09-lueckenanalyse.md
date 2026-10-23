@@ -28,7 +28,7 @@ Stand: 21.10.2026.
 | 10 | **Unbekannte Adressen:** Sie landeten stumm in der Lobby. | Eigene 404-Seite. |
 | 11 | **Kein Footer, keine Rechtstexte, keine Hilfe** | Footer auf jeder Seite (18+, Hilfe-Links, Navigation). Neue Seiten **Terms**, **Privacy** (beschreibt, was dieser Build speichert und wo) und **Help** (FAQ). |
 | 12 | **Steam-Login ohne Oberfläche:** Die Server-Routen gab es, die Website nutzte sie nicht. | Außerhalb der Demo: Button „Sign in with Steam“ (nach 18+-Bestätigung). Die Rückkehr über `/auth/steam/return` wird beim Start erkannt; nginx liefert dafür schon `index.html`. |
-| 13 | **Anmeldetext falsch:** Er nannte 100 000 statt 250 000 Frags Startguthaben. | Wert kommt aus `/config` (`demoStartBalance`). |
+| 13 | **Anmeldetext falsch:** Er nannte 100 000 statt 250 000 Scrap Startguthaben. | Wert kommt aus `/config` (`demoStartBalance`). |
 | 14 | **Spielname uneinheitlich:** „Cases“ auf dem Server, „Crate opening“ auf der Seite. | Überall „Crate opening“. |
 | 15 | **Dialoge:** Sie schlossen sich nicht per Klick daneben. Lange Inhalte liefen aus dem Bild. | Klick außerhalb schließt; Dialoge scrollen. |
 
@@ -76,13 +76,13 @@ Vorbild war der Aufbau von bandit.camp auf dem Handy. Übernommen wurde die Stru
 **Handy (bis 860 px):**
 - **Kopfzeile:** Logo, Menü-Button, dann ein großer CTA. Für Gäste ist das „Sign up“, für Spieler das Guthaben mit „+“ zur Wallet. Die Spieleleiste entfällt.
 - **Menü (Drawer):** alle Spiele nach Kategorie, Konto, Fair Play, Hilfe und Abmelden.
-- **Untere Leiste:** Games (öffnet das Menü), Chat, Free Frags, Account.
+- **Untere Leiste:** Games (öffnet das Menü), Chat, Free Scrap, Account.
 - **Lobby, von oben nach unten:**
   1. „Welcome to SCRAPLINE“ mit Spielern online und Runden heute (neu: `GET /stats/live`).
   2. Live-Wins-Karten zum Wischen.
   3. Slider mit vier echten Highlights (Kisten, Bonus-Battles, Prüfer, Oil Rain).
   4. Ein Spiele-Raster mit Filter-Chips und hohen Kacheln mit Banderole („New update!“, „Live now“, „Top pick“).
-  5. „Get free Frags“.
+  5. „Get free Scrap“.
 
   Live-Tabellen, Fair-Ledger und Kennzahlen bleiben auf dem Desktop und der Fairness-Seite.
 - **Spielseiten:** Der Kopf ist kompakt (Titel, zwei Zeilen Regeln, Kennzahlen in einer Zeile), das Spiel und der Einsatz-Button stehen weiter oben.

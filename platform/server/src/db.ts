@@ -109,7 +109,7 @@ PRAGMA busy_timeout = 5000;
 /**
  * One schema for both dialects, written in their common subset. pg.ts derives the Postgres DDL from it
  * (INTEGER → BIGINT, AUTOINCREMENT → identity, REAL → DOUBLE PRECISION). Timestamps are ms since epoch,
- * money is integer milli-Frags.
+ * money is integer milli-Scrap.
  */
 export const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
@@ -430,8 +430,8 @@ CREATE TABLE IF NOT EXISTS case_versions (
   case_id TEXT NOT NULL REFERENCES cases(id),
   version INTEGER NOT NULL,
   name TEXT NOT NULL,
-  items TEXT NOT NULL,            -- JSON [{name, value (Frags), weight}]
-  price INTEGER NOT NULL,         -- Frags, = ⌈EV / (1 − edge)⌉
+  items TEXT NOT NULL,            -- JSON [{name, value (Scrap), weight}]
+  price INTEGER NOT NULL,         -- Scrap, = ⌈EV / (1 − edge)⌉
   rtp REAL NOT NULL,
   created_by TEXT,
   created_at INTEGER NOT NULL,
@@ -530,7 +530,7 @@ CREATE INDEX IF NOT EXISTS chat_reports_reporter ON chat_reports(reporter_id, cr
 export const SKIN_SCHEMA = `
 CREATE TABLE IF NOT EXISTS item_prices (
   market_hash_name TEXT PRIMARY KEY,
-  price INTEGER NOT NULL,          -- Frags (US cents)
+  price INTEGER NOT NULL,          -- Scrap (US cents)
   volume INTEGER NOT NULL DEFAULT 0,
   source TEXT NOT NULL,
   updated_at INTEGER NOT NULL

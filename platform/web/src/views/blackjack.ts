@@ -80,7 +80,7 @@ export const blackjackView: View = {
     const finished = async () => {
       const r = bet!.result!;
       const outcomes = r.results.map((x) => OUTCOME[x.outcome]).join(' / ');
-      status(`${outcomes}. Paid ${frags(bet!.payout)} Frags on ${frags(bet!.stake)} staked.`, bet!.payout > bet!.stake ? 'win' : bet!.payout < bet!.stake ? 'lose' : '');
+      status(`${outcomes}. Paid ${frags(bet!.payout)} Scrap on ${frags(bet!.stake)} staked.`, bet!.payout > bet!.stake ? 'win' : bet!.payout < bet!.stake ? 'lose' : '');
       await c.refresh();
     };
     $$<HTMLButtonElement>('[data-act]', root).forEach((b) => b.addEventListener('click', () => guard(b, async () => {
@@ -99,7 +99,7 @@ export const blackjackView: View = {
     }));
     api<BjBet[]>('GET', '/games/open').then((g) => {
       const r = g.find((x) => x.game === 'blackjack');
-      if (r) { bet = r; status(`Open hand found (${frags(r.baseStake ?? r.stake)} Frags). Your move.`); draw(); }
+      if (r) { bet = r; status(`Open hand found (${frags(r.baseStake ?? r.stake)} Scrap). Your move.`); draw(); }
     }).catch(() => null);
     draw();
   },
