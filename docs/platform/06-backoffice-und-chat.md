@@ -135,3 +135,58 @@ Neue Server-Tests (insgesamt 40):
 - RG-Fälle.
 - Rollen-Gates über die API.
 - Kein Selbst-Upgrade außerhalb der Demo.
+
+## 6. Nachtrag Phase 19: Chat-Regeln, Wortfilter, Meldungen
+
+**Regeln im Chat:**
+- Unter dem Chat stehen die Regeln mit den echten Werten aus den Einstellungen: Level, Slow Mode, keine Beleidigungen, Links, Betteln oder Handel.
+- „Chat rules“ öffnet die vollständige Liste.
+- Vor der ersten eigenen Nachricht erscheint sie einmal zum Bestätigen. Steigt die Version der Regeln, erscheint sie erneut.
+
+**Wortfilter** (`platform/server/src/chat-filter.ts`):
+- Blockiert rassistische, homophobe und andere Beleidigungen (Englisch und Deutsch), Aufforderungen zur Selbstverletzung („kys“, „kill yourself“) und Nazi-Parolen.
+- Die üblichen Tricks greifen nicht: Großschreibung, Akzente, Ziffern statt Buchstaben (`n1gg3r`), wiederholte Buchstaben, mit Leerzeichen oder Punkten getrennte Buchstaben.
+- Normale Wörter bleiben erlaubt („snigger“, „Niger“, „raccoon“, „retardant“), ebenso gewöhnliches Fluchen.
+- Eigene Wörter pflegst du unter **Backoffice → Settings**, z. B. Namen von Konkurrenzseiten oder Betrugsphrasen. Ab 5 Buchstaben greifen sie auch über Leerzeichen und Punkte hinweg („rust.cheap“).
+- Eine blockierte Nachricht wird nicht gespeichert, aber im Audit-Log vermerkt.
+- Drei blockierte Nachrichten innerhalb von 10 Minuten muten das Konto automatisch für 15 Minuten.
+
+**Mindest-Level zum Schreiben:**
+- Standard ist Level 2; einstellbar von 1 bis 50 unter Backoffice → Settings.
+- Staff kann immer schreiben, lesen kann jeder.
+- Das hält Wegwerf-Konten von Spammern und Betrügern draus.
+
+**Namen, die nach Staff aussehen**, sind gesperrt:
+- „Admin“, „4dm1n“, „Site_Support“, „Mod Max“, „SCRAPLINE …“, „Bot“ usw.
+- Erlaubt bleiben z. B. „Badminton King“ oder „Modern Warfare“.
+- Gilt bei der Anmeldung, beim Umbenennen und für Steam-Namen; ein solcher Steam-Name wird zu „Steam ####“.
+- Das MOD- bzw. ADMIN-Abzeichen kommt nur aus der Rolle des Kontos und lässt sich nicht fälschen.
+
+**Meldungen:**
+- Spieler melden eine Nachricht über die Flagge mit einem Grund: Spam, Beleidigung, Betrug oder Sonstiges.
+- Pro Spieler zählt eine Meldung je Nachricht; höchstens 20 Meldungen pro Stunde.
+- Drei Meldungen von verschiedenen Spielern blenden die Nachricht aus, bis ein Moderator entscheidet.
+- Moderatoren sehen oben im Chat „Reports · n“ und entscheiden je Nachricht:
+  - verwerfen (eine ausgeblendete Nachricht erscheint wieder);
+  - löschen;
+  - löschen und den Autor für 1 h oder 24 h muten.
+- Jede Entscheidung steht im Audit-Log.
+- Neue Tabelle `chat_reports`. Migration: Postgres v10, SQLite beim Start.
+
+**API:**
+- `POST /chat/:id/report`
+- `GET /mod/reports`
+- `PUT /mod/reports/:id` mit `{ action: dismiss | delete | mute, minutes, note }`
+- `GET /chat` liefert zusätzlich `rules` und für Staff `openReports`.
+
+**Tests:** Server 83 Tests auf SQLite und Postgres, 4 davon neu.
+
+**Im Browser durchgespielt:**
+- gesperrter Name;
+- Level-Sperre;
+- Regeln vor der ersten Nachricht;
+- eigenes Sperrwort und Beleidigung abgelehnt;
+- Meldung durch einen zweiten Spieler;
+- Moderator-Warteschlange mit Mute.
+
+Desktop und 390 px ohne Konsolenfehler.

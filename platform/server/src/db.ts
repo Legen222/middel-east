@@ -510,6 +510,22 @@ CREATE TABLE IF NOT EXISTS audit (
 CREATE INDEX IF NOT EXISTS audit_user ON audit(user_id, created_at);
 `;
 
+/* Chat reports: one row per message and reporter; moderators resolve them (chat.ts). */
+export const CHAT_REPORTS_SCHEMA = `
+CREATE TABLE IF NOT EXISTS chat_reports (
+  message_id INTEGER NOT NULL REFERENCES chat_messages(id),
+  reporter_id TEXT NOT NULL REFERENCES users(id),
+  reason TEXT NOT NULL,            -- spam | abuse | scam | other
+  created_at INTEGER NOT NULL,
+  resolved_at INTEGER,
+  resolved_by TEXT,
+  outcome TEXT,                    -- dismissed | deleted | muted
+  PRIMARY KEY (message_id, reporter_id)
+);
+CREATE INDEX IF NOT EXISTS chat_reports_open ON chat_reports(resolved_at, message_id);
+CREATE INDEX IF NOT EXISTS chat_reports_reporter ON chat_reports(reporter_id, created_at);
+`;
+
 /* Skin rail (skins/): prices, deposits through the trade bot, the bot's stock, withdrawals for operators. */
 export const SKIN_SCHEMA = `
 CREATE TABLE IF NOT EXISTS item_prices (
@@ -678,6 +694,7 @@ export function openDb(path = ':memory:'): DB {
   if (legacy) migrateLegacy(raw);
   raw.exec(SCHEMA);
   raw.exec(SKIN_SCHEMA);
+  raw.exec(CHAT_REPORTS_SCHEMA);
   raw.exec(PLAYER_STATS_TABLE);
   raw.exec(CASE_SEED);
   raw.exec(CASE_SYNC);

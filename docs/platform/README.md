@@ -18,10 +18,11 @@
 | 16 | [09-lueckenanalyse.md](09-lueckenanalyse.md) | Lückenanalyse der Seitenlogik und alles Fehlende gebaut: komplette Historie über alle Spiele mit Detail und Prüfung im Browser, Prüfer in der App, Wallet mit Kontoauszug, Profil mit Statistik und Privatsphäre, Live-Wettfeed, Footer, AGB/Datenschutz/Hilfe, 404, Sitzungsende, Steam-Login |
 | 17 | [09-lueckenanalyse.md § 5](09-lueckenanalyse.md#5-nachtrag-phase-17--handy-version-und-slot-walzen-im-case-battle) | Handy-Version im Aufbau von bandit.camp (Menü, CTA, Live-Wins, Slider, Spiele-Raster mit Filter, Free Frags), Gastmodus mit Anmelde-Sheet, Spieler online, Slot-Walzen im Case Battle (alle Plätze gleichzeitig) |
 | 18 | [10-online-plan.md](10-online-plan.md) | Weg online: Namensvorschläge (Empfehlung OILRIG), Lückenliste, To-do für den Betreiber. Gebaut: Steam-Login mit Name/Avatar/Profil, Trade-URL, Live-Statistik pro Spieler per Datenbank-Trigger, Skin-Einzahlung über Steam-Trade-Bot (Sicherheitscode, genau eine Gutschrift), Auszahlungs-Warteschlange (Beta: von Hand), KYC im Backoffice, Bot-Dienst im Docker-Stack |
+| 19 | [06-backoffice-und-chat.md § 6](06-backoffice-und-chat.md#6-nachtrag-phase-19-chat-regeln-wortfilter-meldungen) | Chat-Regeln mit Popup, Wortfilter gegen Beleidigungen und Hassrede (inkl. Tricks wie `n1gg3r`, eigene Wörter im Backoffice), Auto-Mute nach drei Treffern, Mindest-Level zum Schreiben, gesperrte Staff-Namen, Melde-Button und Moderator-Warteschlange |
 
 ```bash
 cd platform/engine && npm install && npm test && npm run sim      # 101 Tests, Monte-Carlo (90 × 10 Mio. Runden)
-cd platform/server && npm install && npm test && npm start        # 79 Tests, API auf :8787 (SQLite)
+cd platform/server && npm install && npm test && npm start        # 83 Tests, API auf :8787 (SQLite)
 cd platform/server && npm run test:pg                           # dieselben Tests gegen Postgres
 docker compose -f deploy/docker-compose.yml --env-file deploy/.env up --build   # kompletter Stack auf :8080
 docker compose -f deploy/docker-compose.yml --env-file deploy/.env --profile skins up --build   # dazu der Steam-Trade-Bot (nur mit Lizenz)

@@ -19,7 +19,7 @@ import {
 import type { Beacon } from './beacon';
 import { adminCases, caseVersion, listCases, previewCase, saveCase, setCaseState } from './cases';
 import { type ChainGame, listChains } from './chains';
-import { activeMute, deleteMessage, listMessages, mute, postMessage, unmute } from './chat';
+import { activeMute, chatRules, deleteMessage, listMessages, mute, openReportCount, openReports, postMessage, reportMessage, resolveReport, unmute } from './chat';
 import { checkGeo, withdrawalCheck } from './compliance';
 import { type Clock, type Config, MF_PER_FRAG, ipAllowed } from './config';
 import type { CrashService } from './crash';
@@ -296,8 +296,13 @@ export function createRouter(deps: AppDeps) {
   });
   route('GET', '/chat', async (c) => {
     const s = await resolveSession(db, c.token, clock());
-    return { messages: await listMessages(db, s?.user.id ?? null), rain: await rainState(db, s?.user.id ?? null, clock()), mute: s ? await activeMute(db, s.user.id, clock()) : null, role: s?.user.role ?? null };
+    const staff = s !== null && s.user.role !== 'player';
+    return {
+      messages: await listMessages(db, s?.user.id ?? null), rain: await rainState(db, s?.user.id ?? null, clock()), mute: s ? await activeMute(db, s.user.id, clock()) : null, role: s?.user.role ?? null,
+      rules: chatRules(await getSettings(db)), openReports: staff ? await openReportCount(db) : undefined,
+    };
   });
+  route('POST', '/chat/:id/report', async (c, p) => reportMessage(db, await uid(c), num(Number(p.id), 'id'), c.body?.reason, clock()));
   route('POST', '/chat', async (c) => { const { user } = await c.auth(); return postMessage(db, user, (await progress(db, user.id)).level, c.body?.body, clock()); });
 
   /* ---------- operators ---------- */
@@ -318,6 +323,8 @@ export function createRouter(deps: AppDeps) {
   route('DELETE', '/mod/chat/:id', async (c, p) => deleteMessage(db, (await mod(c)).id, Number(p.id), clock()));
   route('POST', '/mod/mute', async (c) => mute(db, (await mod(c)).id, String(c.body?.userId ?? ''), c.body?.minutes === null ? null : num(c.body?.minutes, 'minutes'), String(c.body?.reason ?? ''), clock()));
   route('DELETE', '/mod/mute/:userId', async (c, p) => unmute(db, (await mod(c)).id, p.userId, clock()));
+  route('GET', '/mod/reports', async (c) => { await mod(c); return openReports(db); });
+  route('PUT', '/mod/reports/:id', async (c, p) => resolveReport(db, (await mod(c)).id, num(Number(p.id), 'id'), c.body?.action, c.body?.minutes, c.body?.note, clock()));
 
   route('GET', '/admin/overview', async (c) => { await admin(c); return overview(db, cfg, clock()); });
   route('GET', '/admin/rtp', async (c) => {

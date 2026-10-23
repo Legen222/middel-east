@@ -8,6 +8,7 @@
  * server-side and never shipped to the client.
  */
 
+import { nameProblem } from './chat-filter';
 import type { DB } from './db';
 
 export const STEAM_OPENID = 'https://steamcommunity.com/openid/login';
@@ -58,10 +59,13 @@ export async function verifyAssertion(db: DB, query: URLSearchParams, expectedRe
 
 export interface SteamProfile { name: string; avatarUrl: string | null; profileUrl: string | null }
 
-/** Persona names may hold anything; the site shows 2–24 visible characters without markup. */
+/**
+ * Persona names may hold anything; the site shows 2–24 visible characters without markup. A name with a slur
+ * or one that looks like staff or the site becomes "Steam ####".
+ */
 export function steamName(raw: unknown, steamId: string): string {
   const n = [...String(raw ?? '').replace(/[\p{Cc}\p{Cf}<>]/gu, '').replace(/\s+/g, ' ').trim()].slice(0, 24).join('').trim();
-  return n.length >= 2 ? n : `Steam ${steamId.slice(-4)}`;
+  return n.length >= 2 && !nameProblem(n) ? n : `Steam ${steamId.slice(-4)}`;
 }
 /** Steam's image hosts; the web CSP (nginx.conf img-src) allows the same ones. */
 const STEAM_CDN = /^https:\/\/(?:(?:[a-z0-9-]+\.)*steamstatic\.com|steamcdn-a\.akamaihd\.net)\/[\w./-]+$/i;

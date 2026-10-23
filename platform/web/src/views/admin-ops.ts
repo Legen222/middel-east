@@ -34,6 +34,9 @@ export async function settingsTab(panel: HTMLElement) {
         <label class="check"><input type="checkbox" name="registrationOpen" ${s.registrationOpen ? 'checked' : ''}> <span>New sign-ups allowed</span></label>
         <label class="check"><input type="checkbox" name="rainEnabled" ${s.rainEnabled ? 'checked' : ''}> <span>Oil Rain opens new rounds</span></label>
         <label class="field">Chat slow mode (seconds between messages)<input name="slow" type="number" min="1" max="60" value="${s.chatSlowModeSeconds}"></label>
+        <label class="field">Level needed to write in chat (staff always can)<input name="chatLevel" type="number" min="1" max="50" value="${s.chatMinLevel}"></label>
+        <label class="field">Extra blocked words for chat and names (one per line; slurs and hate speech are already built in)
+          <textarea name="blocked" rows="4" placeholder="e.g. a rival site's name&#10;a scam phrase">${esc((s.chatBlockedWords ?? []).join('\n'))}</textarea></label>
         <button class="btn" type="submit">Save settings</button>
       </form>
       <p class="muted" style="font-size:12px">Changes reach every open browser within a second and are audited.</p>
@@ -55,6 +58,7 @@ export async function settingsTab(panel: HTMLElement) {
       await api('PUT', '/admin/settings', {
         announcement: text ? { text, tone: f.get('tone') === 'warn' ? 'warn' : 'info' } : null,
         maintenance, registrationOpen: f.get('registrationOpen') === 'on', rainEnabled: f.get('rainEnabled') === 'on', chatSlowModeSeconds: Number(f.get('slow')),
+        chatMinLevel: Number(f.get('chatLevel')), chatBlockedWords: String(f.get('blocked') ?? '').split('\n').map((w) => w.trim()).filter(Boolean),
       });
       toast('Settings saved.');
       await settingsTab(panel);

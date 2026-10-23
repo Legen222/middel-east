@@ -13,6 +13,7 @@ import type { Config } from './config';
 import { type DB, audit, tx } from './db';
 import { fail } from './errors';
 import { createSeed } from './seeds';
+import { nameProblem } from './chat-filter';
 import { getSettings } from './site';
 import { type SteamProfile, parseTradeUrl } from './steam';
 import { FAUCET, balanceOf, transfer, userAccount } from './wallet';
@@ -34,9 +35,13 @@ export async function getUser(db: DB, id: string): Promise<UserRow | undefined> 
   return (await db.prepare('SELECT * FROM users WHERE id = ?').get(id)) as UserRow | undefined;
 }
 
-function validateName(name: string): string {
+/** 2–24 characters, no markup, no slurs (built-in list plus the operator's), nothing that looks like staff. */
+export function validateName(name: string, blocked: readonly string[] = []): string {
   const n = name.trim();
   if (n.length < 2 || n.length > 24 || /[<>]/.test(n)) fail('invalid_name', 'Name: 2 to 24 characters.');
+  const problem = nameProblem(n, blocked);
+  if (problem === 'blocked') fail('invalid_name', 'That name is not allowed. Pick another one.');
+  if (problem === 'reserved') fail('reserved_name', 'Names that look like staff or the site (admin, mod, support …) are reserved. Pick another one.');
   return n;
 }
 
@@ -48,10 +53,11 @@ export async function signUp(db: DB, cfg: Config, input: { displayName: string; 
       const existing = (await db.prepare('SELECT id FROM users WHERE steam_id = ?').get(input.steamId)) as { id: string } | undefined;
       if (existing) return { userId: existing.id, created: false };
     }
-    if (!(await getSettings(db)).registrationOpen) fail('registration_closed', 'New sign-ups are paused right now. Please try again later.', 403);
+    const settings = await getSettings(db);
+    if (!settings.registrationOpen) fail('registration_closed', 'New sign-ups are paused right now. Please try again later.', 403);
     const id = randomBytes(8).toString('hex');
     await db.prepare('INSERT INTO users (id, steam_id, display_name, country, age_confirmed_at, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(id, input.steamId ?? null, validateName(input.displayName), input.country, now, now);
+      .run(id, input.steamId ?? null, validateName(input.displayName, settings.chatBlockedWords), input.country, now, now);
     await createSeed(db, id, randomBytes(8).toString('hex'), now);
     if (cfg.demo) await transfer(db, FAUCET, userAccount(id), cfg.demoStartBalance, 'demo_grant', 'signup', now);
     await audit(db, id, 'signup', { steam: Boolean(input.steamId), ageConfirmed: true, country: input.country }, now);

@@ -600,12 +600,12 @@ describe('operations: chat', () => {
   it('rules: length, links, 3 s pace, mutes, read-only during a break, deletions', async () => {
     const { db, userId } = await setup();
     const u = (await getUser(db, userId))!;
-    assert.equal(await code(() => postMessage(db, u, 1, '   ', T0)), 'invalid_message');
-    assert.equal(await code(() => postMessage(db, u, 1, 'x'.repeat(201), T0)), 'invalid_message');
-    for (const link of ['join https://evil.example', 'www.free-skins', 'discord.gg/abc', 'go to rustskins.gg now']) assert.equal(await code(() => postMessage(db, u, 1, link, T0)), 'no_links', link);
-    const { id } = await postMessage(db, u, 1, 'gl  everyone', T0);
-    assert.equal(await code(() => postMessage(db, u, 1, 'again', T0 + 2999)), 'chat_slow');
-    await postMessage(db, u, 1, 'again', T0 + 3000);
+    assert.equal(await code(() => postMessage(db, u, 2, '   ', T0)), 'invalid_message');
+    assert.equal(await code(() => postMessage(db, u, 2, 'x'.repeat(201), T0)), 'invalid_message');
+    for (const link of ['join https://evil.example', 'www.free-skins', 'discord.gg/abc', 'go to rustskins.gg now']) assert.equal(await code(() => postMessage(db, u, 2, link, T0)), 'no_links', link);
+    const { id } = await postMessage(db, u, 2, 'gl  everyone', T0);
+    assert.equal(await code(() => postMessage(db, u, 2, 'again', T0 + 2999)), 'chat_slow');
+    await postMessage(db, u, 2, 'again', T0 + 3000);
     const msgs = await listMessages(db, userId);
     assert.deepEqual(msgs.map((m) => m.body), ['gl everyone', 'again']);
     assert.ok(msgs.every((m) => m.you && m.kind === 'user'));
@@ -613,13 +613,13 @@ describe('operations: chat', () => {
     await deleteMessage(db, 'mod', id, T0 + 4000);
     assert.deepEqual((await listMessages(db, null)).map((m) => m.body), ['again']);
     await mute(db, 'mod', userId, 10, 'spam', T0 + 5000);
-    assert.equal(await code(() => postMessage(db, u, 1, 'hello?', T0 + 10_000)), 'muted');
-    await postMessage(db, u, 1, 'back', T0 + 5000 + 10 * 60_000);
+    assert.equal(await code(() => postMessage(db, u, 2, 'hello?', T0 + 10_000)), 'muted');
+    await postMessage(db, u, 2, 'back', T0 + 5000 + 10 * 60_000);
     await mute(db, 'mod', userId, null, 'spam again', T0 + 700_000);
     await unmute(db, 'mod', userId, T0 + 701_000);
-    await postMessage(db, u, 1, 'thanks', T0 + 702_000);
+    await postMessage(db, u, 2, 'thanks', T0 + 702_000);
     await startCooldown(db, userId, 24, T0 + 703_000);
-    assert.equal(await code(() => postMessage(db, u, 1, 'hi', T0 + 710_000)), 'rg_blocked');
+    assert.equal(await code(() => postMessage(db, u, 2, 'hi', T0 + 710_000)), 'rg_blocked');
     assert.equal((await db.prepare("SELECT COUNT(*) AS n FROM audit WHERE event LIKE 'mod_%'").get() as { n: number }).n, 4);
   });
   it('the server posts real events only: Oil Rain and big wins', async () => {
@@ -711,6 +711,8 @@ describe('operations: backoffice', () => {
     assert.equal(ov.json.players.total, 2);
     assert.equal(ov.json.ledger.ok, true);
 
+    assert.equal((await call(b, 'POST', '/chat', { body: 'hi all' })).json.error, 'chat_level', 'new accounts read first');
+    assert.equal((await call(a, 'PUT', '/admin/settings', { chatMinLevel: 1 })).status, 200);
     const posted = await call(b, 'POST', '/chat', { body: 'hi all' });
     assert.equal(posted.status, 200);
     assert.equal((await call(b, 'DELETE', `/mod/chat/${posted.json.id}`)).status, 403, 'players cannot moderate');
@@ -730,7 +732,7 @@ describe('operations: backoffice', () => {
     assert.equal(detail.block.kind, 'operator');
     assert.ok(detail.audit.some((e: any) => e.event === 'admin_hold'));
     const log = (await call(a, 'GET', '/admin/audit?event=admin_')).json;
-    assert.deepEqual(log.map((e: any) => e.event), ['admin_hold', 'admin_game_disabled', 'admin_role']);
+    assert.deepEqual(log.map((e: any) => e.event), ['admin_hold', 'admin_game_disabled', 'admin_settings', 'admin_role']);
 
     const prod = createRouter({ ...deps, cfg: { ...DEFAULT_CONFIG, demo: false } });
     const r = await prod.dispatch({ method: 'POST', url: '/demo/role', headers: { 'cf-ipcountry': 'NZ', authorization: `Bearer ${b}` }, body: { role: 'admin' }, ip: 't2' });
@@ -1039,9 +1041,9 @@ describe('admin (phase 11)', () => {
     assert.equal((await minesCashout(db, userId, mines.id, T0 + 4)).status, 'settled', 'cash-out still works');
     assert.equal(await code(() => signUp(db, cfg, { displayName: 'Late', ageConfirmed: true, country: 'NZ' }, T0 + 5)), 'registration_closed');
     const user = (await getUser(db, userId))!;
-    await postMessage(db, user, 1, 'hello', T0 + 10);
-    assert.equal(await code(() => postMessage(db, user, 1, 'again', T0 + 5000)), 'chat_slow');
-    await postMessage(db, user, 1, 'again', T0 + 10_010);
+    await postMessage(db, user, 2, 'hello', T0 + 10);
+    assert.equal(await code(() => postMessage(db, user, 2, 'again', T0 + 5000)), 'chat_slow');
+    await postMessage(db, user, 2, 'again', T0 + 10_010);
     await rainTick(db, cfg, T0 + 6);
     assert.equal(((await db.prepare('SELECT COUNT(*) AS n FROM rain_rounds').get()) as { n: number }).n, 0, 'no new Oil Rain while switched off');
     await setSettings(db, userId, { maintenance: false, announcement: null }, T0 + 7);
@@ -1926,3 +1928,85 @@ describe('skin rail: Steam deposits through the bot, withdrawals for operators',
   });
 });
 const PRICE_MAX_AGE = 6 * HOUR;
+
+/* ---------- chat rules: word filter, reserved names, level gate, reports ---------- */
+import { blockedWord, reservedName } from '../src/chat-filter';
+import { openReports, reportMessage, resolveReport } from '../src/chat';
+
+describe('chat rules and reports', () => {
+  it('the word filter sees through the usual dodges and leaves normal words and swearing alone', () => {
+    for (const t of ['N1GG3R', 'n i g g e r', 'n.i.g.g.e.r', 'niiiiggggerrr', 'nïggér', 'you fag', 'f@ggot', 'k.y.s', 'kill urself', 'KILL   YOUR   SELF', 'sieg heil', 'du schwuchtel', 'retards lol']) {
+      assert.ok(blockedWord(t), t);
+    }
+    for (const t of ['snigger', 'he was sniggering', 'Niger is a country', 'raccoon', 'shit roll', 'fuck this crash', 'retardant', 'skill yourself up', 'kill your base', 'gg wp']) {
+      assert.equal(blockedWord(t), null, t);
+    }
+    assert.equal(blockedWord('buy at rustcheap now', ['RustCheap']), 'rustcheap', 'operator words, as part of longer words from 5 letters');
+    assert.equal(blockedWord('buy at rust.cheap now', ['RustCheap']), 'rustcheap', 'and across dots or spaces');
+    assert.equal(blockedWord('that is a scam site', ['scam site']), 'scam site');
+    assert.equal(blockedWord('scam', ['scam site']), null);
+  });
+  it('names that look like staff or the site are reserved, everywhere a name is set', async () => {
+    for (const n of ['Admin', '4dm1n', 'Site_Supp0rt', 'TeamScrapline', 'Mod Max', 'Mod3rator', 'Bot', 'OFFICIAL']) assert.ok(reservedName(n), n);
+    for (const n of ['Badminton King', 'Modern Warfare', 'Robot', 'Steam 1234', 'Rust Rat']) assert.equal(reservedName(n), false, n);
+    const { db, cfg, userId } = await setup();
+    assert.equal(await code(() => signUp(db, cfg, { displayName: 'Support Team', ageConfirmed: true, country: 'NZ' }, T0)), 'reserved_name');
+    assert.equal(await code(() => signUp(db, cfg, { displayName: 'n1gg3r', ageConfirmed: true, country: 'NZ' }, T0)), 'invalid_name');
+    assert.equal(await code(() => updateProfile(db, userId, { displayName: 'Scrapline Mod' }, T0 + NAME_CHANGE_COOLDOWN_MS)), 'reserved_name');
+    await setSettings(db, 'op', { chatBlockedWords: ['rustcheap'] }, T0);
+    assert.equal(await code(() => updateProfile(db, userId, { displayName: 'RustCheapGG' }, T0 + NAME_CHANGE_COOLDOWN_MS)), 'invalid_name');
+    assert.equal(steamName('ADMIN', '76561198000004321'), 'Steam 4321', 'Steam names that pose as staff are replaced');
+  });
+  it('level gate, blocked words with strikes and an automatic mute', async () => {
+    const { db, userId } = await setup();
+    const u = (await getUser(db, userId))!;
+    assert.equal(await code(() => postMessage(db, u, 1, 'hi', T0)), 'chat_level');
+    assert.ok((await postMessage(db, { ...u, role: 'moderator' }, 1, 'staff can always write', T0)).id > 0);
+    await setSettings(db, 'op', { chatMinLevel: 5 }, T0);
+    assert.equal(await code(() => postMessage(db, u, 4, 'hi', T0 + 10_000)), 'chat_level');
+    await setSettings(db, 'op', { chatMinLevel: 2 }, T0);
+    assert.equal(await code(() => setSettings(db, 'op', { chatMinLevel: 0 }, T0)), 'invalid_params');
+    assert.equal(await code(() => setSettings(db, 'op', { chatBlockedWords: 'x' }, T0)), 'invalid_params');
+    assert.equal(await code(() => postMessage(db, u, 2, 'gg you n1gg3r', T0 + 20_000)), 'blocked_word');
+    assert.equal(await code(() => postMessage(db, u, 2, 'k y s', T0 + 21_000)), 'blocked_word');
+    assert.deepEqual((await listMessages(db, null)).map((m) => m.body), ['staff can always write'], 'nothing refused is stored');
+    let err: AppError | null = null;
+    try { await postMessage(db, u, 2, 'kill urself', T0 + 22_000); } catch (e) { err = e as AppError; }
+    assert.equal(err?.code, 'blocked_word');
+    assert.match(err!.message, /muted until/);
+    assert.equal(await code(() => postMessage(db, u, 2, 'sorry', T0 + 30_000)), 'muted', 'third strike in 10 minutes mutes for 15');
+    await postMessage(db, u, 2, 'sorry', T0 + 22_000 + 15 * 60_000);
+    assert.equal((await auditLog(db, { event: 'chat_auto_mute' })).length, 1);
+  });
+  it('reports: three players hide a message; moderators dismiss, delete or mute; no self, system or repeat reports', async () => {
+    const { db, cfg, userId } = await setup();
+    const u = (await getUser(db, userId))!;
+    const others: string[] = [];
+    for (const n of ['Ann', 'Ben', 'Cid', 'Dee']) others.push((await signUp(db, cfg, { displayName: n, ageConfirmed: true, country: 'NZ' }, T0)).userId);
+    const { id } = await postMessage(db, u, 2, 'cheap skins dm me', T0);
+    assert.equal(await code(() => reportMessage(db, userId, id, 'spam', T0)), 'invalid_params', 'not your own');
+    assert.equal(await code(() => reportMessage(db, others[0], id, 'because', T0)), 'invalid_params');
+    assert.deepEqual(await reportMessage(db, others[0], id, 'scam', T0 + 1), { ok: true, hidden: false });
+    assert.deepEqual(await reportMessage(db, others[0], id, 'spam', T0 + 2), { ok: true, hidden: false }, 'a second report by the same player counts once');
+    await reportMessage(db, others[1], id, 'scam', T0 + 3);
+    assert.deepEqual(await reportMessage(db, others[2], id, 'spam', T0 + 4), { ok: true, hidden: true });
+    assert.equal((await listMessages(db, null)).some((m) => m.id === id), false, 'hidden until a moderator decides');
+    let queue = await openReports(db);
+    assert.equal(queue.length, 1);
+    assert.deepEqual({ reports: queue[0].reports, state: queue[0].state, reasons: queue[0].reasons }, { reports: 3, state: 'hidden', reasons: { scam: 2, spam: 1 } });
+    await resolveReport(db, 'mod', id, 'dismiss', null, 'not a scam, just a joke', T0 + 10);
+    assert.ok((await listMessages(db, null)).some((m) => m.id === id), 'dismiss shows it again');
+    assert.equal((await openReports(db)).length, 0);
+    assert.equal(await code(() => resolveReport(db, 'mod', id, 'delete', null, '', T0 + 11)), 'not_found', 'nothing open any more');
+
+    const second = await postMessage(db, u, 2, 'still selling', T0 + 60_000);
+    await reportMessage(db, others[3], second.id, 'spam', T0 + 60_001);
+    assert.equal((await openReports(db))[0].state, 'visible');
+    await resolveReport(db, 'mod', second.id, 'mute', 60, 'trading in chat', T0 + 60_002);
+    assert.equal(await code(() => postMessage(db, u, 2, 'why', T0 + 70_000)), 'muted');
+    assert.equal((await listMessages(db, null)).some((m) => m.id === second.id), false);
+    const sys = (await db.prepare("INSERT INTO chat_messages (user_id, name, kind, body, created_at) VALUES (NULL, 'SCRAPLINE', 'win', 'big win', ?) RETURNING id").get(T0)) as { id: number };
+    assert.equal(await code(() => reportMessage(db, others[0], Number(sys.id), 'spam', T0)), 'invalid_params');
+    assert.ok((await auditLog(db, { event: 'mod_report_' })).length >= 2);
+  });
+});

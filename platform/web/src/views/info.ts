@@ -22,7 +22,7 @@ export const termsView: View = {
     ['2 · Who may play', '<p>You must be at least 18 years old and confirm this when you sign up. Access from sanctioned countries is blocked. One account per person.</p>'],
     ['3 · Fair play', `<p>Every game publishes its maths and its house edge; ${GAMES.length} games, RTP 93 % to 99.31 %. Every round can be replayed from its seeds on the <a href="#/fair">Provably fair</a> page and in the <a href="#/verify">Verifier</a>. PvP seats and jackpot entries marked “Demo bot” are filled by the house with play money.</p>`],
     ['4 · Limits and breaks', '<p>You can set deposit, wager and loss limits, take a break or exclude yourself on <a href="#/limits">Responsible play</a>. Lower limits apply at once; higher limits and removals only after a waiting period.</p>'],
-    ['5 · Conduct', '<p>Chat: no links, no begging, no trading, no harassment. Moderators can delete messages and mute accounts. Operators can put an account on hold; every operator action is audited.</p>'],
+    ['5 · Conduct', '<p>Chat: no slurs, hate speech, harassment or threats; no links or advertising; no begging, trading or selling; no names or messages that pose as staff. Staff carry a MOD or ADMIN badge and never ask for passwords, Steam Guard codes or items. Messages caught by the word filter are refused; repeated attempts mute the account. Players can report messages, and moderators can delete messages and mute accounts. Operators can put an account on hold; every operator action is audited.</p>'],
     ['6 · Changes and resets', '<p>Game rules, crates and limits can change; a crate edit never changes a round that already started, and old versions stay verifiable. The browser demo can be reset at any time with “Reset demo”.</p>'],
   ]),
 };
@@ -45,6 +45,7 @@ export const privacyView: View = {
 };
 
 const FAQ: [string, string][] = [
+  ['Why can I not write in chat?', 'Chat unlocks at a small level so throwaway spam accounts stay out; play a few rounds and it opens. Reading is open to everyone. A break, self-exclusion or a mute also makes the chat read-only. The rules are under “Chat rules” below the chat.'],
   ['How do I get Frags?', 'Every new account starts with play money. When your balance runs low, refill it in the <a href="#/wallet">Wallet</a> once a day. Rewards, rakeback and the Oil Rain in the chat add more.'],
   ['What do RTP and house edge mean?', 'RTP is the share of all stakes a game pays back over many rounds; the house edge is the rest. Dice pays back 98 %, so the edge is 2 %. Every game page shows both.'],
   ['How do I check a round?', 'Open it in <a href="#/history">History</a> and press “Verify in browser”. Your own games need the server seed first: rotate your seed on <a href="#/fair">Provably fair</a> and it is revealed. Shared games (crash, wheel, PvP, jackpot) can be checked right after the round.'],

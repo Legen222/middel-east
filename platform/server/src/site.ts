@@ -5,6 +5,8 @@
  *   maintenance       pauses every game at once; cash-outs of running rounds keep working
  *   registrationOpen  new sign-ups allowed (existing accounts can always sign in)
  *   chatSlowModeSeconds  minimum gap between two messages of one player (1–60)
+ *   chatMinLevel      level a player needs to write in chat (staff always can); keeps throwaway spam accounts out
+ *   chatBlockedWords  the operator's own additions to the built-in slur filter (chat-filter.ts)
  *   rainEnabled       new Oil Rain rounds open (a running one still pays out)
  */
 
@@ -17,10 +19,14 @@ export interface SiteSettings {
   maintenance: boolean;
   registrationOpen: boolean;
   chatSlowModeSeconds: number;
+  chatMinLevel: number;
+  chatBlockedWords: string[];
   rainEnabled: boolean;
 }
 
-export const DEFAULT_SETTINGS: SiteSettings = { announcement: null, maintenance: false, registrationOpen: true, chatSlowModeSeconds: 3, rainEnabled: true };
+export const DEFAULT_SETTINGS: SiteSettings = {
+  announcement: null, maintenance: false, registrationOpen: true, chatSlowModeSeconds: 3, chatMinLevel: 2, chatBlockedWords: [], rainEnabled: true,
+};
 const KEYS = Object.keys(DEFAULT_SETTINGS) as (keyof SiteSettings)[];
 
 export async function getSettings(db: DB): Promise<SiteSettings> {
@@ -43,6 +49,18 @@ function validate(key: keyof SiteSettings, v: unknown): unknown {
       const n = Number(v);
       if (!Number.isInteger(n) || n < 1 || n > 60) fail('invalid_params', 'Chat slow mode: 1 to 60 seconds.');
       return n;
+    }
+    case 'chatMinLevel': {
+      const n = Number(v);
+      if (!Number.isInteger(n) || n < 1 || n > 50) fail('invalid_params', 'Chat level: 1 to 50.');
+      return n;
+    }
+    case 'chatBlockedWords': {
+      if (!Array.isArray(v)) fail('invalid_params', 'Blocked words: a list.');
+      const list = [...new Set((v as unknown[]).map((w) => String(w ?? '').trim().toLowerCase()).filter(Boolean))];
+      if (list.length > 300) fail('invalid_params', 'Blocked words: at most 300 entries.');
+      for (const w of list) if (w.length < 2 || w.length > 60) fail('invalid_params', `Blocked words: 2 to 60 characters each ("${w.slice(0, 20)}").`);
+      return list;
     }
     default:
       if (typeof v !== 'boolean') fail('invalid_params', `${key} must be true or false.`);

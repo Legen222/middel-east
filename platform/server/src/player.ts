@@ -14,6 +14,8 @@ import { fail } from './errors';
 import { betDetail } from './explorer';
 import { GAME_IDS, GAME_NAME, type GameId } from './flags';
 import { userAccount } from './wallet';
+import { validateName } from './accounts';
+import { getSettings } from './site';
 
 const f = (mf: number) => Number(mf) / MF_PER_FRAG;
 const gameOf = (g: string) => ((GAME_IDS as readonly string[]).includes(g) ? (g as GameId) : null);
@@ -132,8 +134,7 @@ export async function updateProfile(db: DB, userId: string, input: { displayName
     fail('steam_name', 'Your name comes from Steam. Change it on Steam and sign in again.', 409);
   }
   if (input.displayName !== undefined) {
-    const n = String(input.displayName ?? '').trim();
-    if (n.length < 2 || n.length > 24 || /[<>]/.test(n)) fail('invalid_name', 'Name: 2 to 24 characters.');
+    const n = validateName(String(input.displayName ?? ''), (await getSettings(db)).chatBlockedWords);
     if (n !== u!.display_name) {
       const last = u!.name_changed_at === null ? null : Number(u!.name_changed_at);
       if (last !== null && now - last < NAME_CHANGE_COOLDOWN_MS) fail('name_cooldown', 'You can change your name once every 24 hours.', 429, { retryAt: last + NAME_CHANGE_COOLDOWN_MS });

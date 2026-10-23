@@ -959,3 +959,19 @@ body.drawer-open{overflow:hidden}
   .skin img,.skin-ph{width:76px;height:58px}
   .sec-code{align-items:flex-start}
 }
+
+/* ---------- chat rules, reports, moderation queue ---------- */
+.chat-head-r{display:flex;align-items:center;gap:8px}
+.chip-btn{font:600 11px/1 var(--mono);padding:5px 8px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer}
+.chip-btn:hover{color:var(--text);border-color:var(--bp-dim)}
+.chip-btn.hot{color:var(--brass-hi);border-color:var(--brass);box-shadow:0 0 12px color-mix(in srgb,var(--brass) 30%,transparent)}
+.linkish{border:0;background:none;padding:0;font:inherit;color:var(--bp);text-decoration:underline;cursor:pointer}
+.rules-list{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:9px;font-size:14px;line-height:1.5}
+.rules-list li::marker{color:var(--bp);font:600 12px var(--mono)}
+.rules-list .badge{font:600 9px/1 var(--mono);letter-spacing:.1em;padding:3px 5px;border-radius:3px;border:1px solid var(--brass);color:var(--brass);vertical-align:1px}
+.reasons{display:flex;flex-direction:column;gap:8px}
+.reports{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;max-height:60vh;overflow:auto}
+.reports li{border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;display:flex;flex-direction:column;gap:6px;background:var(--surface)}
+.rep-body{margin:0;padding:6px 8px;border-left:2px solid var(--lose);background:var(--lose-dim);border-radius:0 6px 6px 0;font-size:14px;overflow-wrap:anywhere}
+.msg .mod button[data-report]:hover{border-color:var(--brass);color:var(--brass)}
+.field textarea{font:13px/1.4 var(--mono);background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:var(--r);padding:8px 10px;resize:vertical}
