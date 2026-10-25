@@ -20,6 +20,7 @@
 | 18 | [10-online-plan.md](10-online-plan.md) | Weg online: Namensvorschläge (Empfehlung OILRIG), Lückenliste, To-do für den Betreiber. Gebaut: Steam-Login mit Name/Avatar/Profil, Trade-URL, Live-Statistik pro Spieler per Datenbank-Trigger, Skin-Einzahlung über Steam-Trade-Bot (Sicherheitscode, genau eine Gutschrift), Auszahlungs-Warteschlange (Beta: von Hand), KYC im Backoffice, Bot-Dienst im Docker-Stack |
 | 19 | [06-backoffice-und-chat.md § 6](06-backoffice-und-chat.md#6-nachtrag-phase-19-chat-regeln-wortfilter-meldungen) | Chat-Regeln mit Popup, Wortfilter gegen Beleidigungen und Hassrede (inkl. Tricks wie `n1gg3r`, eigene Wörter im Backoffice), Auto-Mute nach drei Treffern, Mindest-Level zum Schreiben, gesperrte Staff-Namen, Melde-Button und Moderator-Warteschlange |
 | 20 | – | Währung heißt jetzt **Scrap** (vorher Frags), überall in Oberfläche, API-Texten, Prüfer und Dokumenten; eigenes Scrap-Symbol (Metallplatten mit Messing-Mutter) neben Guthaben, Einsätzen, Kistenpreisen, Gewinnen, Skins und Oil Rain. 100 Scrap = 1 $, die Rechnung intern (Milli-Einheiten, Ledger) bleibt gleich. |
+| 21 | [11-bildgenerierung.md](11-bildgenerierung.md) | KI-Bilder: Claude führt (Briefings, Auswahl, Einbau), das OpenAI-Bildmodell zeichnet. Generator `platform/web/tools/imagegen.mjs`, 40 Motive beschrieben (20 Kisten, 15 Spielkacheln, Lobby-Banner, 4 Slider). Wartet auf `OPENAI_API_KEY` und die Netzwerk-Freigabe für `api.openai.com`. |
 
 ```bash
 cd platform/engine && npm install && npm test && npm run sim      # 101 Tests, Monte-Carlo (90 × 10 Mio. Runden)

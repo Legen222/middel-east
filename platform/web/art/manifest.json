@@ -1,0 +1,319 @@
+{
+  "$comment": "Briefs for tools/imagegen.mjs. style + kinds[kind].style + prompt are joined into one prompt. Change a brief, and the next run's variants carry a new brief hash in their log.",
+  "defaultVariants": 2,
+  "style": "Original stylized game art for a dark, premium web app set in a post-apocalyptic survival world built from scrap. Semi-realistic 3D render with clean hard-surface modelling: worn painted metal, rust patina, rivets, bolts, scratched edges. Cool cyan rim light with a subtle violet accent, warm brass highlights. Crisp, high contrast, readable at small sizes, consistent lighting from the upper left. No text, letters, numbers or symbols with writing, no logos, no watermarks, no UI elements, no people's faces. Not in the style of any specific existing game; no recognizable trademarks or brand designs.",
+  "kinds": {
+    "crate": {
+      "style": "A single object, centered, three-quarter view from slightly above, filling about 80 % of the frame, soft contact shadow directly under it, nothing else in the scene, transparent background.",
+      "settings": {
+        "size": "1024x1024",
+        "quality": "high",
+        "background": "transparent",
+        "output_format": "webp",
+        "output_compression": 90
+      }
+    },
+    "tile": {
+      "style": "Moody graphite-black backdrop. Portrait game cover illustration. The subject sits in the lower two thirds; the top third is calm, dark, low-detail space for a title overlay. Edge-to-edge scene, cinematic depth of field.",
+      "settings": {
+        "size": "1024x1536",
+        "quality": "medium",
+        "background": "opaque",
+        "output_format": "webp",
+        "output_compression": 85
+      }
+    },
+    "banner": {
+      "style": "Moody graphite-black backdrop. Wide cinematic banner. The focal subject sits in the right half; the left 45 % is dark, low-detail negative space for a headline. Edge-to-edge scene.",
+      "settings": {
+        "size": "1536x1024",
+        "quality": "high",
+        "background": "opaque",
+        "output_format": "webp",
+        "output_compression": 85
+      }
+    }
+  },
+  "assets": [
+    {
+      "id": "crate-barrel",
+      "kind": "crate",
+      "batch": "v1",
+      "for": "crate image: Barrel",
+      "prompt": "The object: a dented blue-grey steel drum standing upright, rust streaks running down from the rim, a few scratches. Humble, cheapest tier: no glow."
+    },
+    {
+      "id": "crate-oil-barrel",
+      "kind": "crate",
+      "batch": "v1",
+      "for": "crate image: Oil Barrel",
+      "prompt": "The object: a red fuel drum with yellow hazard stripes and a leaking cap, a thin oily sheen on the metal. Cheap tier: no glow."
+    },
+    {
+      "id": "crate-wooden-crate",
+      "kind": "crate",
+      "batch": "v1",
+      "for": "crate image: Wooden Crate",
+      "prompt": "The object: a rough-plank wooden crate with bent steel corner brackets and a frayed rope handle. Cheap tier: no glow."
+    },
+    {
+      "id": "crate-ration-box",
+      "kind": "crate",
+      "batch": "v1",
+      "for": "crate image: Ration Box",
+      "prompt": "The object: a compact olive-green ration box with a canvas strap and a clipped lid, worn paint. Cheap tier."
+    },
+    {
+      "id": "crate-food-box",
+      "kind": "crate",
+      "batch": "v1",
+      "for": "crate image: Food Box",
+      "prompt": "The object: two weathered tin food boxes stacked and tied with twine, one lid slightly open. Cheap tier."
+    },
+    {
+      "id": "crate-toolbox",
+      "kind": "crate",
+      "batch": "v1",
+      "for": "crate image: Tool Box",
+      "prompt": "The object: a battered red metal toolbox with its lid half open, wrench handles sticking out. Low-mid tier: a faint warm reflection."
+    },
+    {
+      "id": "crate-medical-crate",
+      "kind": "crate",
+      "batch": "v1",
+      "for": "crate image: Medical Crate",
+      "prompt": "The object: a mint-green field medical case with first-aid straps and a plus-shaped white latch (no red cross emblem). Low-mid tier."
+    },
+    {
+      "id": "crate-military-crate",
+      "kind": "crate",
+      "batch": "style-test",
+      "for": "crate image: Military Crate",
+      "prompt": "The object: a long olive-drab military crate with heavy steel latches and blank stencil panels. Mid tier: faint cyan reflections on the latches."
+    },
+    {
+      "id": "crate-supply-drop",
+      "kind": "crate",
+      "batch": "v1",
+      "for": "crate image: Supply Drop",
+      "prompt": "The object: a steel supply container hanging from a small collapsed parachute, a purple smoke flare fizzing beside it. Mid tier: subtle glow from the flare."
+    },
+    {
+      "id": "crate-elite-crate",
+      "kind": "crate",
+      "batch": "v1",
+      "for": "crate image: Elite Crate",
+      "prompt": "The object: a heavy dark-grey armored crate with glowing cyan seams along its edges. Upper-mid tier: noticeable cyan glow."
+    },
+    {
+      "id": "crate-locked-crate",
+      "kind": "crate",
+      "batch": "v1",
+      "for": "crate image: Locked Crate",
+      "prompt": "The object: a large reinforced steel crate wrapped in chains, an electronic lock panel blinking red. Upper tier: red and cyan light."
+    },
+    {
+      "id": "crate-bradley-crate",
+      "kind": "crate",
+      "batch": "v1",
+      "for": "crate image: Bradley Crate",
+      "prompt": "The object: a scorched armored crate with embers drifting off it, as if pulled from a burning armored vehicle. Upper tier: orange ember glow."
+    },
+    {
+      "id": "crate-heli-crate",
+      "kind": "crate",
+      "batch": "v1",
+      "for": "crate image: Heli Crate",
+      "prompt": "The object: an armored crate with a twisted rotor blade leaning against it and smoke curling up. Upper tier: smoke lit in cyan."
+    },
+    {
+      "id": "crate-oil-rig",
+      "kind": "crate",
+      "batch": "v1",
+      "for": "crate image: Large Oil Rig",
+      "prompt": "The object: a wet industrial steel container with a relief of an offshore drilling rig on its side, water dripping, sodium-orange and cyan lights. High tier."
+    },
+    {
+      "id": "crate-cargo-ship",
+      "kind": "crate",
+      "batch": "v1",
+      "for": "crate image: Cargo Ship",
+      "prompt": "The object: a miniature orange corrugated shipping container with its doors cracked open and light spilling out. High tier: bright inner glow."
+    },
+    {
+      "id": "crate-underwater-lab",
+      "kind": "crate",
+      "batch": "v1",
+      "for": "crate image: Underwater Lab",
+      "prompt": "The object: a pressurized canister with round portholes, strands of kelp and rising bubbles, glowing teal from inside. High tier."
+    },
+    {
+      "id": "crate-launch-site",
+      "kind": "crate",
+      "batch": "v1",
+      "for": "crate image: Launch Site",
+      "prompt": "The object: a rocket-shaped steel capsule crate standing on a small launch cradle, warning lights on its fins. Very high tier: violet and cyan glow."
+    },
+    {
+      "id": "crate-large-present",
+      "kind": "crate",
+      "batch": "v1",
+      "for": "crate image: Large Present",
+      "prompt": "The object: a big gift box wrapped in hammered scrap-metal sheets, tied with a copper-wire ribbon and bow. Very high tier: warm brass glow."
+    },
+    {
+      "id": "crate-missile-silo",
+      "kind": "crate",
+      "batch": "v1",
+      "for": "crate image: Missile Silo",
+      "prompt": "The object: a heavy cylindrical vault container with chevron warning stripes and a glowing core window. Top tier: intense violet glow."
+    },
+    {
+      "id": "crate-gold-egg",
+      "kind": "crate",
+      "batch": "v1",
+      "for": "crate image: Gold Egg",
+      "prompt": "The object: an ornate golden egg with engraved panels and fine brass filigree, softly glowing, the single most precious item. Top tier: radiant golden glow."
+    },
+    {
+      "id": "tile-towers",
+      "kind": "tile",
+      "batch": "v1",
+      "for": "game tile: Monument Run",
+      "prompt": "The scene: a ruined multi-storey concrete monument building at night, rows of dark windows climbing upward, one keycard glowing cyan high on the top floor."
+    },
+    {
+      "id": "tile-raid",
+      "kind": "tile",
+      "batch": "v1",
+      "for": "game tile: Raid",
+      "prompt": "The scene: a fortified scrap-metal door with explosive charges strapped to it, a fuse sparking, the moment before detonation."
+    },
+    {
+      "id": "tile-mines",
+      "kind": "tile",
+      "batch": "v1",
+      "for": "game tile: Minefield",
+      "prompt": "The scene: a fenced field of square dirt plots seen from above at an angle, a few half-buried landmines and several glowing green safe markers."
+    },
+    {
+      "id": "tile-dice",
+      "kind": "tile",
+      "batch": "v1",
+      "for": "game tile: Dice",
+      "prompt": "The scene: two chunky machined-metal dice with drilled pips tumbling mid-air above a scarred workbench, slight motion blur."
+    },
+    {
+      "id": "tile-airdrop",
+      "kind": "tile",
+      "batch": "v1",
+      "for": "game tile: Airdrop",
+      "prompt": "The scene: a supply crate dropping under a parachute through dark clouds, a green signal flare burning on the ground far below."
+    },
+    {
+      "id": "tile-plinko",
+      "kind": "tile",
+      "batch": "v1",
+      "for": "game tile: Scrap Chute",
+      "prompt": "The scene: a tall vertical chute with rows of steel pegs, a glowing brass nut bouncing down between them, collecting bins at the bottom."
+    },
+    {
+      "id": "tile-upgrader",
+      "kind": "tile",
+      "batch": "v1",
+      "for": "game tile: Workbench",
+      "prompt": "The scene: a workbench with a large circular gauge and needle, an item lifted in a cone of cyan light being upgraded."
+    },
+    {
+      "id": "tile-blackjack",
+      "kind": "tile",
+      "batch": "v1",
+      "for": "game tile: Blackjack",
+      "prompt": "The scene: playing cards stamped from thin metal sheets fanned out on a scrap-wood table, a card shoe built from an old toolbox."
+    },
+    {
+      "id": "tile-hilo",
+      "kind": "tile",
+      "batch": "v1",
+      "for": "game tile: Hi-Lo",
+      "prompt": "The scene: a single oversized metal playing card standing upright, an up-arrow lamp glowing cyan above it and a down-arrow lamp glowing violet below."
+    },
+    {
+      "id": "tile-crash",
+      "kind": "tile",
+      "batch": "style-test",
+      "for": "game tile: Scrap Press",
+      "prompt": "The scene: a hydraulic scrap press rising out of the ground, a glowing line climbing steeply beside it, pressure gauges in the red."
+    },
+    {
+      "id": "tile-wheel",
+      "kind": "tile",
+      "batch": "v1",
+      "for": "game tile: Bandit Wheel",
+      "prompt": "The scene: a big spinning wheel built from a rusty cable spool with painted coloured segments, in a bandit camp at night with string lights."
+    },
+    {
+      "id": "tile-jackpot",
+      "kind": "tile",
+      "batch": "v1",
+      "for": "game tile: Jackpot",
+      "prompt": "The scene: a heavy iron cooking pot overflowing with glowing scrap pieces and brass nuts, lit by a campfire."
+    },
+    {
+      "id": "tile-cases",
+      "kind": "tile",
+      "batch": "v1",
+      "for": "game tile: Crate opening",
+      "prompt": "The scene: three crates in a row on a workbench, the middle one bursting open with bright light and flying scrap."
+    },
+    {
+      "id": "tile-battle",
+      "kind": "tile",
+      "batch": "v1",
+      "for": "game tile: Case Battle",
+      "prompt": "The scene: two crates facing each other across a metal table, one lit cyan, the other violet, sparks arcing between them."
+    },
+    {
+      "id": "tile-coinflip",
+      "kind": "tile",
+      "batch": "v1",
+      "for": "game tile: Coinflip",
+      "prompt": "The scene: a large stamped metal coin spinning in mid-air, one face rusty, the other bright polished steel, sparks trailing."
+    },
+    {
+      "id": "hero",
+      "kind": "banner",
+      "batch": "style-test",
+      "for": "Lobby hero",
+      "prompt": "The scene: a scrapyard workshop at night: towering stacks of crates and barrels, a glowing workbench, cyan neon tubes, brass sparks drifting."
+    },
+    {
+      "id": "promo-crates",
+      "kind": "banner",
+      "batch": "v1",
+      "for": "Promo: twenty crates",
+      "prompt": "The scene: a tall shelf of twenty different crates, from a plain barrel at the bottom to a radiant golden egg at the top."
+    },
+    {
+      "id": "promo-battle",
+      "kind": "banner",
+      "batch": "v1",
+      "for": "Promo: bonus battles",
+      "prompt": "The scene: four crates arranged around a glowing arena table, energy beams between them, one crate erupting with a golden burst."
+    },
+    {
+      "id": "promo-fair",
+      "kind": "banner",
+      "batch": "v1",
+      "for": "Promo: provably fair",
+      "prompt": "The scene: a transparent glass cube on a workbench with a glowing seed of light inside, fine lines of light connecting it to small sealed boxes."
+    },
+    {
+      "id": "promo-rain",
+      "kind": "banner",
+      "batch": "v1",
+      "for": "Promo: oil rain",
+      "prompt": "The scene: dark oily rain falling over a camp at night, glowing scrap pieces falling with the drops, a lantern lighting the scene."
+    }
+  ]
+}

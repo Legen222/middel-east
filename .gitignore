@@ -5,3 +5,4 @@ dist
 .cache
 platform/server/data
 deploy/.env
+platform/web/art/out
