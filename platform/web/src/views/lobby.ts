@@ -1,25 +1,23 @@
 import { api } from '../api';
-import { gameArt, heroSheet } from '../art';
+import { gameArt } from '../art';
 import { crateArt } from '../loot-art';
 import { CATEGORIES, GAMES, type GameMeta, gameName } from '../games';
 import { icon } from '../icons';
 import type { View } from '../main';
-import { $, animateNumber, esc, frags, pct, reducedMotion, scrap } from '../ui';
+import { $, esc, frags, pct, reducedMotion, scrap } from '../ui';
 
-/* Ribbon text on the tall phone tiles (the desktop shows the short tag). */
+/* Ribbon on the game tiles. */
 const RIBBON: Record<string, string> = { NEW: 'New update!', LIVE: 'Live now', SIGNATURE: 'Top pick' };
 
 const tile = (g: GameMeta, i: number) => `
   <a class="tile ${g.tag === 'SIGNATURE' ? 'sig' : ''}" href="#/${g.path}" data-game="${g.id}" data-cat="${g.cat}" style="--t:${i}">
     <div class="art-box">${gameArt(g.id)}</div>
-    ${g.tag ? `<span class="flag ${g.tag}"><span class="d-only">${g.tag}</span><span class="m-only">${RIBBON[g.tag]}</span></span>` : ''}
+    ${g.tag ? `<span class="flag ${g.tag}">${RIBBON[g.tag]}</span>` : ''}
     <span class="paused-tag" hidden>PAUSED</span>
     <div class="body"><b>${g.name}</b><span class="line">${g.line}</span><span class="meta"><span>RTP</span><em>${g.rtp}</em></span></div>
   </a>`;
 
-const corners = '<span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>';
-
-/* Phone carousel: our own highlights, each a real page. */
+/* Highlight carousel: our own highlights, each a real page. */
 const SLIDES: { href: string; kicker: string; title: string; text: string; cta: string; art: () => string; tone: string }[] = [
   { href: '#/cases', kicker: 'Crate opening', title: 'Twenty crates', text: '$1 to $1,500 · 93 % RTP each', cta: 'Open a crate', art: () => crateArt('gold-egg', 150_000), tone: 'brass' },
   { href: '#/battle', kicker: 'Case Battle', title: 'Bonus battles', text: 'Power rounds, jackpot drops, a final spin', cta: 'Start a battle', art: () => gameArt('battle'), tone: 'bp' },
@@ -40,20 +38,20 @@ const FREE: { href: string; icon: string; title: string; text: string; demoOnly?
 export const lobbyView: View = {
   title: 'Lobby',
   html: (c) => `
-    <section class="mhero m-only" aria-label="Welcome">
-      <p class="mh-pre">Welcome to</p>
-      <h1 class="mh-brand">SCRAPLINE</h1>
-      <p class="mh-tag">Rust originals with an open blueprint</p>
+    <section class="mhero" aria-label="Welcome">
+      <div class="wl-copy"><p class="mh-pre">Welcome to</p>
+        <h1 class="mh-brand">SCRAPLINE</h1>
+        <p class="mh-tag">Rust originals with an open blueprint</p></div>
       <p class="mh-online"><span class="live-dot"></span><b class="num" id="mh-online">–</b> online<span class="sep">·</span><b class="num" id="mh-rounds">–</b> rounds today</p>
-      ${c.guest ? `<button class="btn cta block" type="button" data-signup-inline>${c.cfg.demo ? `Sign up · ${scrap(c.cfg.demoStartBalance ?? 0, 0)} play money` : 'Sign in with Steam'}</button>` : ''}
+      ${c.guest ? `<button class="btn cta block m-only" type="button" data-signup-inline>${c.cfg.demo ? `Sign up · ${scrap(c.cfg.demoStartBalance ?? 0, 0)} play money` : 'Sign in with Steam'}</button>` : ''}
     </section>
 
-    <section class="wins m-only" aria-label="Live wins">
+    <section class="wins" aria-label="Live wins">
       <div class="wins-head"><p class="eyebrow"><span class="live-dot"></span> Live wins</p></div>
       <div class="wins-track" id="wins"><p class="muted" style="font-size:13px">Loading …</p></div>
     </section>
 
-    <section class="promo m-only" aria-label="Highlights" aria-roledescription="carousel">
+    <section class="promo" aria-label="Highlights" aria-roledescription="carousel">
       <div class="promo-track" id="promo">${SLIDES.map((sl, i) => `<a class="slide tone-${sl.tone}" href="${sl.href}" aria-label="${i + 1} of ${SLIDES.length}: ${sl.title}">
         <span class="sl-copy"><span class="sl-kicker">${sl.kicker}</span><b>${sl.title}</b><span>${sl.text}</span><span class="sl-cta">${sl.cta} →</span></span>
         <span class="sl-art">${sl.art()}</span></a>`).join('')}</div>
@@ -61,44 +59,20 @@ export const lobbyView: View = {
       <div class="promo-dots">${SLIDES.map((_, i) => `<button type="button" data-dot="${i}" aria-label="Slide ${i + 1}" ${i ? '' : 'aria-current="true"'}></button>`).join('')}</div>
     </section>
 
-    <section class="mgames m-only" aria-label="Games">
-      <h2 class="h-sect" style="font-size:20px">Our games</h2>
-      <div class="chips mg-filter" role="group" aria-label="Filter games"><button type="button" class="fchip" data-mcat="" aria-pressed="true">All ${GAMES.length}</button>${CATEGORIES.map(([cat, label]) => `<button type="button" class="fchip" data-mcat="${cat}" aria-pressed="false">${label}</button>`).join('')}</div>
+    <section class="mgames" aria-label="Games">
+      <div class="mg-head"><h2 class="h-sect">Our games</h2>
+        <div class="chips mg-filter" role="group" aria-label="Filter games"><button type="button" class="fchip" data-mcat="" aria-pressed="true">All ${GAMES.length}</button>${CATEGORIES.map(([cat, label]) => `<button type="button" class="fchip" data-mcat="${cat}" aria-pressed="false">${label}</button>`).join('')}</div></div>
       <div class="tiles" id="mtiles">${GAMES.map((g, i) => tile(g, i)).join('')}</div>
     </section>
 
-    <section class="hero d-only">
-      ${corners}
-      <div class="copy">
-        <p class="eyebrow">Open blueprint · ${c.cfg.demo ? 'play money' : 'Rust skins'} · 18+</p>
-        <h1>Every round with an <em>open blueprint.</em></h1>
-        <p>Fifteen games with published maths, a proof on every round and limits you set yourself. Start with Monument Run: eight rooms, one door each, 97 % RTP however far you climb.</p>
-        <div class="row"><a class="btn" href="#/monument-run">${icon('tower')} Play Monument Run</a><a class="btn ghost" href="#/fair">${icon('shield')} How verification works</a></div>
-      </div>
-      <div class="drawing">${heroSheet()}</div>
-    </section>
-
-    <section class="live" aria-label="Live now">
+    <section class="live-now" aria-label="Live now">
       <a class="live-card" href="#/scrap-press"><span class="lc-head">${icon('crash')}Scrap Press<span class="live-dot"></span></span><b class="lc-val num" id="lv-crash">–</b><span class="lc-sub" id="lv-crash-sub">Connecting …</span><span class="hist" id="lv-crash-hist"></span></a>
       <a class="live-card" href="#/bandit-wheel"><span class="lc-head">${icon('wheel')}Bandit Wheel<span class="live-dot"></span></span><b class="lc-val num" id="lv-wheel">–</b><span class="lc-sub" id="lv-wheel-sub">Connecting …</span><span class="hist" id="lv-wheel-hist"></span></a>
       <a class="live-card" href="#/jackpot"><span class="lc-head">${icon('pot')}Jackpot<span class="live-dot"></span></span><b class="lc-val num" id="lv-pot">–</b><span class="lc-sub" id="lv-pot-sub">Connecting …</span><span class="hist" id="lv-pot-hist"></span></a>
       <a class="live-card" href="#/battle"><span class="lc-head">${icon('battle')}Case Battle<span class="live-dot"></span></span><b class="lc-val num" id="lv-battle">–</b><span class="lc-sub" id="lv-battle-sub">Connecting …</span><span class="hist" id="lv-battle-hist"></span></a>
     </section>
 
-    <section class="stats d-only" aria-label="Key figures">
-      <div><b>${GAMES.length}</b><span>games, each with a published proof</span></div>
-      <div><b>93–99.31 %</b><span>RTP range across all games</span></div>
-      <div><b id="st-bets">–</b><span>bets settled in the last 30 days</span></div>
-      <div><b id="st-rtp">–</b><span>actual RTP paid out, last 30 days</span></div>
-    </section>
-
     ${c.me.block ? `<section class="card" style="border-color:var(--lose)"><p>${c.me.block.kind === 'operator' ? 'Your account is on hold. Please contact support.' : 'Your account is on a break. You cannot play until the break ends.'}</p></section>` : ''}
-
-    ${CATEGORIES.map(([cat, label, desc]) => `
-    <section class="cat-sect d-only" style="display:flex;flex-direction:column;gap:14px">
-      <div class="sect-head"><div><p class="eyebrow">${GAMES.filter((g) => g.cat === cat).length} games</p><h2 class="h-sect" style="font-size:22px">${label}</h2></div><p>${desc}</p></div>
-      <div class="tiles">${GAMES.filter((g) => g.cat === cat).map((g, i) => tile(g, i)).join('')}</div>
-    </section>`).join('')}
 
     <section class="free-sect" style="display:flex;flex-direction:column;gap:14px">
       <div class="sect-head"><div><p class="eyebrow">Free Scrap</p><h2 class="h-sect" style="font-size:22px">Get free Scrap</h2></div><p>${c.cfg.demo ? 'Play money' : 'Scrap'} from levels, the daily crate, the rain and codes. No stake needed.</p></div>
@@ -118,13 +92,12 @@ export const lobbyView: View = {
     </section>
   `,
   mount: (root, c) => {
-    drawIn(root);
     const stopLive = mountLive(root);
     const stopFeed = mountFeed(root, c.me.displayName);
     const stopWins = mountWins(root);
     const stopPromo = mountPromo(root);
     root.querySelector('[data-signup-inline]')?.addEventListener('click', () => c.openSignup());
-    // phone: one grid of every game, filtered by category
+    // one grid of every game, filtered by category
     root.querySelectorAll<HTMLButtonElement>('[data-mcat]').forEach((b) => b.addEventListener('click', () => {
       const cat = b.dataset.mcat;
       root.querySelectorAll('[data-mcat]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
@@ -142,11 +115,6 @@ export const lobbyView: View = {
     api<{ games: { game: string; bets: number; wagered: number; paid: number; rtp: number | null }[] }>('GET', '/stats/rtp?days=30').then((s) => {
       const body = $('#rtp', root);
       if (!body) return;
-      const bets = s.games.reduce((a, g) => a + g.bets, 0);
-      const wagered = s.games.reduce((a, g) => a + g.wagered, 0);
-      const paid = s.games.reduce((a, g) => a + g.paid, 0);
-      animateNumber($('#st-bets', root), 0, bets, (n) => Math.round(n).toLocaleString('en-US'), 900);
-      if (wagered) animateNumber($('#st-rtp', root), 0, paid / wagered, (n) => pct(n), 900);
       body.innerHTML = s.games.length
         ? s.games.map((g) => `<tr><td>${esc(gameName(g.game))}</td><td class="r num">${g.bets.toLocaleString('en-US')}</td><td class="r num">${(g.wagered / 1000).toLocaleString('en-US')}</td><td class="r num">${(g.paid / 1000).toLocaleString('en-US')}</td>
             <td class="r num">${g.rtp === null ? '–' : pct(g.rtp)}</td><td class="r num muted">${esc(GAMES.find((x) => x.id === g.game)?.rtp ?? '–')}</td></tr>`).join('')
@@ -182,22 +150,6 @@ function mountFeed(root: HTMLElement, me: string): () => void {
   void load().catch(() => null);
   const t = setInterval(() => void load().catch(() => null), 3000);
   return () => clearInterval(t);
-}
-
-/** The hero drawing draws itself: every line runs from its start to its end, labels fade in after. */
-function drawIn(root: HTMLElement) {
-  if (reducedMotion()) return;
-  const svg = root.querySelector<SVGSVGElement>('.hero .drawing svg');
-  if (!svg || !svg.getClientRects().length) return; // hidden (phone layout): nothing to draw
-  svg.querySelectorAll<SVGGeometryElement>('path, rect, circle, ellipse').forEach((el, i) => {
-    let len = 0;
-    try { len = el.getTotalLength?.() ?? 0; } catch { return; }
-    if (!len) return;
-    el.style.strokeDasharray = `${len}`;
-    el.animate([{ strokeDashoffset: len }, { strokeDashoffset: 0 }], { duration: 1300, delay: 150 + i * 16, easing: 'cubic-bezier(.2,.7,.2,1)', fill: 'backwards' })
-      .finished.then(() => { el.style.strokeDasharray = ''; }).catch(() => null);
-  });
-  svg.querySelectorAll('text').forEach((el, i) => el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500, delay: 900 + i * 30, fill: 'backwards' }));
 }
 
 /* ---------- live strip: the shared games right now ---------- */
@@ -273,7 +225,7 @@ function mountLive(root: HTMLElement): () => void {
   return () => { clearInterval(slow); clearInterval(quick); };
 }
 
-/* ---------- phone: live wins (cards that scroll sideways) and players online ---------- */
+/* ---------- live wins (cards that scroll sideways) and players online ---------- */
 interface Live { online: number; roundsToday: number }
 function mountWins(root: HTMLElement): () => void {
   let sig = '';
@@ -298,7 +250,7 @@ function mountWins(root: HTMLElement): () => void {
   return () => clearInterval(t);
 }
 
-/* ---------- phone: highlight carousel (swipe, arrows, dots, slow autoplay) ---------- */
+/* ---------- highlight carousel (swipe, arrows, dots, slow autoplay) ---------- */
 function mountPromo(root: HTMLElement): () => void {
   const track = root.querySelector<HTMLElement>('#promo');
   if (!track) return () => undefined;

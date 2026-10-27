@@ -26,6 +26,7 @@ import { towersView } from './views/towers';
 import { upgraderView } from './views/upgrader';
 import { wheelView } from './views/wheel';
 import { HELP_LINES, helpView, notFoundView, privacyView, termsView } from './views/info';
+import { sceneArt } from './scene';
 import { profileView } from './views/profile';
 import { verifyView } from './views/verify';
 import { walletView } from './views/wallet';
@@ -57,11 +58,12 @@ const VIEWS: Record<string, View> = {
   wallet: walletView, profile: profileView, verify: verifyView, terms: termsView, privacy: privacyView, help: helpView,
   deposit: depositView, withdraw: withdrawView,
 };
-const MAIN_NAV: [string, string][] = [['', 'Lobby'], ['rewards', 'Rewards'], ['fair', 'Provably fair'], ['limits', 'Responsible play']];
+const MAIN_NAV: [string, string, string][] = [['rewards', 'Rewards', 'trophy'], ['fair', 'Provably fair', 'shield'], ['help', 'Help', 'chat']];
 /** What a visitor without an account can open; every other route asks to sign up first. */
 const GUEST_ROUTES = new Set(['', 'help', 'terms', 'privacy', 'verify', 'chat']);
 const FOOT_NAV: [string, string][] = [['fair', 'Provably fair'], ['verify', 'Verifier'], ['limits', 'Responsible play'], ['help', 'Help'], ['terms', 'Terms'], ['privacy', 'Privacy']];
-const WIDE = matchMedia('(min-width: 1280px)');
+/** Wide enough for the chat column on the left. */
+const WIDE = matchMedia('(min-width: 1100px)');
 const CHAT_KEY = 'scrapline.chat';
 
 const app = $('#app');
@@ -195,7 +197,7 @@ function openSignup() {
 }
 
 /* ---------- shell ---------- */
-const chatPref = () => { try { const v = localStorage.getItem(CHAT_KEY); return v === null ? innerWidth >= 1440 : v === '1'; } catch { return innerWidth >= 1440; } };
+const chatPref = () => { try { return localStorage.getItem(CHAT_KEY) !== '0'; } catch { return true; } };
 const setChatPref = (on: boolean) => { try { localStorage.setItem(CHAT_KEY, on ? '1' : '0'); } catch { /* storage blocked */ } };
 
 function renderShell() {
@@ -204,7 +206,8 @@ function renderShell() {
   shownPath = null;
   const showAdmin = !c.guest && (c.cfg.demo || c.me.role !== 'player');
   const account = c.guest
-    ? `<button class="btn cta" type="button" data-signup>${icon('user')}<span>${c.cfg.demo ? 'Sign up<span class="hide-xs"> · play free</span>' : 'Sign in<span class="hide-xs"> with Steam</span>'}</span></button>`
+    ? `<button class="btn cta" type="button" data-signup>${icon('user')}<span>${c.cfg.demo ? 'Sign up<span class="hide-xs"> · play free</span>' : 'Sign in<span class="hide-xs"> with Steam</span>'}</span></button>
+      <button class="iconbtn hide-s" id="chat-toggle" type="button" aria-pressed="false" aria-label="Show chat">${icon('chat')}</button>`
     : `<div class="wallet"><span class="bal">${c.cfg.demo ? '<span class="tag-demo">DEMO</span>' : ''}${SCRAP_SYM}<span id="balance">${frags(c.me.balance)}</span></span>${c.cfg.demo ? '<button type="button" class="hide-s" data-refill>Refill</button>' : ''}<a class="wallet-plus" href="#/wallet" aria-label="Wallet">+</a></div>
       <button class="iconbtn hide-s" id="chat-toggle" type="button" aria-pressed="false" aria-label="Show chat">${icon('chat')}</button>
       <div class="menuwrap hide-s">
@@ -231,21 +234,25 @@ function renderShell() {
     ['free', 'Free Scrap', 'trophy', '#/rewards'], ['me', c.guest ? 'Sign up' : 'Account', 'user', '#/profile'],
   ];
   app.innerHTML = `
+  <div class="scene" aria-hidden="true">${sceneArt()}</div>
   <div id="banner-slot">${bannerHtml()}</div>
   <div class="shell ${c.guest ? 'guest' : ''}">
     <header class="topbar">
       <a class="logo" href="#/">${LOGO_MARK}<span>SCRAPLINE</span></a>
       <button class="iconbtn burger" type="button" id="burger" aria-expanded="false" aria-controls="drawer" aria-label="Menu"><span></span><span></span><span></span></button>
-      <nav class="mainnav" aria-label="Main">${MAIN_NAV.map(([p, l]) => `<a href="#/${p}" data-path="${p}">${l}</a>`).join('')}</nav>
+      <nav class="mainnav" aria-label="Main">
+        <div class="menuwrap"><button class="navbtn" id="games-btn" type="button" aria-expanded="false" aria-haspopup="true" aria-controls="games-menu">${icon('dice')}Games<span class="caret" aria-hidden="true">▾</span></button>
+          <div class="menu games-menu" id="games-menu" hidden>${CATEGORIES.map(([cat, label]) => `<div class="gm-col"><p class="gm-cat">${label}</p>${GAMES.filter((g) => g.cat === cat)
+            .map((g) => `<a class="gm-game" href="#/${g.path}" data-path="${g.path}" data-game="${g.id}">${icon(g.icon)}<span>${g.name}</span>${g.tag === 'LIVE' ? '<em class="live-dot" title="Live"></em>' : g.tag === 'NEW' ? '<em class="gm-new">NEW</em>' : ''}</a>`).join('')}</div>`).join('')}</div></div>
+        ${MAIN_NAV.map(([p, l, ic]) => `<a href="#/${p}" data-path="${p}">${icon(ic)}${l}</a>`).join('')}
+      </nav>
       <div class="spacer"></div>
       ${c.guest ? '' : `<div class="sessionbar" title="Play time and result of this session">${icon('clock')}<span class="lbl">Session</span><b id="s-time">00:00</b><span class="lbl">Net</span><b id="s-net">±0.00</b></div>`}
       ${account}
     </header>
-    <nav class="gamebar" aria-label="Games">${CATEGORIES.map(([cat, label], i) => `${i ? '<span class="sep" aria-hidden="true"></span>' : ''}<span class="cat">${label}</span>${GAMES.filter((g) => g.cat === cat)
-      .map((g) => `<a class="gchip" href="#/${g.path}" data-path="${g.path}" data-game="${g.id}">${icon(g.icon)}${g.name}${g.tag === 'LIVE' ? '<em>LIVE</em>' : ''}</a>`).join('')}`).join('')}</nav>
     <div class="layout" id="layout">
-      <main id="view" tabindex="-1"></main>
       <aside class="chatside" id="chatside" hidden></aside>
+      <main id="view" tabindex="-1"></main>
     </div>
     <footer class="sitefoot">
       <div class="sf-top"><a class="logo" href="#/">${LOGO_MARK}<span>SCRAPLINE</span></a>
@@ -268,6 +275,13 @@ function renderShell() {
   }));
   $$<HTMLElement>('[data-signup]').forEach((b) => b.addEventListener('click', (e) => { e.preventDefault(); closeDrawer(); openSignup(); }));
   document.getElementById('acct')?.addEventListener('click', (e) => { e.stopPropagation(); $('#acct-menu').hidden ? openMenu() : closeMenu(); });
+  document.getElementById('games-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const m = $('#games-menu');
+    closeMenu();
+    m.hidden = !m.hidden;
+    $('#games-btn').setAttribute('aria-expanded', String(!m.hidden));
+  });
   document.getElementById('chat-toggle')?.addEventListener('click', () => {
     if (!WIDE.matches) { location.hash = '#/chat'; return; } // no room for a side panel: open the chat page
     setChatPref(!chatPref()); syncAside();
@@ -279,7 +293,7 @@ function renderShell() {
   $('#drawer [data-close]')?.addEventListener('click', closeDrawer);
   if (c.guest) $$<HTMLAnchorElement>('[data-bottom="me"], [data-bottom="free"]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); openSignup(); }));
   api<{ game: string; enabled: boolean }[]>('GET', '/games/status').then((list) => {
-    for (const g of list) document.querySelectorAll(`.gchip[data-game="${g.game}"], .dgame[data-game="${g.game}"]`).forEach((el) => el.classList.toggle('paused', !g.enabled));
+    for (const g of list) document.querySelectorAll(`.gm-game[data-game="${g.game}"], .dgame[data-game="${g.game}"]`).forEach((el) => el.classList.toggle('paused', !g.enabled));
   }).catch(() => null);
   paintSession();
   scheduleRealityCheck();
@@ -335,12 +349,14 @@ function openMenu() {
   ($('#acct-menu a, #acct-menu button') as HTMLElement | null)?.focus();
 }
 function closeMenu() {
+  const g = document.getElementById('games-menu');
+  if (g && !g.hidden) { g.hidden = true; document.getElementById('games-btn')?.setAttribute('aria-expanded', 'false'); }
   const m = document.getElementById('acct-menu');
   if (!m || m.hidden) return;
   m.hidden = true;
   document.getElementById('acct')?.setAttribute('aria-expanded', 'false');
 }
-document.addEventListener('click', (e) => { if (!(e.target as HTMLElement).closest?.('#acct-menu')) closeMenu(); });
+document.addEventListener('click', (e) => { if (!(e.target as HTMLElement).closest?.('#acct-menu, #games-menu')) closeMenu(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
 
 /* Chat aside: shown on wide screens when the player has it switched on and the chat is not already the main view. */
@@ -352,6 +368,7 @@ function syncAside() {
   const want = WIDE.matches && on && !location.hash.startsWith('#/chat');
   aside.hidden = !want;
   layout.classList.toggle('with-chat', want);
+  document.querySelector('.shell')?.classList.toggle('chat-on', want);
   const toggle = document.getElementById('chat-toggle');
   toggle?.setAttribute('aria-pressed', String(on && WIDE.matches));
   toggle?.setAttribute('aria-label', on ? 'Hide chat' : 'Show chat');
@@ -360,13 +377,12 @@ function syncAside() {
   fitAside();
 }
 WIDE.addEventListener('change', syncAside);
-/* Keeps the sticky chat exactly as tall as the visible space below the top bar and the game bar. */
+/* Keeps the sticky chat column exactly as tall as the visible space below the top bar. */
 function fitAside() {
   const aside = document.getElementById('chatside');
   const bar = document.querySelector<HTMLElement>('.topbar');
-  const games = document.querySelector<HTMLElement>('.gamebar');
   if (!aside || !bar || aside.hidden) return;
-  const stick = bar.offsetHeight + (games?.offsetHeight ?? 0);
+  const stick = bar.offsetHeight;
   aside.style.setProperty('--stick', `${stick}px`);
   aside.style.height = `${Math.max(320, innerHeight - Math.max(stick, aside.getBoundingClientRect().top))}px`;
 }
@@ -485,7 +501,6 @@ function renderView(raw: string) {
     if (a.dataset.path === path) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
   });
-  document.querySelector('.gchip[aria-current="page"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   if (typeof unmount === 'function') unmount();
   const root = $('#view');
   root.innerHTML = view.html(ctx);

@@ -119,9 +119,9 @@ details summary{cursor:pointer}
 .gchip.paused{opacity:.45}
 
 .layout{flex:1;display:grid;grid-template-columns:minmax(0,1fr);min-height:0}
-.layout.with-chat{grid-template-columns:minmax(0,1fr) 340px}
-main{padding:28px 32px 48px;min-width:0;display:flex;flex-direction:column;gap:20px;max-width:1360px;width:100%;margin:0 auto}
-main:focus{outline:none}
+.layout.with-chat{grid-template-columns:320px minmax(0,1fr)}
+main{padding:26px 32px 48px;min-width:0;display:flex;flex-direction:column;gap:22px;max-width:1240px;width:100%;margin:0 auto}
+main:focus,main:focus-visible{outline:none;box-shadow:none}
 .bottomnav{display:none}
 
 @media (max-width: 1100px){
@@ -430,8 +430,8 @@ a.spec:hover{color:var(--bp);border-color:rgba(61,220,255,.5);box-shadow:var(--g
 @media (prefers-reduced-motion: reduce){ *,*::before,*::after{animation:none!important;transition:none!important} }
 
 /* ---------- chat ---------- */
-.chatside{border-left:1px solid var(--line);background:rgba(13,15,19,.82);backdrop-filter:blur(14px);position:sticky;top:var(--stick,110px);height:calc(100vh - var(--stick,110px));display:flex;min-width:0}
-@media (max-width: 1279px){ .layout.with-chat{grid-template-columns:minmax(0,1fr)} .chatside{display:none} }
+.chatside{border-right:1px solid var(--line);background:rgba(10,12,16,.9);backdrop-filter:blur(14px);position:sticky;top:var(--stick,64px);height:calc(100vh - var(--stick,64px));display:flex;min-width:0}
+@media (max-width: 1099px){ .layout.with-chat{grid-template-columns:minmax(0,1fr)} .chatside{display:none} }
 .chat{display:flex;flex-direction:column;min-height:0;width:100%;height:100%}
 .chat-page{height:calc(100vh - 190px);min-height:420px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface);display:flex;overflow:hidden}
 @media (max-width: 860px){ .chat-page{height:calc(100dvh - 230px)} }
@@ -693,7 +693,7 @@ main.enter>*{animation:rise .5s var(--ease-out) backwards;animation-delay:calc(v
 .flash{animation:flash .7s var(--ease-out)}
 @keyframes flash{from{color:var(--bp);text-shadow:0 0 16px rgba(61,220,255,.9)}}
 /* lobby: live strip */
-.live{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.live-now{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
 .live-card{position:relative;overflow:hidden;border:1px solid var(--line);border-radius:var(--r-lg);background:linear-gradient(180deg,rgba(255,255,255,.025),transparent 80px),rgba(17,20,25,.88);
   padding:14px 16px;display:flex;flex-direction:column;gap:8px;text-decoration:none;color:var(--text);min-width:0;transition:border-color .2s,transform .2s var(--ease-out),box-shadow .25s}
 .live-card:hover{border-color:rgba(61,220,255,.45);transform:translateY(-2px);color:var(--text);box-shadow:0 16px 36px -20px rgba(61,220,255,.5)}
@@ -707,8 +707,8 @@ main.enter>*{animation:rise .5s var(--ease-out) backwards;animation-delay:calc(v
 .hist span{font:11px/1 var(--mono);padding:4px 6px;border-radius:999px;border:1px solid var(--line);color:var(--muted);flex:none}
 .hist .hi{color:var(--ok);border-color:rgba(62,232,154,.4)}.hist .top{color:var(--brass);border-color:rgba(217,180,103,.5)}.hist .bad{color:var(--lose);border-color:rgba(255,92,108,.35)}
 .hist span:first-child{animation:rise .35s var(--ease-out)}
-@media (max-width: 1100px){ .live{grid-template-columns:repeat(2,minmax(0,1fr))} }
-@media (max-width: 420px){ .live{gap:8px} .live-card{padding:12px} .lc-val{font-size:20px} }
+@media (max-width: 1100px){ .live-now{grid-template-columns:repeat(2,minmax(0,1fr))} }
+@media (max-width: 420px){ .live-now{gap:8px} .live-card{padding:12px} .lc-val{font-size:20px} }
 
 /* ---------- account pages: history detail, wallet, profile ---------- */
 tr.click{cursor:pointer}
@@ -812,7 +812,8 @@ body.drawer-open{overflow:hidden}
 .dr-sect em.LIVE{color:var(--ok)}.dr-sect em.SIGNATURE{color:var(--brass)}
 .dr-sect a.paused{opacity:.45}
 /* welcome */
-.mhero{flex-direction:column;align-items:center;text-align:center;gap:6px;padding:18px 4px 6px}
+.mhero{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;padding:18px 4px 6px}
+.wl-copy{display:flex;flex-direction:column;align-items:inherit;gap:6px}
 .mh-pre{font:600 13px/1 var(--display);font-stretch:118%;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 .mh-brand{font:800 clamp(32px,10.5vw,54px)/1 var(--display);font-stretch:118%;letter-spacing:0;max-width:100%;background:linear-gradient(90deg,var(--bp) 10%,#9B7BFF 90%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 22px rgba(61,220,255,.3))}
 .mh-tag{color:var(--muted);font-size:15px}
@@ -820,7 +821,7 @@ body.drawer-open{overflow:hidden}
 .mh-online b{color:var(--text);font-weight:500}.mh-online .sep{color:var(--dim)}
 .mhero .btn.cta{margin-top:10px;max-width:420px}
 /* live wins */
-.wins{flex-direction:column;gap:10px}
+.wins{display:flex;flex-direction:column;gap:10px}
 .wins-track{display:grid;grid-auto-flow:column;grid-auto-columns:calc(50% - 5px);gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding-bottom:2px}
 .wins-track::-webkit-scrollbar{display:none}
 .win-card{scroll-snap-align:start;display:flex;align-items:center;gap:10px;padding:12px;border-radius:12px;text-decoration:none;color:var(--text);min-width:0;position:relative;overflow:hidden;
@@ -865,7 +866,6 @@ body.drawer-open{overflow:hidden}
 
 @media (max-width: 860px){
   .m-only{display:revert!important}
-  .mhero.m-only,.wins.m-only,.mgames.m-only{display:flex!important}
   .d-only{display:none!important}
   .gamebar{display:none}
   .burger{display:inline-flex}
@@ -874,7 +874,7 @@ body.drawer-open{overflow:hidden}
   .wallet-plus{display:grid;place-items:center;width:36px;align-self:stretch;background:linear-gradient(180deg,#62E5FF,#22C3EC);color:#03141B;font:700 20px/1 var(--ui);text-decoration:none}
   .wallet-plus:hover{color:#03141B}
   /* the lobby keeps only what a phone player needs; live tables and the ledger stay on the desktop and the fair page */
-  main>.live,main>.feed-card,main>.ledger-card{display:none}
+  main>.live-now,main>.feed-card,main>.ledger-card{display:none}
   .cat-sect .sect-head p:not(.eyebrow){display:none}
   .cat-sect .h-sect{font-size:20px!important}
   .tiles{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
@@ -903,7 +903,8 @@ body.drawer-open{overflow:hidden}
 @media (max-width: 380px){ .tile b{font-size:15px} .slide{grid-template-columns:minmax(0,1fr) 92px} .sl-copy b{font-size:19px} }
 
 /* phone game grid with category chips */
-.mgames{flex-direction:column;gap:12px}
+.mgames{display:flex;flex-direction:column;gap:12px}
+.mg-head{display:flex;flex-direction:column;gap:12px}
 .mg-filter{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px}
 .mg-filter::-webkit-scrollbar{display:none}
 .fchip{flex:none;border:1px solid var(--line);background:rgba(7,8,11,.6);color:var(--muted);border-radius:999px;padding:8px 14px;font:500 13px/1 var(--ui);white-space:nowrap}
@@ -982,3 +983,99 @@ body.drawer-open{overflow:hidden}
 .wallet .bal .cur{width:17px;height:17px;margin-right:0;align-self:center}
 th .cur{width:13px;height:13px;margin:0 0 0 2px;vertical-align:-2px}
 .h-sect .cur{width:.9em;height:.9em}
+
+
+/* ---------- desktop layout: chat column on the left, Games menu, one centred lobby column, scrapyard backdrop ---------- */
+.scene{position:fixed;inset:0;z-index:-1;pointer-events:none}
+.scene-svg{width:100%;height:100%;display:block}
+.scene::after{content:"";position:absolute;inset:0;background:radial-gradient(52% 66% at 56% 34%,rgba(7,9,12,.78),rgba(7,9,12,.38) 70%,rgba(7,9,12,.05)),linear-gradient(180deg,rgba(7,9,12,.55),transparent 26%)}
+.scene .blink{animation:blink 2.6s steps(2,jump-none) infinite}
+.scene .flare{animation:flare 1.4s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:center}
+@keyframes blink{50%{opacity:.12}}
+@keyframes flare{to{transform:scale(1.3);opacity:.75}}
+body::after{opacity:.5}
+
+.navbtn{display:flex;align-items:center;gap:7px;border:0;background:transparent;color:var(--text);font:600 14px/1 var(--ui);padding:9px 12px;border-radius:var(--r);letter-spacing:.02em}
+.navbtn:hover,.navbtn[aria-expanded="true"]{background:rgba(255,255,255,.05)}
+.navbtn .caret{font-size:11px;color:var(--muted);transition:transform .2s}
+.navbtn[aria-expanded="true"] .caret{transform:rotate(180deg)}
+.mainnav .ico,.navbtn .ico{width:17px;height:17px;color:var(--muted)}
+.mainnav a{display:flex;align-items:center;gap:7px}
+.mainnav a:hover .ico,.navbtn:hover .ico,.navbtn[aria-expanded="true"] .ico{color:var(--bp)}
+.games-menu{left:0;right:auto;display:grid;grid-template-columns:repeat(4,minmax(168px,1fr));gap:2px 12px;padding:14px;min-width:min(760px,80vw)}
+.gm-col{display:flex;flex-direction:column}
+.gm-cat{font:500 10px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:4px 10px 8px}
+.menu .gm-game{gap:9px;padding:8px 10px}
+.gm-game span{flex:1}
+.gm-game[aria-current="page"]{background:rgba(61,220,255,.08);color:var(--bp)}
+.gm-game .ico{color:var(--bp)!important}
+.gm-new{font:700 9px/1 var(--mono);font-style:normal;letter-spacing:.08em;color:#03141B;background:var(--bp);padding:3px 5px;border-radius:3px}
+.gm-game.paused{opacity:.45}
+
+/* chat messages: avatar, level, name in the level colour, then the text */
+.msg:not(.sys){flex-wrap:nowrap;align-items:flex-start;gap:9px;padding:7px 10px}
+.msg .av{width:30px;height:30px;border-radius:8px;flex:none;display:grid;place-items:center;font:800 13px/1 var(--display);color:#06090C;background:var(--av,var(--bp));overflow:hidden;margin-top:2px}
+.msg .av img{width:100%;height:100%;object-fit:cover}
+.msg .mc{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.msg .mh{display:flex;align-items:center;gap:6px;min-width:0}
+.msg .mh b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13.5px}
+.msg b.t1{color:#8BE9FF}.msg b.t2{color:var(--bp)}.msg b.t3{color:#B9A4FF}.msg b.t4{color:var(--brass-hi)}
+.msg .mc .body{flex-basis:auto;padding-left:0;font-size:13.5px}
+.msg.you .av{box-shadow:0 0 0 2px var(--bp)}
+
+@media (min-width: 861px){
+  .topbar{height:64px;padding:0 20px;background:rgba(9,11,14,.9)}
+  .shell.chat-on .topbar .logo{width:286px}
+  .topbar .btn.cta{min-height:40px;padding:10px 20px;font:800 13px/1 var(--display);font-stretch:112%;letter-spacing:.06em;text-transform:uppercase;box-shadow:0 10px 26px -12px rgba(61,220,255,.9)}
+  /* welcome row: brand left, players online right */
+  .mhero{flex-direction:row;align-items:flex-end;justify-content:space-between;text-align:left;padding:4px 2px 0}
+  .wl-copy{align-items:flex-start;gap:3px}
+  .mh-pre{color:var(--text);font-size:14px;letter-spacing:.1em}
+  .mh-brand{font-size:46px}
+  .mh-tag{font-size:15px}
+  .mh-online{margin:0 0 8px}
+  /* live wins: a row of cards */
+  .wins-head{display:none}
+  .wins-track{grid-auto-columns:calc((100% - 50px) / 6)}
+  .win-card{padding:10px}
+  .wc-ico{width:36px;height:36px}
+  .wc-txt b{font-size:15px}
+  /* highlight slider */
+  .promo-track{border-radius:18px}
+  .slide{min-height:300px;padding:36px 48px 44px;grid-template-columns:minmax(0,1fr) minmax(0,.85fr);gap:24px;border-radius:18px;
+    background:radial-gradient(70% 120% at 90% 50%,var(--st),transparent 70%),linear-gradient(120deg,rgba(17,20,25,.96),rgba(12,15,19,.92))}
+  .sl-kicker{font-size:12px}
+  .sl-copy{gap:10px}
+  .sl-copy b{font-size:clamp(34px,3.6vw,52px);line-height:.98}
+  .sl-copy>span:not(.sl-kicker):not(.sl-cta){font-size:16px}
+  .sl-cta{align-self:flex-start;margin-top:10px;padding:13px 24px;border-radius:var(--r);background:var(--sc);color:#05080C;font:800 14px/1 var(--display);font-stretch:112%;text-transform:uppercase;letter-spacing:.06em;
+    box-shadow:0 12px 28px -12px var(--sc);transition:transform .2s var(--ease-out),box-shadow .2s}
+  .slide:hover .sl-cta{transform:translateY(-2px);box-shadow:0 16px 34px -12px var(--sc)}
+  .sl-art svg{max-height:240px}
+  .promo-nav{top:calc(50% - 18px);width:36px;height:36px;font-size:20px}
+  .promo-nav.prev{left:12px}.promo-nav.next{right:12px}
+  .promo-dots{bottom:14px}
+  /* games: one grid of tall tiles with big titles */
+  .mg-head{flex-direction:row;align-items:center;justify-content:space-between;flex-wrap:wrap}
+  .mg-head .h-sect{font-size:22px}
+  .mg-filter{margin:0;padding:0;flex-wrap:wrap}
+  #mtiles{grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+  #mtiles .tile{aspect-ratio:3/4;border-radius:16px;background:radial-gradient(95% 70% at 50% 34%,var(--tint,rgba(61,220,255,.14)),transparent 72%),linear-gradient(180deg,rgba(17,20,25,.75),rgba(7,8,11,.97))}
+  #mtiles .tile[data-cat="originals"]{--tint:rgba(61,220,255,.17)}#mtiles .tile[data-cat="cards"]{--tint:rgba(155,123,255,.2)}
+  #mtiles .tile[data-cat="live"]{--tint:rgba(62,232,154,.16)}#mtiles .tile[data-cat="pvp"]{--tint:rgba(217,180,103,.2)}
+  #mtiles .tile .art-box{flex:1;aspect-ratio:auto;border:0;background:none;padding:34px 10px 0}
+  #mtiles .tile .art-box svg{width:100%}
+  #mtiles .tile .body{padding:0 10px 18px;align-items:center;text-align:center;gap:4px}
+  #mtiles .tile b{font:800 clamp(16px,1.45vw,21px)/1.02 var(--display);font-stretch:125%;text-transform:uppercase;letter-spacing:.03em;text-shadow:0 2px 14px rgba(0,0,0,.7)}
+  #mtiles .tile .line{display:none}
+  #mtiles .tile .meta{margin:0;justify-content:center;gap:6px;font-size:11px;opacity:0;transform:translateY(4px);transition:opacity .2s,transform .2s}
+  #mtiles .tile:hover .meta{opacity:1;transform:none}
+  #mtiles .tile .flag{left:0;right:auto;top:14px;border:0;border-radius:0 5px 5px 0;padding:6px 10px 6px 12px;font:700 10px/1 var(--display);font-stretch:110%;letter-spacing:.06em;text-transform:uppercase;color:#03141B;background:var(--bp);box-shadow:0 4px 14px rgba(0,0,0,.4)}
+  #mtiles .tile .flag.LIVE{background:var(--ok)}#mtiles .tile .flag.SIGNATURE{background:var(--brass)}
+  .free{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+}
+@media (min-width: 861px) and (max-width: 1240px){ #mtiles{grid-template-columns:repeat(4,minmax(0,1fr))} .wins-track{grid-auto-columns:calc((100% - 30px) / 4)} }
+@media (max-width: 860px){
+  .scene{opacity:.5}
+  .tile .flag{font-size:10px}
+}

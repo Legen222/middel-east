@@ -25,7 +25,7 @@ export const CHAT_HISTORY = 50;
 const LINK = /(https?:\/\/|www\.|discord\.gg|\b[a-z0-9-]+\.(com|gg|net|io|org|ru|xyz|me|cc|co)\b)/i;
 
 export type ChatKind = 'user' | 'system' | 'win' | 'rain';
-interface Row { id: number; user_id: string | null; name: string; level: number | null; role: string | null; kind: ChatKind; body: string; created_at: number }
+interface Row { id: number; user_id: string | null; name: string; level: number | null; role: string | null; kind: ChatKind; body: string; created_at: number; avatar_url: string | null }
 
 const announce = (db: DB, event: ChatEvent) => db.afterCommit(() => bus.publish({ topic: 'chat', event }));
 
@@ -78,8 +78,12 @@ export async function systemMessage(db: DB, kind: Exclude<ChatKind, 'user'>, bod
 }
 
 export async function listMessages(db: DB, viewerId: string | null) {
-  const rows = (await db.prepare('SELECT * FROM chat_messages WHERE deleted_at IS NULL ORDER BY id DESC LIMIT ?').all(CHAT_HISTORY)) as Row[];
-  return rows.reverse().map((r) => ({ id: r.id, userId: r.user_id, name: r.name, level: r.level, role: r.role, kind: r.kind, body: r.body, createdAt: r.created_at, you: r.user_id !== null && r.user_id === viewerId }));
+  const rows = (await db.prepare(`SELECT m.*, u.avatar_url FROM chat_messages m LEFT JOIN users u ON u.id = m.user_id
+    WHERE m.deleted_at IS NULL ORDER BY m.id DESC LIMIT ?`).all(CHAT_HISTORY)) as Row[];
+  return rows.reverse().map((r) => ({
+    id: r.id, userId: r.user_id, name: r.name, level: r.level, role: r.role, kind: r.kind, body: r.body, createdAt: r.created_at, avatar: r.avatar_url ?? null,
+    you: r.user_id !== null && r.user_id === viewerId,
+  }));
 }
 
 /** Records a refused message; the third within 10 minutes mutes the author for 15 minutes. Returns the mute end, if any. */

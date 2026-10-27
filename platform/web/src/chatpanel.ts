@@ -10,7 +10,18 @@ import { icon } from './icons';
 import type { Ctx, View } from './main';
 import { $, esc, guard, modal, scrap, toast } from './ui';
 
-interface Msg { id: number; userId: string | null; name: string; level: number | null; role: string | null; kind: 'user' | 'system' | 'win' | 'rain'; body: string; createdAt: number; you: boolean }
+interface Msg { id: number; userId: string | null; name: string; level: number | null; role: string | null; kind: 'user' | 'system' | 'win' | 'rain'; body: string; createdAt: number; you: boolean; avatar?: string | null }
+
+/** Steam avatar, or the first letter on a colour picked from the name (stable per player). */
+const AV_COLORS = ['#3DDCFF', '#9B7BFF', '#D9B467', '#3EE89A', '#FF8FA3', '#7FB2FF'];
+function avatarOf(m: Msg): string {
+  if (m.avatar) return `<span class="av"><img src="${esc(m.avatar)}" alt="" loading="lazy" referrerpolicy="no-referrer"></span>`;
+  let h = 0;
+  for (const ch of m.name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return `<span class="av" style="--av:${AV_COLORS[h % AV_COLORS.length]}">${esc([...m.name][0]?.toUpperCase() ?? '?')}</span>`;
+}
+/** Name colour climbs with the level. */
+const tier = (lv: number) => (lv >= 50 ? 't4' : lv >= 20 ? 't3' : lv >= 10 ? 't2' : lv >= 5 ? 't1' : '');
 interface Rules { minLevel: number; slowModeSeconds: number; maxLength: number; reportHideAt: number }
 interface ChatState {
   messages: Msg[];
@@ -95,7 +106,7 @@ export function mountChatPanel(el: HTMLElement, c: Ctx): () => void {
         ? `<span class="mod"><button type="button" data-del="${m.id}" aria-label="Delete message">✕</button><button type="button" data-mute="${esc(m.userId)}" data-name="${esc(m.name)}" aria-label="Mute ${esc(m.name)}">mute</button></span>`
         : `<span class="mod"><button type="button" data-report="${m.id}" data-name="${esc(m.name)}" aria-label="Report message by ${esc(m.name)}" title="Report">⚑</button></span>`;
       if (m.kind !== 'user') return `<li class="msg sys ${m.kind}"><span class="t num">${clock(m.createdAt)}</span>${m.kind === 'rain' ? icon('rain') : m.kind === 'win' ? icon('trophy') : ''}<span>${esc(m.body)}</span></li>`;
-      return `<li class="msg ${m.you ? 'you' : ''}"><span class="t num">${clock(m.createdAt)}</span><span class="lv num">${m.level ?? 1}</span><b>${esc(m.name)}</b>${badge}<span class="body">${esc(m.body)}</span>${actions}</li>`;
+      return `<li class="msg ${m.you ? 'you' : ''}" title="${clock(m.createdAt)}">${avatarOf(m)}<div class="mc"><div class="mh"><span class="lv num">${m.level ?? 1}</span><b class="${tier(m.level ?? 1)}">${esc(m.name)}</b>${badge}${actions}</div><span class="body">${esc(m.body)}</span></div></li>`;
     }).join('') || '<li class="muted" style="padding:10px">No messages yet. Say hi.</li>';
     const newest = state.messages.at(-1)?.id ?? 0;
     if (nearBottom || newest > lastId && state.messages.at(-1)?.you) list.scrollTop = list.scrollHeight;
