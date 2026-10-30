@@ -45,6 +45,8 @@ export interface Config {
   steamApiKey: string | null;
   /** Skin rail: deposits through the trade bot, withdrawals queued for an operator (beta: sent by hand). */
   skins: SkinConfig;
+  /** Item pictures from the Steam market (item-icons.ts): look up crate items the built-in list lacks. */
+  itemIcons: { lookup: boolean; searchUrl: string };
 }
 
 export interface SkinConfig {
@@ -94,6 +96,10 @@ export const DEFAULT_CONFIG: Config = {
     enabled: false, depositRate: 1, withdrawRate: 1, minItemFrags: 10, minVolume: 3, maxItems: 20, offerTtlMs: 10 * 60_000, kycBeforeDeposit: true,
     inventoryUrl: 'https://steamcommunity.com/inventory/{steamid}/252490/2?l=english&count=2000',
     priceUrl: 'https://api.skinport.com/v1/items?app_id=252490&currency=USD&tradable=0',
+  },
+  itemIcons: {
+    lookup: true,
+    searchUrl: 'https://steamcommunity.com/market/search/render/?appid=252490&norender=1&count=20&search_descriptions=0&query={query}',
   },
 };
 

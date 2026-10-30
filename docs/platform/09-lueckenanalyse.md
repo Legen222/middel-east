@@ -61,7 +61,7 @@ Die Migration lief auf der bestehenden Entwicklungsdatenbank.
 | Thema | Warum noch nicht |
 |---|---|
 | Echte Ein- und Auszahlung (Skins, Krypto, Karte) | Braucht Lizenz, Zahlungsanbieter und KYC-Dienst ([05-go-live.md](05-go-live.md)). Die Prüfungen (`/wallet/withdrawal-check`, AML-Regel) sind schon gebaut. |
-| Echte Steam-Itembilder und Preise | Kommen mit dem Skin-Preisfeed. Bilder von Facepunch werden nicht gebündelt. |
+| Echte Steam-Itembilder und Preise | Bilder: gebaut in Phase 24 ([13-itembilder.md](13-itembilder.md)), direkt vom Steam-CDN, nichts gebündelt. Preise kommen mit dem Skin-Preisfeed. |
 | E-Mail, Benachrichtigungen, Passwort-Login | Die Demo hat nur Demo- und Steam-Login, also gibt es nichts, wohin man schreiben könnte. |
 | Support-Desk und Live-Hilfe | Betriebsfrage für den Echtgeldstart. Die FAQ deckt die häufigsten Fragen ab. |
 | Deutsche Oberfläche | Die Oberfläche ist auf Englisch (Vorgabe aus Phase 6). Texte liegen in den Views, eine Übersetzung wäre der nächste Schritt. |

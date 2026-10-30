@@ -29,6 +29,7 @@ import { betDetail, exploreBets } from './explorer';
 import { type FeedKind, liveStats, logoutAll, playerBetDetail, playerHistory, playerStats, profile, publicFeed, revealedSeeds, transactions, updateProfile } from './player';
 import { GAME_IDS, type GameLimits, gameConfig, gameFlags, setGameFlag, setGameLimits } from './flags';
 import { confirm as mfaConfirm, enroll as mfaEnroll, verify as mfaVerify } from './mfa';
+import { itemIcons } from './item-icons';
 import { JackpotService } from './jackpot';
 import { bjAction, bjStart, hiloCashout, hiloMove, hiloStart, openRounds, towersCashout, towersPick, towersStart } from './originals';
 import { WheelService } from './wheel';
@@ -97,6 +98,7 @@ export function createRouter(deps: AppDeps) {
     games: GAMES, houseEdge: EDGE, operatorMfa: cfg.requireOperatorMfa,
     plinko: Object.fromEntries(Object.entries(PLINKO_TABLES).map(([r, t]) => [r, Object.fromEntries(Object.entries(t).map(([k, v]) => [k, { multipliers: v, rtp: plinkoTheoreticalRtp(Number(r) as 8, k as 'low') }]))])),
     cases: await listCases(db),
+    itemIcons: await itemIcons(db),
     limits: await effectiveLimits(),
     responsibleGambling: { realityCheckOptions: REALITY_CHECK_OPTIONS, limitIncreaseDelayHours: cfg.limitIncreaseDelayHours },
   }));

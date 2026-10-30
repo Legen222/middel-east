@@ -10,7 +10,7 @@
  *   TRUST_PROXY=true           take the client IP from X-Forwarded-For (only behind a proxy that sets it)
  *   BEACON=drand               public drand beacon instead of the local demo beacon
  *   CRASH_CHAIN=100000
- *   Steam sign-in and the skin rail: see env.ts (the trade bot itself runs as bot-main.ts)
+ *   Steam sign-in, the skin rail and item pictures: see env.ts (the trade bot itself runs as bot-main.ts)
  * With Postgres every instance serves the API; exactly one (the advisory-lock leader) runs the tickers.
  */
 import { mkdirSync } from 'node:fs';
@@ -30,6 +30,7 @@ import { PgLeader, openPg } from './pg';
 import { settleDue } from './pvp';
 import { JackpotService } from './jackpot';
 import { rainTick } from './rewards';
+import { MarketBusy, resolveItemIcons } from './item-icons';
 import { syncPrices } from './skins';
 import { WheelService } from './wheel';
 
@@ -104,6 +105,16 @@ const pricePass = () => {
 const priceTimer = setInterval(pricePass, 10 * 60_000);
 setTimeout(pricePass, 10_000);
 
+/* ---------- item pictures (leader only): Steam market icons for crate items the built-in list lacks ---------- */
+const iconPass = () => {
+  if (!isLeader || !cfg.itemIcons.lookup) return;
+  void resolveItemIcons(db, cfg, httpFetch, Date.now())
+    .then((r) => { if (r.asked) log({ t: new Date().toISOString(), msg: 'item icons', ...r }); })
+    .catch((e) => log({ t: new Date().toISOString(), level: e instanceof MarketBusy ? 'warn' : 'error', msg: 'item icons', error: String((e as Error)?.message ?? e) }));
+};
+const iconTimer = setInterval(iconPass, 10 * 60_000);
+setTimeout(iconPass, 30_000);
+
 /* ---------- graceful shutdown ---------- */
 let stopping = false;
 async function stop(signal: string) {
@@ -112,6 +123,7 @@ async function stop(signal: string) {
   log({ t: new Date().toISOString(), msg: 'shutdown', signal });
   clearInterval(ticker);
   clearInterval(priceTimer);
+  clearInterval(iconTimer);
   const hard = setTimeout(() => process.exit(1), 15_000);
   await app.shutdown();
   await leader?.release();

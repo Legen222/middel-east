@@ -2010,3 +2010,58 @@ describe('chat rules and reports', () => {
     assert.ok((await auditLog(db, { event: 'mod_report_' })).length >= 2);
   });
 });
+
+/* ---------- item pictures (Steam market icons) ---------- */
+import { ALIASES, MISS_RETRY_MS, MarketBusy, itemIcons, pickMarketIcon, resolveItemIcons } from '../src/item-icons';
+
+const HASH = (n: number) => `6TMcQ7eX6E0EZl2byXi7vaVKyDk_zQLX05x6eLCFM9neAckxGDf7qU2e2gu64OnAeQ7835ld${n}`;
+const market = (...rows: [string, string | null][]) => JSON.stringify({
+  success: true, start: 0, pagesize: 20, total_count: rows.length,
+  results: rows.map(([name, icon]) => ({ name, hash_name: name, sell_listings: 3, asset_description: { appid: 252490, icon_url: icon, name, market_hash_name: name } })),
+});
+
+describe('item pictures from the Steam market', () => {
+  it('takes the icon of the listing with the same name only', () => {
+    assert.equal(pickMarketIcon(JSON.parse(market(['AK47 From Hell', HASH(1)])), 'AK-47 From Hell'), HASH(1), 'case, spaces and dashes aside');
+    assert.equal(pickMarketIcon(JSON.parse(market(['Tempered AK47', HASH(2)])), 'Assault Rifle'), null, 'a skin is not the base item');
+    assert.equal(pickMarketIcon(JSON.parse(market(['Big Grin', 'x"><script>'])), 'Big Grin'), null, 'only well-formed hashes');
+    assert.throws(() => pickMarketIcon({ success: false }, 'Big Grin'), /unexpected/);
+  });
+
+  it('looks up crate items the seed lacks, stores misses, asks them again after a week and serves the map with /config', async () => {
+    const db = await newDb();
+    const asked: string[] = [];
+    let busy = false;
+    const fetchFn: Fetch = async (url) => {
+      const q = decodeURIComponent(new URL(url).searchParams.get('query') ?? '');
+      asked.push(q);
+      if (busy) return { ok: false, status: 429, text: async () => '' };
+      const hits: Record<string, string> = { 'Glory AK47': HASH(3), 'Alien Red': HASH(4), 'Tempered AK47': HASH(5) };
+      return { ok: true, status: 200, text: async () => market(...(hits[q] ? [[q, hits[q]] as [string, string]] : [])) };
+    };
+    const cfg: Config = { ...DEFAULT_CONFIG };
+    const first = await resolveItemIcons(db, cfg, fetchFn, T0, 500, 0);
+    assert.ok(first.asked > 60 && first.found === 3, JSON.stringify(first));
+    assert.ok(!asked.includes('Glory Set') && asked.includes('Glory AK47'), 'sets are looked up through their lead item');
+
+    const icons = await itemIcons(db);
+    assert.equal(icons['Glory AK47'], HASH(3));
+    assert.equal(icons['Glory Set'], HASH(3), ALIASES['Glory Set']);
+    assert.equal(icons['Glory AK'], HASH(3), 'the Scrap Crate counts too');
+    assert.equal(icons['Assault Rifle'], undefined, 'no listing, no picture');
+
+    asked.length = 0;
+    assert.deepEqual(await resolveItemIcons(db, cfg, fetchFn, T0 + HOUR, 500, 0), { asked: 0, found: 0 }, 'misses wait a week');
+    busy = true;
+    await assert.rejects(resolveItemIcons(db, cfg, fetchFn, T0 + MISS_RETRY_MS, 500, 0), MarketBusy);
+    assert.equal(asked.length, 1, 'the first 429 ends the pass');
+    busy = false;
+    const again = await resolveItemIcons(db, cfg, fetchFn, T0 + MISS_RETRY_MS, 4, 0);
+    assert.deepEqual(again, { asked: 4, found: 0 }, 'at most max per pass, hits are not asked again');
+
+    const beacon = new LocalBeacon(T0 - 60_000);
+    const router = createRouter({ db, cfg, clock: () => T0, fetch: fetchFn, publicUrl: 'http://x', beacon, crash: new CrashService(db, cfg, beacon, 20) });
+    const res = await router.dispatch({ method: 'GET', url: '/config', headers: {}, body: null, ip: '1.1.1.1' });
+    assert.equal((res.payload as { itemIcons: Record<string, string> }).itemIcons['Alien Red'], HASH(4));
+  });
+});

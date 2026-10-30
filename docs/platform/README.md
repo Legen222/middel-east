@@ -23,10 +23,11 @@
 | 21 | [11-bildgenerierung.md](11-bildgenerierung.md) | KI-Bilder: Claude führt (Briefings, Auswahl, Einbau), das OpenAI-Bildmodell zeichnet. Generator `platform/web/tools/imagegen.mjs`, 40 Motive beschrieben (20 Kisten, 15 Spielkacheln, Lobby-Banner, 4 Slider). Wartet auf `OPENAI_API_KEY` und die Netzwerk-Freigabe für `api.openai.com`. |
 | 22 | – | Desktop im Aufbau von bandit.camp (Struktur, nicht deren Grafiken): Chat als feste Spalte links (Avatar, Level, Name in Level-Farbe), Top-Bar mit Logo, Menü „Games ▾“ statt Spieleleiste, großer Anmelde-Button; Lobby als eine zentrale Spalte: Willkommen + Spieler online, Live-Wins, großer Slider mit Button, Spieleraster mit hohen Kacheln und großen Titeln, Live-Spiele, Free Scrap, letzte Wetten. Eigener Hintergrund: Schrottplatz bei Nacht (Kran, Container, Ölplattform) als SVG. |
 | 23 | [12-kisten-und-chancen.md](12-kisten-und-chancen.md) | Case Battle neu gestaltet (Kopfbereich mit Live-Zahlen, Baukasten in drei Schritten mit Modus-Karten, Spielerzahl und Kistensuche, feste Zusammenfassung, Battle-Liste mit Sitzplätzen und Kisten, Battle-Raum mit Avataren, Gewinner-Abzeichen und Drop-Kacheln) und Tabelle aller 20 Kisten mit Preis, RTP, Erwartungswert und jedem Item samt Wert und Chance: als Seite **Crate odds** (`#/crates`), als Pop-up an jeder Kiste und als Dokument |
+| 24 | [13-itembilder.md](13-itembilder.md) | Case Battle mit größeren Walzen (104 statt 72 px pro Symbol) und größeren Drop-Kacheln. Itembilder vom Steam-Markt: Der Server sucht zu jedem Kisten-Item das Marktbild und gibt den Schlüssel mit `/config` aus; die Seite lädt das Bild direkt vom Steam-CDN. Grundgegenstände ohne Marktbild und nicht ladbare Bilder zeigen die Zeichnung. Werkzeug `npm run item-icons` füllt die feste Liste; wartet auf die Netzwerk-Freigabe für `steamcommunity.com`. |
 
 ```bash
 cd platform/engine && npm install && npm test && npm run sim      # 101 Tests, Monte-Carlo (90 × 10 Mio. Runden)
-cd platform/server && npm install && npm test && npm start        # 83 Tests, API auf :8787 (SQLite)
+cd platform/server && npm install && npm test && npm start        # 85 Tests, API auf :8787 (SQLite)
 cd platform/server && npm run test:pg                           # dieselben Tests gegen Postgres
 docker compose -f deploy/docker-compose.yml --env-file deploy/.env up --build   # kompletter Stack auf :8080
 docker compose -f deploy/docker-compose.yml --env-file deploy/.env --profile skins up --build   # dazu der Steam-Trade-Bot (nur mit Lizenz)

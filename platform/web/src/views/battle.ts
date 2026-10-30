@@ -228,10 +228,11 @@ function mountLobby(root: HTMLElement, c: Parameters<NonNullable<View['mount']>>
     $$('[data-show]', root).forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
     paint();
   }));
-  const load = async () => { games = await api<Battle[]>('GET', '/pvp/list/battle'); paint(); };
+  let gone = false; // a list that arrives after leaving the lobby is dropped
+  const load = async () => { const list = await api<Battle[]>('GET', '/pvp/list/battle'); if (gone) return; games = list; paint(); };
   void load();
   const t = setInterval(() => void load(), 2000);
-  return () => clearInterval(t);
+  return () => { gone = true; clearInterval(t); };
 }
 
 /* ---------- battle room ---------- */
@@ -525,6 +526,7 @@ function mountRoom(root: HTMLElement, c: Parameters<NonNullable<View['mount']>>[
   const load = async () => {
     const prev = g?.status;
     g = await api<Battle>('GET', `/pvp/game/${id}`);
+    if (stopped) return;
     const seatsChanged = !room.querySelector('.seats') || room.querySelectorAll('.seat .who b').length !== g.players.length;
     if (seatsChanged && !playing) skeleton(g); // also drops the action buttons, so paintMeta redraws them
     paintMeta(g);

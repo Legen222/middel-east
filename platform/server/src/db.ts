@@ -592,6 +592,16 @@ CREATE TABLE IF NOT EXISTS bot_status (
 );
 `;
 
+/* Item pictures: Steam market icon hash per item name, NULL when the market has none (item-icons.ts). */
+export const ITEM_ICONS_SCHEMA = `
+CREATE TABLE IF NOT EXISTS item_icons (
+  name TEXT PRIMARY KEY,
+  icon TEXT,
+  source TEXT NOT NULL,            -- market
+  updated_at INTEGER NOT NULL
+);
+`;
+
 /*
  * Live player figures, kept by the database itself: every ledger row on a player's account updates
  * player_stats in the same transaction (trigger), whichever game or rail wrote it. The current balance
@@ -695,6 +705,7 @@ export function openDb(path = ':memory:'): DB {
   raw.exec(SCHEMA);
   raw.exec(SKIN_SCHEMA);
   raw.exec(CHAT_REPORTS_SCHEMA);
+  raw.exec(ITEM_ICONS_SCHEMA);
   raw.exec(PLAYER_STATS_TABLE);
   raw.exec(CASE_SEED);
   raw.exec(CASE_SYNC);

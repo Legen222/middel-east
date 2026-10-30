@@ -29,7 +29,7 @@ export function oddsTable(k: CaseInfo): string {
   return `<div class="tablewrap"><table class="odds-table"><thead><tr><th>Item</th><th>Rarity</th><th class="r">Value ${SCRAP_SYM}</th><th class="r">× price</th><th class="r">Chance</th><th class="r hide-xs">Odds</th></tr></thead><tbody>
     ${items.map((i) => {
       const t = tierOf(i.value, k.price);
-      return `<tr style="--rc:${t.color}"><td><span class="odds-item"><span class="oi-art">${itemArt(i.name)}</span>${esc(i.name)}</span></td><td><span class="tier">${t.name}</span></td>
+      return `<tr style="--rc:${t.color}"><td><span class="odds-item"><span class="oi-art">${itemArt(i.name, true)}</span>${esc(i.name)}</span></td><td><span class="tier">${t.name}</span></td>
         <td class="r num">${frags(i.value, 0)}</td><td class="r num muted">${(i.value / k.price).toFixed(2)}×</td>
         <td class="r num"><span class="chance-bar"><i style="width:${Math.max(2, Math.sqrt(i.chance) * 100)}%"></i></span>${chanceTxt(i.chance)}</td><td class="r num muted hide-xs">${oneIn(i.chance)}</td></tr>`;
     }).join('')}

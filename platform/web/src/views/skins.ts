@@ -1,5 +1,6 @@
 import { api } from '../api';
 import { icon } from '../icons';
+import { steamImg } from '../loot-art';
 import type { Ctx, View } from '../main';
 import { $, $$, SCRAP_SYM, errorText, esc, frags, guard, scrap, toast } from '../ui';
 
@@ -12,7 +13,7 @@ interface ShopItem { assetId: string; name: string; icon: string | null; price: 
 interface Withdrawal { id: string; status: string; value: number; offerId: string | null; note: string | null; createdAt: number; items: { assetId: string; name: string; icon: string | null }[] }
 
 /** Steam's item image CDN; the inventory gives only the image hash. */
-export const skinImg = (hash: string | null, size = 120) => (hash ? `https://community.cloudflare.steamstatic.com/economy/image/${encodeURIComponent(hash)}/${size}fx${size}f` : '');
+export const skinImg = (hash: string | null, size = 120) => (hash ? steamImg(hash, size) : '');
 const when = (t: number) => new Date(t).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' });
 const DEP_STATUS: Record<string, string> = {
   requested: 'Bot is sending the offer', sent: 'Offer sent – accept it in Steam', accepted: 'Credited', declined: 'Declined', canceled: 'Canceled', expired: 'Expired', failed: 'Failed',

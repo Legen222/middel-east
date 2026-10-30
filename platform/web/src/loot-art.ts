@@ -137,6 +137,28 @@ const ICONS: Record<ItemKind, string> = {
   set: '<path class="brass" d="M12 14H52V36H12Z"/><path class="brass" d="M12 14L20 6H44L52 14"/><path opacity=".6" d="M24 14V36M40 14V36M12 24H52"/><path class="brass" d="M28 6l4-3 4 3"/>',
 };
 
-/** An item icon tinted with --rc (rarity colour) by CSS. */
-export const itemArt = (name: string) =>
-  `<svg class="art item-art" viewBox="0 0 64 40" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${ICONS[itemKind(name)]}</svg>`;
+const drawn = (kind: ItemKind) =>
+  `<svg class="art item-art" viewBox="0 0 64 40" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${ICONS[kind] ?? ICONS.resource}</svg>`;
+
+/* Steam market pictures by item name (sent with /config, see the server's item-icons.ts). */
+let icons: Record<string, string> = {};
+export const steamImg = (hash: string, size = 256) => `https://community.cloudflare.steamstatic.com/economy/image/${encodeURIComponent(hash)}/${size}fx${size}f`;
+export function setItemIcons(map: Record<string, string> | undefined): void {
+  icons = Object.fromEntries(Object.entries(map ?? {}).filter(([, h]) => /^[\w-]+$/.test(h)));
+}
+/* a picture Steam does not deliver turns back into the drawing */
+document.addEventListener('error', (e) => {
+  const img = e.target;
+  if (img instanceof HTMLImageElement && img.classList.contains('item-img') && img.parentNode) img.outerHTML = drawn(img.dataset.kind as ItemKind);
+}, true);
+
+/**
+ * An item's picture: the Steam market icon when the item has one, otherwise a drawing tinted with --rc (rarity
+ * colour) by CSS. `lazy` for long lists such as the odds tables.
+ */
+export const itemArt = (name: string, lazy = false) => {
+  const hash = icons[name];
+  return hash
+    ? `<img class="art item-art item-img" src="${steamImg(hash)}" alt="" decoding="async" referrerpolicy="no-referrer"${lazy ? ' loading="lazy"' : ''} data-kind="${itemKind(name)}">`
+    : drawn(itemKind(name));
+};

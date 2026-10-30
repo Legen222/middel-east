@@ -10,6 +10,9 @@
  *   KYC_BEFORE_DEPOSIT   default true; whether the licence allows later checks is the licence holder's call
  *   PRICE_FEED_URL       default Skinport's public Rust price list
  *   INVENTORY_URL        default Steam's community inventory endpoint ({steamid} is replaced)
+ * Item pictures (item-icons.ts):
+ *   ITEM_ICON_LOOKUP     default true: look up Steam market icons for crate items the built-in list lacks
+ *   ITEM_ICON_SEARCH_URL default the Steam market search ({query} is replaced)
  */
 import { type Config, DEFAULT_CONFIG } from './config';
 
@@ -53,5 +56,6 @@ export function configFromEnv(env: Env): Config {
       priceUrl: env.PRICE_FEED_URL || d.priceUrl,
       inventoryUrl: env.INVENTORY_URL || d.inventoryUrl,
     },
+    itemIcons: { lookup: flag(env.ITEM_ICON_LOOKUP, true), searchUrl: env.ITEM_ICON_SEARCH_URL || DEFAULT_CONFIG.itemIcons.searchUrl },
   };
 }

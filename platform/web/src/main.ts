@@ -3,6 +3,7 @@ import { LOGO_MARK } from './art';
 import { chatPanelHtml, chatView, mountChatPanel } from './chatpanel';
 import { CATEGORIES, GAMES, gameByPath } from './games';
 import { SPRITE, icon } from './icons';
+import { setItemIcons } from './loot-art';
 import { $, $$, SCRAP_SYM, animateNumber, errorText, esc, frags, guard, modal, scrap, toast } from './ui';
 import { adminView } from './views/admin';
 import { airdropView } from './views/airdrop';
@@ -126,6 +127,7 @@ addEventListener('scrapline:unauthorized', () => { if (ctx) signOut('Your sessio
 
 async function boot() {
   const cfg = await api<PublicConfig>('GET', '/config').catch((e) => { renderFatal(e); throw e; });
+  setItemIcons(cfg.itemIcons);
   await loadSite();
   watchSite();
   await finishSteamLogin();

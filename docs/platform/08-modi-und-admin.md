@@ -318,7 +318,7 @@ Stand: 21.10.2026. Code:
 - **Bilder:** jede Kiste hat eine eigene Zeichnung im Blueprint-Stil (Fass, Ölfass, Werkzeugkasten, Fallschirm, Bradley, Ölplattform, Containerschiff, Rakete, Ei …).
   - Items bekommen ein Symbol nach Typ (Gewehr, SMG, Pistole, Maske, Helm, Tür, Sprengstoff, Medizin, Set …), eingefärbt nach Seltenheit.
   - Das Symbol wird aus dem Namen erkannt, neue Items brauchen also keine eigene Grafik.
-  - Die echten Steam-Itembilder sind nicht eingebunden: Sie sind Bildmaterial von Facepunch und der Steam-CDN ist aus dieser Umgebung nicht erreichbar. Der Preisfeed liefert später die Bild-URLs mit.
+  - Seit Phase 24 zeigen Items mit einem Eintrag auf dem Steam-Markt dessen Bild direkt vom Steam-CDN; die Zeichnung bleibt für alle anderen ([13-itembilder.md](13-itembilder.md)).
 - **Bestehende Datenbanken:**
   - Kisten, deren aktuelle Version aus dem Seed stammt, bekommen die neue Itemliste als nächste Version. Alte Versionen bleiben prüfbar.
   - Versionen, die ein Operator veröffentlicht hat, werden nie überschrieben.
