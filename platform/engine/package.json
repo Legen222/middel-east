@@ -8,7 +8,8 @@
     "typecheck": "tsc --noEmit",
     "test": "esbuild test/all.test.ts --bundle --platform=node --format=esm --outfile=.cache/all.test.mjs && node --test .cache/all.test.mjs",
     "sim": "esbuild sim/montecarlo.ts --bundle --platform=node --format=esm --outfile=.cache/sim.mjs && node .cache/sim.mjs",
-    "build:verify": "esbuild verify/main.ts --bundle --format=iife --minify --outfile=.cache/verify.js && node verify/inline.mjs"
+    "build:verify": "esbuild verify/main.ts --bundle --format=iife --minify --outfile=.cache/verify.js && node verify/inline.mjs",
+    "crate-table": "esbuild tools/crate-table.ts --bundle --platform=node --format=esm --outfile=.cache/crate-table.mjs && node .cache/crate-table.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.4",

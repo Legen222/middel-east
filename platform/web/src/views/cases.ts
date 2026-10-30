@@ -1,11 +1,9 @@
 import { type Bet, type CaseInfo, api } from '../api';
+import { crateFigures, oddsTable, rarity } from '../crates';
 import { crateArt, itemArt } from '../loot-art';
 import type { View } from '../main';
-import { $, $$, SCRAP_SYM, esc, fairBox, frags, guard, pct, pctShort, reducedMotion, scrap } from '../ui';
+import { $, $$, esc, fairBox, frags, guard, pct, reducedMotion, scrap } from '../ui';
 
-/** Rarity colour from value relative to the case price. */
-const rarity = (value: number, price: number) =>
-  value >= price * 20 ? '#C9A45C' : value >= price * 5 ? '#E5534B' : value >= price * 2 ? '#4C8DF6' : value >= price ? '#3FB950' : '#6B747D';
 
 /** Scrap → "$1,500" (play money; 100 Scrap = 1 $). */
 const usd = (f: number, perDollar: number) => `$${(f / perDollar).toLocaleString('en-US', { minimumFractionDigits: f % perDollar ? 2 : 0, maximumFractionDigits: 2 })}`;
@@ -45,8 +43,9 @@ export const casesView: View = {
   </section>
   <div class="admin-grid">
     <section class="card">
-      <h2 class="h-sect" id="odds-title">Contents</h2>
-      <div class="tablewrap"><table><thead><tr><th>Item</th><th class="r">Value ${SCRAP_SYM}</th><th class="r">Chance</th></tr></thead><tbody id="odds"></tbody></table></div>
+      <div class="sect-head"><h2 class="h-sect" id="odds-title">Contents</h2><a href="#/crates" style="font-size:13px">All crates →</a></div>
+      <div id="odds-figs"></div>
+      <div id="odds"></div>
     </section>
     <section class="card">
       <h2 class="h-sect">Your drops this session</h2>
@@ -77,7 +76,8 @@ export const casesView: View = {
       current = k;
       $$('.case', root).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === k.id)));
       $('#odds-title', root).textContent = `Contents: ${k.name}`;
-      $('#odds', root).innerHTML = [...k.items].sort((a, b) => b.value - a.value).map((it) => `<tr><td class="item-cell" style="--rc:${rarity(it.value, k.price)}">${itemArt(it.name)}<span>${esc(it.name)}</span></td><td class="r num">${frags(it.value, 0)}</td><td class="r num">${pctShort(it.chance)}</td></tr>`).join('');
+      $('#odds-figs', root).innerHTML = crateFigures(k);
+      $('#odds', root).innerHTML = oddsTable(k);
       $('#drops', root).hidden = true;
       layout();
     };

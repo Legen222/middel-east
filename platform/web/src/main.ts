@@ -31,6 +31,7 @@ import { profileView } from './views/profile';
 import { verifyView } from './views/verify';
 import { walletView } from './views/wallet';
 import { depositView, withdrawView } from './views/skins';
+import { cratesView } from './views/crates';
 
 export interface Ctx {
   cfg: PublicConfig;
@@ -56,12 +57,12 @@ const VIEWS: Record<string, View> = {
   cases: casesView, battle: battleView, coinflip: coinflipView,
   rewards: rewardsView, limits: limitsView, fair: fairView, history: historyView, chat: chatView, admin: adminView,
   wallet: walletView, profile: profileView, verify: verifyView, terms: termsView, privacy: privacyView, help: helpView,
-  deposit: depositView, withdraw: withdrawView,
+  deposit: depositView, withdraw: withdrawView, crates: cratesView,
 };
 const MAIN_NAV: [string, string, string][] = [['rewards', 'Rewards', 'trophy'], ['fair', 'Provably fair', 'shield'], ['help', 'Help', 'chat']];
 /** What a visitor without an account can open; every other route asks to sign up first. */
-const GUEST_ROUTES = new Set(['', 'help', 'terms', 'privacy', 'verify', 'chat']);
-const FOOT_NAV: [string, string][] = [['fair', 'Provably fair'], ['verify', 'Verifier'], ['limits', 'Responsible play'], ['help', 'Help'], ['terms', 'Terms'], ['privacy', 'Privacy']];
+const GUEST_ROUTES = new Set(['', 'help', 'terms', 'privacy', 'verify', 'chat', 'crates']);
+const FOOT_NAV: [string, string][] = [['fair', 'Provably fair'], ['verify', 'Verifier'], ['crates', 'Crate odds'], ['limits', 'Responsible play'], ['help', 'Help'], ['terms', 'Terms'], ['privacy', 'Privacy']];
 /** Wide enough for the chat column on the left. */
 const WIDE = matchMedia('(min-width: 1100px)');
 const CHAT_KEY = 'scrapline.chat';
@@ -318,7 +319,7 @@ function drawerHtml(c: Ctx, showAdmin: boolean) {
       ${link('#/profile', 'user', 'Profile')}${link('#/wallet', 'pot', 'Wallet')}${c.cfg.skins?.enabled ? link('#/deposit', 'crate', 'Deposit skins') + link('#/withdraw', 'upgrade', 'Withdraw skins') : ''}${link('#/history', 'clock', 'History')}${link('#/rewards', 'trophy', 'Rewards')}
       ${showAdmin ? link('#/admin', 'wrench', 'Backoffice') : ''}</nav>`}
     <nav class="dr-sect" aria-label="Fair play"><p class="dr-cat">Fair play</p>
-      ${c.guest ? '' : link('#/fair', 'shield', 'Provably fair')}${link('#/verify', 'target', 'Verifier')}${c.guest ? '' : link('#/limits', 'gauge', 'Limits &amp; breaks')}
+      ${c.guest ? '' : link('#/fair', 'shield', 'Provably fair')}${link('#/verify', 'target', 'Verifier')}${link('#/crates', 'crate', 'Crate odds')}${c.guest ? '' : link('#/limits', 'gauge', 'Limits &amp; breaks')}
       ${link('#/help', 'chat', 'Help')}${link('#/terms', 'keycard', 'Terms')}${link('#/privacy', 'shield', 'Privacy')}</nav>
     ${c.guest ? '' : `<div class="dr-sect"><button class="btn ghost block" type="button" data-logout>Sign out</button></div>`}`;
 }
