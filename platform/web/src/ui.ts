@@ -64,9 +64,12 @@ export function modal(html: string): { root: HTMLElement; close: () => void } {
   return { root: back, close };
 }
 
+/** An amount input with the Scrap symbol inside it. */
+export const scrapInput = (id: string, value: number) => `<span class="money-in">${SCRAP_SYM}<input id="${id}" inputmode="decimal" autocomplete="off" value="${value}"></span>`;
+
 /** Stake input with ½ and 2× buttons. Reads Scrap. */
-export function stakeField(id: string, value: number, label = `Stake ${SCRAP_SYM}`) {
-  return `<div class="stakebar"><label class="field">${label}<input id="${id}" inputmode="decimal" value="${value}"></label>
+export function stakeField(id: string, value: number, label = 'Stake') {
+  return `<div class="stakebar"><label class="field">${label}${scrapInput(id, value)}</label>
     <button type="button" class="btn ghost small" data-stake="${id}" data-f="0.5">½</button><button type="button" class="btn ghost small" data-stake="${id}" data-f="2">2×</button></div>`;
 }
 export function bindStake(root: ParentNode) {

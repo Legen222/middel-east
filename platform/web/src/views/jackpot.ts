@@ -1,6 +1,6 @@
 import { api } from '../api';
 import type { View } from '../main';
-import { $, $$, SCRAP_SYM, esc, frags, guard, pct, readNum, scrap } from '../ui';
+import { $, $$, esc, frags, guard, pct, readNum, scrap, scrapInput } from '../ui';
 
 type Room = 'high' | 'low';
 interface Pot {
@@ -34,7 +34,7 @@ export const jackpotView: View = {
       <div class="tablewrap"><table><thead><tr><th>Winner</th><th class="r">Pot</th><th class="r">Chance</th><th class="r">Paid</th></tr></thead><tbody id="hist"></tbody></table></div>
     </div>
     <aside class="game-side">
-      <label class="field">Amount ${SCRAP_SYM}<input id="amount" inputmode="decimal" value="10"></label>
+      <label class="field">Amount${scrapInput('amount', 10)}</label>
       <p class="muted" style="font-size:13px" id="range"></p>
       <button class="btn block" id="enter" type="button">Join the pot</button>
       <button class="btn ghost block" id="bot" type="button" hidden>Add a demo bot</button>

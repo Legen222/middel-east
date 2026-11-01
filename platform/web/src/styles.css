@@ -70,8 +70,8 @@ details summary{cursor:pointer}
 .mainnav{display:flex;align-items:center;gap:2px;margin-left:10px}
 .mainnav a{color:var(--muted);text-decoration:none;font:500 14px/1 var(--ui);padding:9px 12px;border-radius:var(--r);position:relative;transition:color .2s,background .2s}
 .mainnav a:hover{color:var(--text);background:rgba(255,255,255,.04)}
-.mainnav a[aria-current="page"]{color:var(--text)}
-.mainnav a[aria-current="page"]::after{content:"";position:absolute;left:12px;right:12px;bottom:-11px;height:2px;border-radius:2px;background:var(--bp);box-shadow:0 0 12px rgba(61,220,255,.8)}
+.mainnav > a[aria-current="page"]{color:var(--text)}
+.mainnav > a[aria-current="page"]::after{content:"";position:absolute;left:12px;right:12px;bottom:-11px;height:2px;border-radius:2px;background:var(--bp);box-shadow:0 0 12px rgba(61,220,255,.8)}
 .spacer{flex:1}
 .sessionbar{display:flex;gap:10px;align-items:center;font-size:12px;color:var(--muted);white-space:nowrap}
 .sessionbar b{font:500 12px var(--mono);color:var(--text)}
@@ -90,7 +90,7 @@ details summary{cursor:pointer}
 .iconbtn:hover{color:var(--text);border-color:rgba(255,255,255,.16)}
 .iconbtn[aria-pressed="true"],.iconbtn[aria-expanded="true"]{color:var(--bp);border-color:rgba(61,220,255,.5);box-shadow:var(--glow-soft)}
 .menuwrap{position:relative}
-.menu{position:absolute;right:0;top:calc(100% + 8px);min-width:230px;z-index:40;border:1px solid var(--line);border-radius:var(--r-lg);background:rgba(17,20,25,.96);backdrop-filter:blur(16px);
+.menu{position:absolute;right:0;top:calc(100% + 8px);min-width:230px;z-index:40;border:1px solid var(--line);border-radius:var(--r-lg);background:#111419;
   padding:6px;box-shadow:0 24px 50px -12px rgba(0,0,0,.7),0 0 0 1px rgba(61,220,255,.06);display:flex;flex-direction:column;animation:pop-in .18s var(--ease-out)}
 @keyframes pop-in{from{opacity:0;transform:translateY(-4px) scale(.98)}}
 .menu .who{padding:10px 10px 12px;border-bottom:1px solid var(--line-soft);margin-bottom:4px}
@@ -192,6 +192,9 @@ main:focus,main:focus-visible{outline:none;box-shadow:none}
 .seg .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:1px;box-shadow:0 0 0 1px rgba(255,255,255,.15)}
 .stakebar{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;align-items:end}
 .stakebar .btn.small{min-height:42px;min-width:42px}
+.money-in{position:relative;display:block}
+.money-in .cur{position:absolute;left:11px;top:50%;transform:translateY(-50%);margin:0;pointer-events:none}
+.field .money-in input{padding-left:34px}
 .check{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--text)}
 .check input{margin-top:3px;accent-color:var(--bp);width:17px;height:17px}
 tbody tr{transition:background .15s}tbody tr:hover{background:rgba(255,255,255,.02)}

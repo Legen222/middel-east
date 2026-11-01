@@ -218,7 +218,7 @@ export const adminView: View = {
       $('[data-adjust]', box).addEventListener('click', () => {
         const m = modal(`<h2 class="h-sect">Adjust ${esc(p.name)}'s balance</h2>
           <p class="muted" style="font-size:13px">Positive credits, negative debits (never below zero). At most ±100,000 Scrap; audited with your name. You cannot adjust your own account.</p>
-          <label class="field">Amount (Scrap)<input data-a inputmode="decimal" placeholder="e.g. 50 or -20"></label>
+          <label class="field">Amount (Scrap)<input data-a inputmode="decimal" data-signed placeholder="e.g. 50 or -20"></label>
           <label class="field">Reason (audited)<input data-r maxlength="200" placeholder="e.g. goodwill after the outage on 12 Oct"></label>
           <div class="row"><button class="btn" data-ok type="button">Book adjustment</button><button class="btn ghost" data-no type="button">Cancel</button></div>`);
         m.root.querySelector('[data-no]')!.addEventListener('click', m.close);

@@ -246,7 +246,7 @@ function renderShell() {
       <nav class="mainnav" aria-label="Main">
         <div class="menuwrap"><button class="navbtn" id="games-btn" type="button" aria-expanded="false" aria-haspopup="true" aria-controls="games-menu">${icon('dice')}Games<span class="caret" aria-hidden="true">▾</span></button>
           <div class="menu games-menu" id="games-menu" hidden>${CATEGORIES.map(([cat, label]) => `<div class="gm-col"><p class="gm-cat">${label}</p>${GAMES.filter((g) => g.cat === cat)
-            .map((g) => `<a class="gm-game" href="#/${g.path}" data-path="${g.path}" data-game="${g.id}">${icon(g.icon)}<span>${g.name}</span>${g.tag === 'LIVE' ? '<em class="live-dot" title="Live"></em>' : g.tag === 'NEW' ? '<em class="gm-new">NEW</em>' : ''}</a>`).join('')}</div>`).join('')}</div></div>
+            .map((g) => `<a class="gm-game" href="#/${g.path}" data-path="${g.path}" data-game="${g.id}">${icon(g.icon)}<span>${g.name}</span>${g.tag === 'NEW' ? '<em class="gm-new">NEW</em>' : ''}</a>`).join('')}</div>`).join('')}</div></div>
         ${MAIN_NAV.map(([p, l, ic]) => `<a href="#/${p}" data-path="${p}">${icon(ic)}${l}</a>`).join('')}
       </nav>
       <div class="spacer"></div>
@@ -360,6 +360,16 @@ function closeMenu() {
   document.getElementById('acct')?.setAttribute('aria-expanded', 'false');
 }
 document.addEventListener('click', (e) => { if (!(e.target as HTMLElement).closest?.('#acct-menu, #games-menu')) closeMenu(); });
+/* number fields (stakes, amounts, targets) take digits and a decimal point only; data-signed also allows a minus */
+document.addEventListener('input', (e) => {
+  const el = e.target;
+  if (!(el instanceof HTMLInputElement) || el.inputMode !== 'decimal') return;
+  const clean = el.value.replace(el.hasAttribute('data-signed') ? /[^\d.,-]|(?!^)-/g : /[^\d.,]/g, '');
+  if (clean === el.value) return;
+  const at = Math.max(0, (el.selectionStart ?? clean.length) - (el.value.length - clean.length));
+  el.value = clean;
+  el.setSelectionRange(at, at);
+}, true);
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
 
 /* Chat aside: shown on wide screens when the player has it switched on and the chat is not already the main view. */
