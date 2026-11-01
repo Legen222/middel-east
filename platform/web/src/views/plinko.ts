@@ -11,8 +11,7 @@ export const plinkoView: View = {
   <section class="game">
     <div class="game-stage">
       <div class="game-head">
-        <div><p class="eyebrow">Original</p><h1 class="h-display">Scrap Chute</h1>
-          <p>One roll per row: below 0.5 goes left, otherwise right. The bucket is the number of right bounces.</p></div>
+        <div><p class="eyebrow">Original</p><h1 class="h-display">Scrap Chute</h1></div>
         <div class="big-mult" id="mult">–</div>
       </div>
       <div class="plinko"><svg id="board" viewBox="0 0 ${W} ${H}" role="img" aria-label="Plinko board"></svg><div class="buckets" id="buckets"></div></div>

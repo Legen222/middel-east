@@ -20,8 +20,7 @@ export const casesView: View = {
     const cases = [...c.cfg.cases].sort((a, b) => a.price - b.price);
     return `
   <section class="card" style="gap:16px">
-    <div class="game-head"><div><p class="eyebrow">Original · Crates</p><h1 class="h-display">Crate opening</h1>
-      <p>Twenty crates from ${usd(cases[0]?.price ?? 0, c.cfg.fragsPerDollar)} to ${usd(cases[cases.length - 1]?.price ?? 0, c.cfg.fragsPerDollar)}, named after Rust's loot containers and monuments. Open up to five at once. Every crate lists all items with their drop chance; the price is the expected value ÷ 0.93, rounded up to whole Scrap. Each crate is its own round with its own nonce.</p></div></div>
+    <div class="game-head"><div><p class="eyebrow">Original · Crates</p><h1 class="h-display">Crate opening</h1></div></div>
     <div class="cases" id="cases">${cases.map((k, i) => `
       <button type="button" class="case" data-id="${k.id}" aria-pressed="${i === 0}">
         <span class="art">${crateArt(k.id, k.price)}</span>

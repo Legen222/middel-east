@@ -23,8 +23,7 @@ export const jackpotView: View = {
   <section class="game">
     <div class="game-stage">
       <div class="game-head">
-        <div><p class="eyebrow">Live · PvP</p><h1 class="h-display">Jackpot</h1>
-          <p>Everyone throws Scrap into one pot; your chance to take it all is your share of the pot. The house keeps 4 % of the pot, nothing else. The draw uses a beacon round fixed when the pot closes.</p></div>
+        <div><p class="eyebrow">Live · PvP</p><h1 class="h-display">Jackpot</h1></div>
         <div style="text-align:right"><div class="big-mult num" id="total">0.00</div><div class="eyebrow" id="phase">Scrap in the pot</div></div>
       </div>
       <div class="seg" role="group" aria-label="Room" id="rooms"><button type="button" data-room="high" aria-pressed="true">High Rollers</button><button type="button" data-room="low" aria-pressed="false">Low Ballers</button></div>

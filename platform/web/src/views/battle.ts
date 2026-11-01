@@ -75,7 +75,6 @@ export const battleView: View = {
     return `
   <section class="bt-hero">
     <div class="bt-hero-copy"><p class="eyebrow">PvP · Beacon randomness</p><h1 class="h-display">Case Battle</h1>
-      <p>Open the same crates as your rivals, round by round. Every mode hands the whole pool back to the seats, so the house edge stays the crates' 7 %.</p>
       <div class="row"><button class="btn" type="button" data-go-builder>${icon('battle')} Create battle</button><a class="btn ghost" href="#/crates">${icon('crate')} Crate odds</a></div></div>
     <div class="bt-stats"><div><b class="num" id="bs-open">–</b><span>open battles</span></div><div><b class="num" id="bs-live">–</b><span>drawing now</span></div><div><b id="bs-pool">–</b><span>biggest open pool</span></div></div>
     <span class="bt-hero-art" aria-hidden="true">${crateArt('elite-crate', 4500)}<em>VS</em>${crateArt('military-crate', 2000)}</span>

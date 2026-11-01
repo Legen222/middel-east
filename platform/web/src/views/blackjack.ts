@@ -24,8 +24,7 @@ export const blackjackView: View = {
   <section class="game">
     <div class="game-stage">
       <div class="game-head">
-        <div><p class="eyebrow">Original · Cards</p><h1 class="h-display">Blackjack</h1>
-          <p>Blackjack pays 3:2, dealer stands on soft 17 and peeks for blackjack. Double on any two cards, split once. With perfect play the RTP is 99.31 %; it is a skill game, so mistakes lower it.</p></div>
+        <div><p class="eyebrow">Original · Cards</p><h1 class="h-display">Blackjack</h1></div>
         <div class="big-mult" id="res"></div>
       </div>
       <div class="felt">

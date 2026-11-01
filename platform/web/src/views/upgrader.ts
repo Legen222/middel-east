@@ -49,8 +49,7 @@ export const upgraderView: View = {
   <section class="game">
     <div class="game-stage">
       <div class="game-head">
-        <div><p class="eyebrow">Original · Upgrader</p><h1 class="h-display">Workbench</h1>
-          <p>Put in Scrap, pick a target, then drag the green zone anywhere on the ring. The needle spins to your roll: inside the zone, you get the target. The zone is always exactly as large as your chance (stake ÷ target · 0.95), so where you put it never changes the odds.</p></div>
+        <div><p class="eyebrow">Original · Upgrader</p><h1 class="h-display">Workbench</h1></div>
         <div class="big-mult" id="res"></div>
       </div>
       <div class="upg-bar">

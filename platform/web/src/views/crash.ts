@@ -18,8 +18,7 @@ export const crashView: View = {
   <section class="game">
     <div class="game-stage">
       <div class="game-head">
-        <div><p class="eyebrow">Live · Crash</p><h1 class="h-display">Scrap Press</h1>
-          <p>The press rises and the multiplier climbs. Get out before it slams down. P(crash ≥ x) = 0.98 ÷ x, so 98 % RTP for every target from 1.01×.</p></div>
+        <div><p class="eyebrow">Live · Crash</p><h1 class="h-display">Scrap Press</h1></div>
       </div>
       <div style="position:relative;border:1px solid var(--line);border-radius:3px;background:var(--bg);aspect-ratio:16/8;max-width:100%">
         <canvas id="cv" style="position:absolute;inset:0;width:100%;height:100%"></canvas>

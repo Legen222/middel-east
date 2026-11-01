@@ -26,8 +26,7 @@ export const towersView: View = {
   <section class="game">
     <div class="game-stage">
       <div class="game-head">
-        <div><p class="eyebrow">Original</p><h1 class="h-display">Monument Run</h1>
-          <p>Eight rooms, one door per room. Your keycard sets how many doors are trapped. Cash out after any room: stake × 0.97 ÷ p<sup>k</sup>, so 97 % RTP however far you go.</p></div>
+        <div><p class="eyebrow">Original</p><h1 class="h-display">Monument Run</h1></div>
         <div class="big-mult" id="mult">1.00×</div>
       </div>
       <div class="tower" id="tower"></div>

@@ -16,8 +16,7 @@ export const raidView: View = {
   <section class="game">
     <div class="game-stage">
       <div class="game-head">
-        <div><p class="eyebrow">Original</p><h1 class="h-display">Raid</h1>
-          <p>Pick an explosive for every wall. Cashing out pays stake × 0.97 ÷ (product of the chances). However you play: 97 % RTP.</p></div>
+        <div><p class="eyebrow">Original</p><h1 class="h-display">Raid</h1></div>
         <div class="big-mult" id="mult">1.00×</div>
       </div>
       <div class="walls" id="walls"></div>

@@ -12,8 +12,7 @@ export const minesView: View = {
   <section class="game">
     <div class="game-stage">
       <div class="game-head">
-        <div><p class="eyebrow">Original</p><h1 class="h-display">Minefield</h1>
-          <p>Reveal safe tiles and cash out before you step on a mine. Multiplier = 0.97 · C(25, k) / C(25 − m, k).</p></div>
+        <div><p class="eyebrow">Original</p><h1 class="h-display">Minefield</h1></div>
         <div class="big-mult" id="mult">1.00×</div>
       </div>
       <div class="minefield" id="field">${Array.from({ length: 25 }, (_, i) => `<button type="button" class="cell" data-t="${i}" aria-label="Tile ${i + 1}" disabled></button>`).join('')}</div>

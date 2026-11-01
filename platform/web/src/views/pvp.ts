@@ -60,7 +60,6 @@ export const coinflipView: View = {
     <section class="card" style="gap:14px">
       <p class="eyebrow">PvP · Beacon randomness</p>
       <h1 class="h-display">Coinflip</h1>
-      <p class="muted" style="max-width:66ch">Two players, equal stakes, one coin. The winner takes the pot minus 4 %. The result is only fixed once both are seated and the beacon round after next is published.</p>
       <div class="row" style="align-items:flex-end">
         <div style="min-width:220px;flex:1">${stakeField('stake', 50)}</div>
         <div class="seg" role="group" aria-label="Side" style="min-width:200px"><button type="button" data-side="rust" aria-pressed="true">Rust</button><button type="button" data-side="scrap" aria-pressed="false">Scrap</button></div>

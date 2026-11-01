@@ -15,8 +15,7 @@ export const hiloView: View = {
   <section class="game">
     <div class="game-stage">
       <div class="game-head">
-        <div><p class="eyebrow">Original · Cards</p><h1 class="h-display">Hi-Lo</h1>
-          <p>Guess whether the next card is higher or lower. Equal ranks count for both sides. Each correct guess multiplies by 0.97 ÷ chance; skip a card for free. 97 % RTP whatever you pick.</p></div>
+        <div><p class="eyebrow">Original · Cards</p><h1 class="h-display">Hi-Lo</h1></div>
         <div class="big-mult" id="mult">1.00×</div>
       </div>
       <div class="felt">

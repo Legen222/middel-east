@@ -24,8 +24,7 @@ export const wheelView: View = {
   <section class="game">
     <div class="game-stage">
       <div class="game-head">
-        <div><p class="eyebrow">Live · Wheel</p><h1 class="h-display">Bandit Wheel</h1>
-          <p>A shared wheel with 25 segments and a spin every 25 seconds. Bet on 1, 3, 5, 10 or 20: the fewer segments a number has, the more it pays, and every number returns 96 %.</p></div>
+        <div><p class="eyebrow">Live · Wheel</p><h1 class="h-display">Bandit Wheel</h1></div>
         <div style="text-align:right"><div class="big-mult" id="clock">–</div><div class="eyebrow" id="phase"></div></div>
       </div>
       <div class="wheel-reel" aria-hidden="true"><div class="wheel-track" id="track"></div></div>

@@ -11,8 +11,7 @@ export const airdropView: View = {
   <section class="game">
     <div class="game-stage">
       <div class="game-head">
-        <div><p class="eyebrow">Original · Instant</p><h1 class="h-display">Airdrop</h1>
-          <p>Pick where the crate has to land. It lands at x or higher with chance 0.98 ÷ x; if it reaches your target you get stake × target. 98 % RTP for every target.</p></div>
+        <div><p class="eyebrow">Original · Instant</p><h1 class="h-display">Airdrop</h1></div>
         <div class="big-mult" id="land">–</div>
       </div>
       <div class="kpis">

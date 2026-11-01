@@ -8,8 +8,7 @@ export const diceView: View = {
   <section class="game">
     <div class="game-stage">
       <div class="game-head">
-        <div><p class="eyebrow">Original</p><h1 class="h-display">Dice</h1>
-          <p>Roll from 0.00 to 99.99. You pick the win chance; the multiplier is always 0.98 · 100 / chance.</p></div>
+        <div><p class="eyebrow">Original</p><h1 class="h-display">Dice</h1></div>
         <div class="big-mult num" id="roll">––.––</div>
       </div>
       <div class="card" style="gap:10px">
