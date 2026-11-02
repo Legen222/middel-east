@@ -8,7 +8,7 @@
 
 SCRAPLINE (working name) is a play-money demo of a gambling site set in a post-apocalyptic world built from scrap: crates, raids, scrapyards, workbenches. Players are 18+. The site is dark graphite with cyan, violet and brass accents. Most pictures are still thin line drawings; the images below replace them.
 
-Screenshots of the current site (`reference-*.png`, if the owner added them) show the colours and the mood to match. The thin line drawings in them are what your images replace.
+Screenshots of the current site (`platform/web/art/reference/reference-*.png`) show the colours and the mood to match. The thin line drawings in them are what your images replace.
 
 | Who | Does what |
 |---|---|
