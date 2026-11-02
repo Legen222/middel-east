@@ -61,6 +61,8 @@ const md = `# Image briefs for ChatGPT
 
 SCRAPLINE (working name) is a play-money demo of a gambling site set in a post-apocalyptic world built from scrap: crates, raids, scrapyards, workbenches. Players are 18+. The site is dark graphite with cyan, violet and brass accents. Most pictures are still thin line drawings; the images below replace them.
 
+Screenshots of the current site (`reference-*.png`, if the owner added them) show the colours and the mood to match. The thin line drawings in them are what your images replace.
+
 | Who | Does what |
 |---|---|
 | **You (ChatGPT)** | Draw the images, one per brief, and keep the style consistent across all of them. |
