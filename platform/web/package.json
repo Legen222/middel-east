@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "build:demo": "node demo/build.mjs",
-    "art": "NODE_USE_ENV_PROXY=1 node tools/imagegen.mjs"
+    "art": "NODE_USE_ENV_PROXY=1 node tools/imagegen.mjs",
+    "art:brief": "node tools/art-brief.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.4",

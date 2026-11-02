@@ -1,7 +1,7 @@
 {
-  "$comment": "Briefs for tools/imagegen.mjs. style + kinds[kind].style + prompt are joined into one prompt. Change a brief, and the next run's variants carry a new brief hash in their log.",
+  "$comment": "Briefs for every image of the site. tools/imagegen.mjs (OpenAI API) joins style + kinds[kind].style + prompt into one prompt; tools/art-brief.mjs writes the same briefs as ART-BRIEFS-CHATGPT.md (repo root) for ChatGPT. Change a brief here, then run `npm run art:brief`.",
   "defaultVariants": 2,
-  "style": "Original stylized game art for a dark, premium web app set in a post-apocalyptic survival world built from scrap. Semi-realistic 3D render with clean hard-surface modelling: worn painted metal, rust patina, rivets, bolts, scratched edges. Cool cyan rim light with a subtle violet accent, warm brass highlights. Crisp, high contrast, readable at small sizes, consistent lighting from the upper left. No text, letters, numbers or symbols with writing, no logos, no watermarks, no UI elements, no people's faces. Not in the style of any specific existing game; no recognizable trademarks or brand designs.",
+  "style": "Original stylized game art for a dark, premium web app set in a post-apocalyptic survival world built from scrap. Semi-realistic 3D render with clean hard-surface modelling: worn painted metal, rust patina, rivets, bolts, scratched edges. Cool cyan rim light (#3DDCFF) with a subtle violet accent (#9B7BFF), warm brass highlights (#D9B467), deep graphite shadows (#0A0C0F). Crisp, high contrast, readable at small sizes, consistent lighting from the upper left. No text, letters, numbers or symbols with writing, no logos, no watermarks, no UI elements, no people's faces. Not cute, not cartoonish, nothing aimed at children. Not in the style of any specific existing game; no recognizable trademarks, brand designs or existing weapon skins.",
   "kinds": {
     "crate": {
       "style": "A single object, centered, three-quarter view from slightly above, filling about 80 % of the frame, soft contact shadow directly under it, nothing else in the scene, transparent background.",
@@ -14,7 +14,7 @@
       }
     },
     "tile": {
-      "style": "Moody graphite-black backdrop. Portrait game cover illustration. The subject sits in the lower two thirds; the top third is calm, dark, low-detail space for a title overlay. Edge-to-edge scene, cinematic depth of field.",
+      "style": "Moody graphite-black backdrop. Portrait game cover illustration. The subject sits in the middle of the frame; the top fifth is calm, dark, low-detail space for a title overlay; nothing important near the edges, because the image is cropped to 3:4 and to 16:10 around its centre. Edge-to-edge scene, cinematic depth of field.",
       "settings": {
         "size": "1024x1536",
         "quality": "medium",
@@ -32,55 +32,95 @@
         "output_format": "webp",
         "output_compression": 85
       }
+    },
+    "item": {
+      "style": "A single item as an inventory icon, centered, side view or slight three-quarter view, filling about 85 % of the frame, transparent background, at most a faint shadow. Bold silhouette and few large shapes so it still reads at 48 px. Neutral worn materials and no coloured glow: the site adds the rarity colour around it.",
+      "settings": {
+        "size": "1024x1024",
+        "quality": "medium",
+        "background": "transparent",
+        "output_format": "webp",
+        "output_compression": 90
+      }
+    },
+    "backdrop": {
+      "style": "Full-page website background that sits behind text and panels: very dark and low contrast overall, detail only as dim silhouettes in the bottom third, the upper half an almost empty night sky, no bright spot in the middle. Panoramic, so it can be cropped left and right.",
+      "settings": {
+        "size": "1536x1024",
+        "quality": "high",
+        "background": "opaque",
+        "output_format": "webp",
+        "output_compression": 80
+      }
+    },
+    "avatar": {
+      "style": "Square profile picture: head and shoulders of a survivor whose face is completely hidden behind a mask, helmet or visor (no skin of the face visible). Plain dark graphite background with one coloured rim light. Centered so it still works cropped to a circle.",
+      "settings": {
+        "size": "1024x1024",
+        "quality": "medium",
+        "background": "opaque",
+        "output_format": "webp",
+        "output_compression": 85
+      }
+    },
+    "illustration": {
+      "style": "A small spot illustration for an empty state or a section header: one simple object or a tiny scene, centered, generous empty space around it, transparent background, readable at 160 px.",
+      "settings": {
+        "size": "1024x1024",
+        "quality": "medium",
+        "background": "transparent",
+        "output_format": "webp",
+        "output_compression": 90
+      }
     }
   },
   "assets": [
     {
       "id": "crate-barrel",
       "kind": "crate",
-      "batch": "v1",
+      "batch": "crates",
       "for": "crate image: Barrel",
       "prompt": "The object: a dented blue-grey steel drum standing upright, rust streaks running down from the rim, a few scratches. Humble, cheapest tier: no glow."
     },
     {
       "id": "crate-oil-barrel",
       "kind": "crate",
-      "batch": "v1",
+      "batch": "crates",
       "for": "crate image: Oil Barrel",
       "prompt": "The object: a red fuel drum with yellow hazard stripes and a leaking cap, a thin oily sheen on the metal. Cheap tier: no glow."
     },
     {
       "id": "crate-wooden-crate",
       "kind": "crate",
-      "batch": "v1",
+      "batch": "crates",
       "for": "crate image: Wooden Crate",
       "prompt": "The object: a rough-plank wooden crate with bent steel corner brackets and a frayed rope handle. Cheap tier: no glow."
     },
     {
       "id": "crate-ration-box",
       "kind": "crate",
-      "batch": "v1",
+      "batch": "crates",
       "for": "crate image: Ration Box",
       "prompt": "The object: a compact olive-green ration box with a canvas strap and a clipped lid, worn paint. Cheap tier."
     },
     {
       "id": "crate-food-box",
       "kind": "crate",
-      "batch": "v1",
+      "batch": "crates",
       "for": "crate image: Food Box",
       "prompt": "The object: two weathered tin food boxes stacked and tied with twine, one lid slightly open. Cheap tier."
     },
     {
       "id": "crate-toolbox",
       "kind": "crate",
-      "batch": "v1",
+      "batch": "crates",
       "for": "crate image: Tool Box",
       "prompt": "The object: a battered red metal toolbox with its lid half open, wrench handles sticking out. Low-mid tier: a faint warm reflection."
     },
     {
       "id": "crate-medical-crate",
       "kind": "crate",
-      "batch": "v1",
+      "batch": "crates",
       "for": "crate image: Medical Crate",
       "prompt": "The object: a mint-green field medical case with first-aid straps and a plus-shaped white latch (no red cross emblem). Low-mid tier."
     },
@@ -94,147 +134,147 @@
     {
       "id": "crate-supply-drop",
       "kind": "crate",
-      "batch": "v1",
+      "batch": "crates",
       "for": "crate image: Supply Drop",
       "prompt": "The object: a steel supply container hanging from a small collapsed parachute, a purple smoke flare fizzing beside it. Mid tier: subtle glow from the flare."
     },
     {
       "id": "crate-elite-crate",
       "kind": "crate",
-      "batch": "v1",
+      "batch": "crates",
       "for": "crate image: Elite Crate",
       "prompt": "The object: a heavy dark-grey armored crate with glowing cyan seams along its edges. Upper-mid tier: noticeable cyan glow."
     },
     {
       "id": "crate-locked-crate",
       "kind": "crate",
-      "batch": "v1",
+      "batch": "crates",
       "for": "crate image: Locked Crate",
       "prompt": "The object: a large reinforced steel crate wrapped in chains, an electronic lock panel blinking red. Upper tier: red and cyan light."
     },
     {
       "id": "crate-bradley-crate",
       "kind": "crate",
-      "batch": "v1",
+      "batch": "crates",
       "for": "crate image: Bradley Crate",
       "prompt": "The object: a scorched armored crate with embers drifting off it, as if pulled from a burning armored vehicle. Upper tier: orange ember glow."
     },
     {
       "id": "crate-heli-crate",
       "kind": "crate",
-      "batch": "v1",
+      "batch": "crates",
       "for": "crate image: Heli Crate",
       "prompt": "The object: an armored crate with a twisted rotor blade leaning against it and smoke curling up. Upper tier: smoke lit in cyan."
     },
     {
       "id": "crate-oil-rig",
       "kind": "crate",
-      "batch": "v1",
+      "batch": "crates",
       "for": "crate image: Large Oil Rig",
       "prompt": "The object: a wet industrial steel container with a relief of an offshore drilling rig on its side, water dripping, sodium-orange and cyan lights. High tier."
     },
     {
       "id": "crate-cargo-ship",
       "kind": "crate",
-      "batch": "v1",
+      "batch": "crates",
       "for": "crate image: Cargo Ship",
       "prompt": "The object: a miniature orange corrugated shipping container with its doors cracked open and light spilling out. High tier: bright inner glow."
     },
     {
       "id": "crate-underwater-lab",
       "kind": "crate",
-      "batch": "v1",
+      "batch": "crates",
       "for": "crate image: Underwater Lab",
       "prompt": "The object: a pressurized canister with round portholes, strands of kelp and rising bubbles, glowing teal from inside. High tier."
     },
     {
       "id": "crate-launch-site",
       "kind": "crate",
-      "batch": "v1",
+      "batch": "crates",
       "for": "crate image: Launch Site",
       "prompt": "The object: a rocket-shaped steel capsule crate standing on a small launch cradle, warning lights on its fins. Very high tier: violet and cyan glow."
     },
     {
       "id": "crate-large-present",
       "kind": "crate",
-      "batch": "v1",
+      "batch": "crates",
       "for": "crate image: Large Present",
       "prompt": "The object: a big gift box wrapped in hammered scrap-metal sheets, tied with a copper-wire ribbon and bow. Very high tier: warm brass glow."
     },
     {
       "id": "crate-missile-silo",
       "kind": "crate",
-      "batch": "v1",
+      "batch": "crates",
       "for": "crate image: Missile Silo",
       "prompt": "The object: a heavy cylindrical vault container with chevron warning stripes and a glowing core window. Top tier: intense violet glow."
     },
     {
       "id": "crate-gold-egg",
       "kind": "crate",
-      "batch": "v1",
+      "batch": "crates",
       "for": "crate image: Gold Egg",
       "prompt": "The object: an ornate golden egg with engraved panels and fine brass filigree, softly glowing, the single most precious item. Top tier: radiant golden glow."
     },
     {
       "id": "tile-towers",
       "kind": "tile",
-      "batch": "v1",
+      "batch": "tiles",
       "for": "game tile: Monument Run",
       "prompt": "The scene: a ruined multi-storey concrete monument building at night, rows of dark windows climbing upward, one keycard glowing cyan high on the top floor."
     },
     {
       "id": "tile-raid",
       "kind": "tile",
-      "batch": "v1",
+      "batch": "tiles",
       "for": "game tile: Raid",
       "prompt": "The scene: a fortified scrap-metal door with explosive charges strapped to it, a fuse sparking, the moment before detonation."
     },
     {
       "id": "tile-mines",
       "kind": "tile",
-      "batch": "v1",
+      "batch": "tiles",
       "for": "game tile: Minefield",
       "prompt": "The scene: a fenced field of square dirt plots seen from above at an angle, a few half-buried landmines and several glowing green safe markers."
     },
     {
       "id": "tile-dice",
       "kind": "tile",
-      "batch": "v1",
+      "batch": "tiles",
       "for": "game tile: Dice",
       "prompt": "The scene: two chunky machined-metal dice with drilled pips tumbling mid-air above a scarred workbench, slight motion blur."
     },
     {
       "id": "tile-airdrop",
       "kind": "tile",
-      "batch": "v1",
+      "batch": "tiles",
       "for": "game tile: Airdrop",
       "prompt": "The scene: a supply crate dropping under a parachute through dark clouds, a green signal flare burning on the ground far below."
     },
     {
       "id": "tile-plinko",
       "kind": "tile",
-      "batch": "v1",
+      "batch": "tiles",
       "for": "game tile: Scrap Chute",
       "prompt": "The scene: a tall vertical chute with rows of steel pegs, a glowing brass nut bouncing down between them, collecting bins at the bottom."
     },
     {
       "id": "tile-upgrader",
       "kind": "tile",
-      "batch": "v1",
+      "batch": "tiles",
       "for": "game tile: Workbench",
       "prompt": "The scene: a workbench with a large circular gauge and needle, an item lifted in a cone of cyan light being upgraded."
     },
     {
       "id": "tile-blackjack",
       "kind": "tile",
-      "batch": "v1",
+      "batch": "tiles",
       "for": "game tile: Blackjack",
       "prompt": "The scene: playing cards stamped from thin metal sheets fanned out on a scrap-wood table, a card shoe built from an old toolbox."
     },
     {
       "id": "tile-hilo",
       "kind": "tile",
-      "batch": "v1",
+      "batch": "tiles",
       "for": "game tile: Hi-Lo",
       "prompt": "The scene: a single oversized metal playing card standing upright, an up-arrow lamp glowing cyan above it and a down-arrow lamp glowing violet below."
     },
@@ -248,35 +288,35 @@
     {
       "id": "tile-wheel",
       "kind": "tile",
-      "batch": "v1",
+      "batch": "tiles",
       "for": "game tile: Bandit Wheel",
-      "prompt": "The scene: a big spinning wheel built from a rusty cable spool with painted coloured segments, in a bandit camp at night with string lights."
+      "prompt": "The scene: a big spinning wheel built from a rusty cable spool with painted coloured segments, in an outlaw scrapyard camp at night with string lights."
     },
     {
       "id": "tile-jackpot",
       "kind": "tile",
-      "batch": "v1",
+      "batch": "tiles",
       "for": "game tile: Jackpot",
       "prompt": "The scene: a heavy iron cooking pot overflowing with glowing scrap pieces and brass nuts, lit by a campfire."
     },
     {
       "id": "tile-cases",
       "kind": "tile",
-      "batch": "v1",
+      "batch": "tiles",
       "for": "game tile: Crate opening",
       "prompt": "The scene: three crates in a row on a workbench, the middle one bursting open with bright light and flying scrap."
     },
     {
       "id": "tile-battle",
       "kind": "tile",
-      "batch": "v1",
+      "batch": "tiles",
       "for": "game tile: Case Battle",
       "prompt": "The scene: two crates facing each other across a metal table, one lit cyan, the other violet, sparks arcing between them."
     },
     {
       "id": "tile-coinflip",
       "kind": "tile",
-      "batch": "v1",
+      "batch": "tiles",
       "for": "game tile: Coinflip",
       "prompt": "The scene: a large stamped metal coin spinning in mid-air, one face rusty, the other bright polished steel, sparks trailing."
     },
@@ -290,30 +330,569 @@
     {
       "id": "promo-crates",
       "kind": "banner",
-      "batch": "v1",
+      "batch": "banners",
       "for": "Promo: twenty crates",
       "prompt": "The scene: a tall shelf of twenty different crates, from a plain barrel at the bottom to a radiant golden egg at the top."
     },
     {
       "id": "promo-battle",
       "kind": "banner",
-      "batch": "v1",
+      "batch": "banners",
       "for": "Promo: bonus battles",
       "prompt": "The scene: four crates arranged around a glowing arena table, energy beams between them, one crate erupting with a golden burst."
     },
     {
       "id": "promo-fair",
       "kind": "banner",
-      "batch": "v1",
+      "batch": "banners",
       "for": "Promo: provably fair",
       "prompt": "The scene: a transparent glass cube on a workbench with a glowing seed of light inside, fine lines of light connecting it to small sealed boxes."
     },
     {
       "id": "promo-rain",
       "kind": "banner",
-      "batch": "v1",
+      "batch": "banners",
       "for": "Promo: oil rain",
       "prompt": "The scene: dark oily rain falling over a camp at night, glowing scrap pieces falling with the drops, a lantern lighting the scene."
+    },
+    {
+      "id": "crate-scrap-crate",
+      "kind": "crate",
+      "batch": "crates",
+      "for": "crate image: Scrap Crate (free daily crate)",
+      "prompt": "The object: a small dented lockbox riveted together from mismatched scrap plates, a brass padlock hanging open. Freebie tier: a soft warm glow from the gap under the lid."
+    },
+    {
+      "id": "item-assault-rifle",
+      "kind": "item",
+      "batch": "style-test",
+      "for": "item: Assault Rifle (also the fallback for every rifle)",
+      "prompt": "The item: a rugged assault rifle with a curved magazine, a wooden stock and a wooden handguard, side view."
+    },
+    {
+      "id": "avatar-01",
+      "kind": "avatar",
+      "batch": "style-test",
+      "for": "avatar 1 (demo bots and players without a picture)",
+      "prompt": "The survivor: a battered welding visor with a scratched dark glass, a leather hood, cyan rim light."
+    },
+    {
+      "id": "og-share",
+      "kind": "banner",
+      "batch": "banners",
+      "for": "link preview when the site is shared (cropped to 1200 × 630)",
+      "prompt": "The scene: a single glowing crate on a workbench in a dark scrapyard workshop, brass sparks, cyan light from the crate's seams."
+    },
+    {
+      "id": "backdrop-desktop",
+      "kind": "backdrop",
+      "batch": "banners",
+      "for": "page background on wide screens (behind the lobby and every game)",
+      "prompt": "The scene: a scrapyard at night: a tower crane, stacked shipping containers, piles of barrels, a chain-link fence in the foreground, and far away on the horizon an offshore oil rig with a small gas flare. Faint cyan and violet haze low over the ground."
+    },
+    {
+      "id": "backdrop-phone",
+      "kind": "backdrop",
+      "batch": "banners",
+      "for": "page background on phones (portrait)",
+      "prompt": "The scene: the same scrapyard at night in portrait: a tower crane on one side, stacked containers and barrels at the bottom, a small gas flare far away, faint cyan and violet haze. Upper two thirds almost empty dark sky."
+    },
+    {
+      "id": "item-armored-door",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Armored Door (also the fallback for doors)",
+      "prompt": "The item: a heavy armored steel door panel with riveted plates and a bolted handle, standing upright."
+    },
+    {
+      "id": "item-auto-turret",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Auto Turret",
+      "prompt": "The item: a compact automated sentry turret on a small tripod base with a camera eye and a mounted barrel."
+    },
+    {
+      "id": "item-bandage",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Bandage",
+      "prompt": "The item: a rolled cloth bandage with a loose strip unrolling, slightly grimy (no blood)."
+    },
+    {
+      "id": "item-bolt-action-rifle",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Bolt Action Rifle (also the fallback for sniper rifles)",
+      "prompt": "The item: a long bolt-action hunting rifle with a scope and a wooden stock, side view."
+    },
+    {
+      "id": "item-burlap-shirt",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Burlap Shirt (also the fallback for tops)",
+      "prompt": "The item: a coarse burlap sack-cloth shirt with rough stitched seams, laid flat."
+    },
+    {
+      "id": "item-burlap-trousers",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Burlap Trousers (also the fallback for trousers)",
+      "prompt": "The item: coarse burlap sack-cloth trousers tied with a rope belt, laid flat."
+    },
+    {
+      "id": "item-coffee-can-helmet",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Coffee Can Helmet (also the fallback for helmets)",
+      "prompt": "The item: a helmet made from a dented, blank metal can with a leather chin strap."
+    },
+    {
+      "id": "item-custom-smg",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Custom SMG (also the fallback for SMGs)",
+      "prompt": "The item: a crude home-made submachine gun welded from pipes and scrap plates, magazine underneath, side view."
+    },
+    {
+      "id": "item-double-barrel-shotgun",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Double Barrel Shotgun (also the fallback for shotguns)",
+      "prompt": "The item: a sawn-off double-barrel shotgun with a tape-wrapped wooden grip, side view."
+    },
+    {
+      "id": "item-gears",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Gears",
+      "prompt": "The item: three interlocking steel gears of different sizes."
+    },
+    {
+      "id": "item-hazmat-suit",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Hazmat Suit",
+      "prompt": "The item: an empty yellow protective hazmat suit with an attached hood and a dark visor, laid out flat, nobody inside."
+    },
+    {
+      "id": "item-hide-boots",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Hide Boots (also the fallback for boots)",
+      "prompt": "The item: a pair of rough animal-hide boots tied with leather cords."
+    },
+    {
+      "id": "item-holosight",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Holosight",
+      "prompt": "The item: a small holographic weapon sight with a glowing cyan reticle in its glass window."
+    },
+    {
+      "id": "item-l96-rifle",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: L96 Rifle",
+      "prompt": "The item: a long precision sniper rifle with a large scope and a folded bipod, olive-green stock, side view, no markings."
+    },
+    {
+      "id": "item-lr-300",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: LR-300 Assault Rifle",
+      "prompt": "The item: a modern tactical rifle with a collapsible stock and a rail on top, matte black, side view, no markings."
+    },
+    {
+      "id": "item-large-medkit",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Large Medkit (also the fallback for medical items)",
+      "prompt": "The item: a large hard-shell medical case in mint green with a white plus-shaped clasp (no red cross)."
+    },
+    {
+      "id": "item-leather-gloves",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Leather Gloves (also the fallback for gloves)",
+      "prompt": "The item: a pair of worn brown leather work gloves."
+    },
+    {
+      "id": "item-low-grade-fuel",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Low Grade Fuel",
+      "prompt": "The item: a small battered fuel can with a rag stuffed in its spout, a dark oily stain, no writing."
+    },
+    {
+      "id": "item-m249",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: M249 (also the fallback for heavy weapons)",
+      "prompt": "The item: a heavy belt-fed light machine gun with a bipod and an ammunition box, side view, no markings."
+    },
+    {
+      "id": "item-m39-rifle",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: M39 Rifle",
+      "prompt": "The item: a semi-automatic marksman rifle with a wooden stock and a short scope, side view."
+    },
+    {
+      "id": "item-medical-syringe",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Medical Syringe",
+      "prompt": "The item: a large medical syringe with mint-green liquid and a metal plunger."
+    },
+    {
+      "id": "item-metal-chest-plate",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Metal Chest Plate (also the fallback for body armour)",
+      "prompt": "The item: a crude chest armour plate cut from scrap sheet metal, held by leather straps."
+    },
+    {
+      "id": "item-metal-facemask",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Metal Facemask (also the fallback for masks)",
+      "prompt": "The item: a welded scrap-metal face mask with narrow eye slits and rivets, front view, empty (no face behind it)."
+    },
+    {
+      "id": "item-metal-fragments",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Metal Fragments (also the fallback for resources)",
+      "prompt": "The item: a small heap of jagged shiny metal scraps."
+    },
+    {
+      "id": "item-metal-pipe",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Metal Pipe",
+      "prompt": "The item: a short rusty metal pipe section with a threaded end."
+    },
+    {
+      "id": "item-metal-spring",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Metal Spring",
+      "prompt": "The item: a heavy coiled steel spring."
+    },
+    {
+      "id": "item-grenade-launcher",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Multiple Grenade Launcher",
+      "prompt": "The item: a revolver-cylinder grenade launcher with a stubby barrel and a folding stock, side view."
+    },
+    {
+      "id": "item-press-vest",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Press Vest",
+      "prompt": "The item: a blue protective vest with plain blank chest panels, no writing."
+    },
+    {
+      "id": "item-python-revolver",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Python Revolver",
+      "prompt": "The item: a large-frame revolver with a long barrel and a vented rib, side view, no markings."
+    },
+    {
+      "id": "item-revolver",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Revolver (also the fallback for pistols)",
+      "prompt": "The item: a simple old revolver with a worn wooden grip, side view."
+    },
+    {
+      "id": "item-road-sign-jacket",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Road Sign Jacket",
+      "prompt": "The item: a jacket of armour made from cut-up metal road signs riveted together, blank faded surfaces with no symbols or text."
+    },
+    {
+      "id": "item-road-sign-kilt",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Road Sign Kilt",
+      "prompt": "The item: an armour skirt made from cut metal road-sign plates, blank faded surfaces with no symbols or text."
+    },
+    {
+      "id": "item-rocket",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Rocket",
+      "prompt": "The item: a single launcher rocket with fins and a pointed warhead, side view."
+    },
+    {
+      "id": "item-rocket-launcher",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Rocket Launcher",
+      "prompt": "The item: a shoulder-fired rocket launcher tube with a sight and a grip, side view."
+    },
+    {
+      "id": "item-rope",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Rope",
+      "prompt": "The item: a coiled hemp rope tied with a knot."
+    },
+    {
+      "id": "item-satchel-charge",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Satchel Charge",
+      "prompt": "The item: a canvas satchel packed with explosives, a short fuse sticking out."
+    },
+    {
+      "id": "item-semi-auto-pistol",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Semi-Automatic Pistol",
+      "prompt": "The item: a simple semi-automatic pistol assembled from scrap parts, side view."
+    },
+    {
+      "id": "item-semi-auto-rifle",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Semi-Automatic Rifle",
+      "prompt": "The item: a semi-automatic rifle with a short magazine and a wooden stock, side view."
+    },
+    {
+      "id": "item-sewing-kit",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Sewing Kit",
+      "prompt": "The item: a small sewing kit: a spool of thread, a needle and a few cloth scraps bound together."
+    },
+    {
+      "id": "item-supply-signal",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Supply Signal",
+      "prompt": "The item: a hand-held smoke canister with a wisp of purple smoke curling out."
+    },
+    {
+      "id": "item-tech-trash",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Tech Trash (also the fallback for electronics)",
+      "prompt": "The item: a handful of salvaged circuit boards, chips and wires bundled together."
+    },
+    {
+      "id": "item-thompson",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Thompson",
+      "prompt": "The item: a classic submachine gun with a wooden stock, a vertical foregrip and a straight stick magazine, side view, no markings."
+    },
+    {
+      "id": "item-timed-explosive",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Timed Explosive Charge (also the fallback for explosives)",
+      "prompt": "The item: a block of plastic explosive taped to a small timer with a blank display."
+    },
+    {
+      "id": "item-lasersight",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Weapon Lasersight",
+      "prompt": "The item: a compact weapon laser module emitting a thin red beam."
+    },
+    {
+      "id": "item-rusty-screw",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Rusty Screw (Scrap Crate)",
+      "prompt": "The item: a single large rusty screw."
+    },
+    {
+      "id": "item-copper-wire",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Copper Wire (Scrap Crate)",
+      "prompt": "The item: a coil of copper wire."
+    },
+    {
+      "id": "item-tape-hoodie",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Tape Hoodie (Scrap Crate)",
+      "prompt": "The item: a hoodie patched together with strips of grey duct tape, laid flat."
+    },
+    {
+      "id": "item-rusty-hatchet",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Rusty Hatchet (Scrap Crate; also the fallback for melee weapons)",
+      "prompt": "The item: a rusty hatchet with a cloth-wrapped wooden handle."
+    },
+    {
+      "id": "item-storage-box",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: fallback for storage items",
+      "prompt": "The item: a large wooden storage box with metal corner braces, lid closed."
+    },
+    {
+      "id": "item-gear-bundle",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: sets and collections without a Steam picture (Raiders Collection …)",
+      "prompt": "The item: an open military footlocker overflowing with assorted armour pieces, a metal mask and a rifle stock."
+    },
+    {
+      "id": "item-gold-bundle",
+      "kind": "item",
+      "batch": "items",
+      "for": "item: Gold Collection",
+      "prompt": "The item: an ornate gold-trimmed footlocker with its lid open, gold-plated armour pieces glinting inside."
+    },
+    {
+      "id": "avatar-02",
+      "kind": "avatar",
+      "batch": "avatars",
+      "for": "avatar 2 (demo bots and players without a picture)",
+      "prompt": "The survivor: a gas mask with two round filters and a dark hood, violet rim light."
+    },
+    {
+      "id": "avatar-03",
+      "kind": "avatar",
+      "batch": "avatars",
+      "for": "avatar 3 (demo bots and players without a picture)",
+      "prompt": "The survivor: a mask welded from scrap plates with narrow eye slits, brass rim light."
+    },
+    {
+      "id": "avatar-04",
+      "kind": "avatar",
+      "batch": "avatars",
+      "for": "avatar 4 (demo bots and players without a picture)",
+      "prompt": "The survivor: a bandana over the nose and mouth and dark round goggles, green rim light."
+    },
+    {
+      "id": "avatar-05",
+      "kind": "avatar",
+      "batch": "avatars",
+      "for": "avatar 5 (demo bots and players without a picture)",
+      "prompt": "The survivor: a dented metal-can helmet with a dark visor slot, cyan rim light."
+    },
+    {
+      "id": "avatar-06",
+      "kind": "avatar",
+      "batch": "avatars",
+      "for": "avatar 6 (demo bots and players without a picture)",
+      "prompt": "The survivor: a yellow hazmat hood with a dark faceplate, violet rim light."
+    },
+    {
+      "id": "avatar-07",
+      "kind": "avatar",
+      "batch": "avatars",
+      "for": "avatar 7 (demo bots and players without a picture)",
+      "prompt": "The survivor: a burlap sack hood with stitched eye holes covered by dark mesh, brass rim light."
+    },
+    {
+      "id": "avatar-08",
+      "kind": "avatar",
+      "batch": "avatars",
+      "for": "avatar 8 (demo bots and players without a picture)",
+      "prompt": "The survivor: a helmet cut from a faded blank road sign, red rim light."
+    },
+    {
+      "id": "avatar-09",
+      "kind": "avatar",
+      "batch": "avatars",
+      "for": "avatar 9 (demo bots and players without a picture)",
+      "prompt": "The survivor: an old brass diving helmet with a dark round window, cyan rim light."
+    },
+    {
+      "id": "avatar-10",
+      "kind": "avatar",
+      "batch": "avatars",
+      "for": "avatar 10 (demo bots and players without a picture)",
+      "prompt": "The survivor: a mining helmet with a lamp and a black respirator mask, green rim light."
+    },
+    {
+      "id": "avatar-11",
+      "kind": "avatar",
+      "batch": "avatars",
+      "for": "avatar 11 (demo bots and players without a picture)",
+      "prompt": "The survivor: a matte black full-face tactical helmet with a dark visor, violet rim light."
+    },
+    {
+      "id": "avatar-12",
+      "kind": "avatar",
+      "batch": "avatars",
+      "for": "avatar 12 (demo bots and players without a picture)",
+      "prompt": "The survivor: a tribal mask carved from scrap wood with dark eye holes, brass rim light."
+    },
+    {
+      "id": "ill-empty",
+      "kind": "illustration",
+      "batch": "illustrations",
+      "for": "empty lists (no bets yet, no battles open …)",
+      "prompt": "The motif: an empty wooden crate tipped on its side, a few loose straws, a small cobweb."
+    },
+    {
+      "id": "ill-not-found",
+      "kind": "illustration",
+      "batch": "illustrations",
+      "for": "page not found (404)",
+      "prompt": "The motif: a lone signpost in a scrapyard with every arm broken off."
+    },
+    {
+      "id": "ill-offline",
+      "kind": "illustration",
+      "batch": "illustrations",
+      "for": "no connection to the server",
+      "prompt": "The motif: a thick cut cable with its two ends sparking cyan."
+    },
+    {
+      "id": "ill-paused",
+      "kind": "illustration",
+      "batch": "illustrations",
+      "for": "a game paused by the operator",
+      "prompt": "The motif: a heavy machine lever locked with a padlock and a blank hanging tag."
+    },
+    {
+      "id": "ill-break",
+      "kind": "illustration",
+      "batch": "illustrations",
+      "for": "responsible gambling: limits, breaks and self-exclusion (calm, nothing about winning)",
+      "prompt": "The motif: a small calm campfire beside an empty camp chair under a quiet night sky."
+    },
+    {
+      "id": "ill-rakeback",
+      "kind": "illustration",
+      "batch": "illustrations",
+      "for": "rewards: rakeback",
+      "prompt": "The motif: a brass pressure gauge with its needle rising and a few scrap pieces flowing back into a small tray."
+    },
+    {
+      "id": "ill-oil-rain",
+      "kind": "illustration",
+      "batch": "illustrations",
+      "for": "rewards: Oil Rain (free Scrap shared in chat)",
+      "prompt": "The motif: a small dark cloud raining glowing drops of oil and tiny scrap pieces."
+    },
+    {
+      "id": "ill-crew",
+      "kind": "illustration",
+      "batch": "illustrations",
+      "for": "rewards: crew codes (invite friends)",
+      "prompt": "The motif: three metal dog tags hanging together on one chain."
+    },
+    {
+      "id": "ill-promo",
+      "kind": "illustration",
+      "batch": "illustrations",
+      "for": "rewards: promo codes",
+      "prompt": "The motif: a small brass key with a blank paper tag tied to it."
     }
   ]
 }
