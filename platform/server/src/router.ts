@@ -22,6 +22,7 @@ import { type ChainGame, listChains } from './chains';
 import { activeMute, chatRules, deleteMessage, listMessages, mute, openReportCount, openReports, postMessage, reportMessage, resolveReport, unmute } from './chat';
 import { checkGeo, withdrawalCheck } from './compliance';
 import { caseOut } from './case-out';
+import { cryptoAdmin, cryptoState, depositAddress, operatorCrypto } from './crypto';
 import { type Clock, type Config, MF_PER_FRAG, centsToScrap, ipAllowed } from './config';
 import type { CrashService } from './crash';
 import type { DB } from './db';
@@ -176,6 +177,9 @@ export function createRouter(deps: AppDeps) {
   route('PUT', '/me/trade-url', async (c) => ({ tradeUrl: await setTradeUrl(db, await uid(c), c.body?.tradeUrl, clock()) }));
 
   /* ---------- skins (real-money mode) ---------- */
+  // crypto deposits: the player's own address, then the deposits as the chain confirms them
+  route('GET', '/wallet/crypto', async (c) => cryptoState(db, cfg, await uid(c)));
+  route('POST', '/wallet/crypto/address', async (c) => depositAddress(db, cfg, (await c.auth()).user, String(c.body?.asset ?? 'BTC'), clock()));
   route('GET', '/skins/inventory', async (c) => skins.inventory((await c.auth()).user, c.url.searchParams.get('refresh') === '1', clock()));
   route('POST', '/deposits', async (c) => skins.createDeposit((await c.auth()).user, c.body?.assetIds, clock()));
   route('GET', '/deposits', async (c) => skins.deposits(await uid(c)));
@@ -341,6 +345,8 @@ export function createRouter(deps: AppDeps) {
   route('DELETE', '/admin/players/:id/hold', async (c, p) => releaseHold(db, (await admin(c)).id, p.id, clock()));
   route('PUT', '/admin/players/:id/role', async (c, p) => setRole(db, (await admin(c)).id, p.id, String(c.body?.role) as Role, clock()));
   route('PUT', '/admin/players/:id/kyc', async (c, p) => setKyc(db, (await admin(c)).id, p.id, c.body?.level, c.body?.note, clock()));
+  route('GET', '/admin/crypto', async (c) => { await admin(c); return cryptoAdmin(db, cfg); });
+  route('PUT', '/admin/crypto', async (c) => operatorCrypto(db, (await admin(c)).id, String(c.body?.id ?? ''), c.body?.action, c.body?.note, clock()));
   route('GET', '/admin/skins', async (c) => { await admin(c); return skinsAdmin(db, clock()); });
   route('PUT', '/admin/withdrawals/:id', async (c, p) => operatorWithdrawal(db, (await admin(c)).id, p.id, c.body?.action, c.body?.offerId, c.body?.note, clock()));
   route('GET', '/admin/games', async (c) => { await admin(c); return (await gameFlags(db)).map((g) => ({ ...g, limits: limitsInFrags(g.limits) })); });

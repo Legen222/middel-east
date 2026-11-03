@@ -2,12 +2,12 @@ import { api } from '../api';
 import type { View } from '../main';
 import { $, $$, esc, frags, guard, modal, pct, toast } from '../ui';
 import { kpi, signed, when } from './admin-shared';
-import { betsTab, bindLimits, casesTab, limitsSection, promosTab, reportsTab, settingsTab, skinsTab } from './admin-ops';
+import { betsTab, bindLimits, casesTab, cryptoTab, limitsSection, promosTab, reportsTab, settingsTab, skinsTab } from './admin-ops';
 
-type Tab = 'overview' | 'reports' | 'rtp' | 'bets' | 'players' | 'games' | 'cases' | 'promos' | 'skins' | 'settings' | 'rg' | 'audit';
+type Tab = 'overview' | 'reports' | 'rtp' | 'bets' | 'players' | 'games' | 'cases' | 'promos' | 'skins' | 'crypto' | 'settings' | 'rg' | 'audit';
 const TABS: [Tab, string][] = [
   ['overview', 'Overview'], ['reports', 'Reports'], ['rtp', 'RTP monitor'], ['bets', 'Bets'], ['players', 'Players'], ['games', 'Games'],
-  ['cases', 'Cases'], ['promos', 'Promo codes'], ['skins', 'Skins'], ['settings', 'Settings'], ['rg', 'RG cases'], ['audit', 'Audit log'],
+  ['cases', 'Cases'], ['promos', 'Promo codes'], ['skins', 'Skins'], ['crypto', 'Crypto'], ['settings', 'Settings'], ['rg', 'RG cases'], ['audit', 'Audit log'],
 ];
 const TAB_KEY = 'scrapline.admin.tab';
 
@@ -330,7 +330,7 @@ export const adminView: View = {
 
     const RENDER: Record<Tab, () => Promise<void>> = {
       overview, rtp, players, games, rg, audit: auditLog,
-      reports: () => reportsTab(panel), bets: () => betsTab(panel), cases: () => casesTab(panel), promos: () => promosTab(panel), settings: () => settingsTab(panel), skins: () => skinsTab(panel),
+      reports: () => reportsTab(panel), bets: () => betsTab(panel), cases: () => casesTab(panel), promos: () => promosTab(panel), settings: () => settingsTab(panel), skins: () => skinsTab(panel), crypto: () => cryptoTab(panel),
     };
     select(TABS.some(([t]) => t === tab) ? tab : 'overview');
     return () => clearInterval(timer);

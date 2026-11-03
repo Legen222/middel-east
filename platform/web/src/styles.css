@@ -1314,3 +1314,9 @@ body::after{opacity:.5}
 main > *{animation:rise-in .42s var(--ease-out) both}
 main > *:nth-child(2){animation-delay:.05s}main > *:nth-child(3){animation-delay:.1s}main > *:nth-child(4){animation-delay:.15s}main > *:nth-child(n+5){animation-delay:.2s}
 @keyframes rise-in{from{opacity:0;transform:translateY(10px)}}
+
+/* ---------- wallet: crypto box ---------- */
+.cb-addr{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:var(--r);background:var(--bg-2)}
+.cb-addr code{flex:1 1 280px;font-size:14px;padding:8px 10px;word-break:break-all;background:transparent;color:var(--text)}
+.cb-warn{font-size:13px;color:var(--brass);border-left:3px solid var(--brass);padding:6px 10px;background:var(--brass-dim);border-radius:0 var(--r) var(--r) 0}
+.chip.hot{color:var(--brass);border-color:rgba(217,180,103,.5)}

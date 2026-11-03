@@ -8,13 +8,18 @@
  *   WITHDRAW_RATE=1.5    price factor for items taken from the site's stock; keep it at ITEM_VALUE_BOOST (engine config), the crate value factor
  *   SKIN_MIN_ITEM=0.1    cheapest item accepted, in Scrap (1 Scrap = 1 $)
  *   KYC_BEFORE_DEPOSIT   default true; whether the licence allows later checks is the licence holder's call
+ *   CRYPTO_BTC_XPUB      account-level xpub/zpub (tpub/vpub = testnet) of the operator's wallet; turns crypto deposits on
+ *   CRYPTO_BTC_API       Esplora API, default mempool.space (testnet keys: mempool.space/testnet4)
+ *   CRYPTO_CONFIRMATIONS blocks before a deposit is credited, default 2
+ *   CRYPTO_MIN_DEPOSIT   smallest deposit credited automatically, in Scrap (= $), default 5
  *   PRICE_FEED_URL       default Skinport's public Rust price list
  *   INVENTORY_URL        default Steam's community inventory endpoint ({steamid} is replaced)
  * Item pictures (item-icons.ts):
  *   ITEM_ICON_LOOKUP     default true: look up Steam market icons for crate items the built-in list lacks
  *   ITEM_ICON_SEARCH_URL default the Steam market search ({query} is replaced)
  */
-import { type Config, DEFAULT_CONFIG } from './config';
+import { type Config, DEFAULT_CONFIG, MF_PER_FRAG } from './config';
+import { deriveAddress, isTestnetKey } from './crypto';
 
 type Env = Record<string, string | undefined>;
 export const flag = (v: string | undefined, dflt: boolean) => (v === undefined || v === '' ? dflt : /^(1|true|yes|on)$/i.test(v));
@@ -37,6 +42,10 @@ export function configFromEnv(env: Env): Config {
     exit('DEMO=false needs LICENCE_ID: real money stays off until a licence, KYC provider and payment rails exist (docs/platform/05-go-live.md).');
   }
   if (flag(env.SKINS, false) && demo) exit('SKINS=true needs DEMO=false: skins have real value, so the skin rail only runs under a licence.');
+  const xpub = (env.CRYPTO_BTC_XPUB ?? '').trim();
+  if (xpub && demo) exit('CRYPTO_BTC_XPUB needs DEMO=false: crypto deposits are real money, so they only run under a licence.');
+  if (xpub) { try { deriveAddress(xpub, 0); } catch (e) { exit(`CRYPTO_BTC_XPUB: ${(e as Error).message}`); } }
+  const dc = DEFAULT_CONFIG.crypto;
   const d = DEFAULT_CONFIG.skins;
   return {
     ...DEFAULT_CONFIG,
@@ -55,6 +64,14 @@ export function configFromEnv(env: Env): Config {
       kycBeforeDeposit: flag(env.KYC_BEFORE_DEPOSIT, d.kycBeforeDeposit),
       priceUrl: env.PRICE_FEED_URL || d.priceUrl,
       inventoryUrl: env.INVENTORY_URL || d.inventoryUrl,
+    },
+    crypto: {
+      ...dc,
+      enabled: Boolean(xpub),
+      btc: { xpub, api: env.CRYPTO_BTC_API || (xpub && isTestnetKey(xpub) ? 'https://mempool.space/testnet4/api' : dc.btc.api), priceUrl: env.CRYPTO_PRICE_URL || dc.btc.priceUrl },
+      confirmations: num(env, 'CRYPTO_CONFIRMATIONS', dc.confirmations, 1, 12),
+      minDeposit: Math.round(num(env, 'CRYPTO_MIN_DEPOSIT', dc.minDeposit / MF_PER_FRAG, 1, 1_000) * MF_PER_FRAG),
+      kycBeforeDeposit: flag(env.KYC_BEFORE_DEPOSIT, dc.kycBeforeDeposit),
     },
     itemIcons: { lookup: flag(env.ITEM_ICON_LOOKUP, true), searchUrl: env.ITEM_ICON_SEARCH_URL || DEFAULT_CONFIG.itemIcons.searchUrl },
   };

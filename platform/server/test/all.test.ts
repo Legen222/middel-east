@@ -2124,3 +2124,102 @@ describe('item pictures from the Steam market', () => {
     assert.equal((res.payload as { itemIcons: Record<string, string> }).itemIcons['Rusty Hatchet'], HASH(4));
   });
 });
+
+/* ---------- crypto deposits ---------- */
+import { CRYPTO, type Chain, type ChainTx, cryptoAdmin, cryptoState, depositAddress, deriveAddress, operatorCrypto, scanDeposits } from '../src/crypto';
+
+// BIP84 test vector ("abandon … about"), account m/84'/0'/0'
+const ZPUB = 'zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs';
+
+class FakeChain implements Chain {
+  tip = 100;
+  price = 60_000;
+  txs = new Map<string, ChainTx[]>();
+  calls = 0;
+  async tipHeight() { return this.tip; }
+  async addressTxs(a: string) { this.calls++; return [...(this.txs.get(a) ?? [])].reverse(); }
+  async usdPrice() { return this.price; }
+  pay(address: string, sats: number, height: number | null, txid = 'a'.repeat(63) + String(this.txs.size % 10)) {
+    const t: ChainTx = { txid, height, outs: [{ n: 0, address: 'bc1qother', value: 1234 }, { n: 1, address, value: sats }] };
+    this.txs.set(address, [...(this.txs.get(address) ?? []), t]);
+    return t;
+  }
+}
+
+describe('crypto deposits', () => {
+  it('derives BIP84 receive addresses from the account zpub and refuses private or unknown keys', () => {
+    assert.equal(deriveAddress(ZPUB, 0), 'bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu');
+    assert.equal(deriveAddress(ZPUB, 1), 'bc1qnjg0jd8228aq7egyzacy8cys3knf9xvrerkf9g');
+    assert.throws(() => deriveAddress('xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4stbPy6cq3jPPqjiChkVvvNKmPGJxWUtg6LnF5kejMRNNU3TGtRBeJgk33yuGBxrMPHi', 0));
+    assert.throws(() => deriveAddress('hello', 0));
+  });
+
+  it('gives each player one address, credits a deposit once after enough confirmations, and holds what it may not credit', async () => {
+    const db = await newDb();
+    const cfg: Config = { ...DEFAULT_CONFIG, demo: false, crypto: { ...DEFAULT_CONFIG.crypto, enabled: true, btc: { ...DEFAULT_CONFIG.crypto.btc, xpub: ZPUB } } };
+    const chain = new FakeChain();
+    let now = T0;
+    const a = (await signUp(db, cfg, { displayName: 'Satoshi', ageConfirmed: true, steamId: '76561198000000001', country: 'NZ' }, now)).userId;
+    const b = (await signUp(db, cfg, { displayName: 'Hal', ageConfirmed: true, steamId: '76561198000000002', country: 'NZ' }, now)).userId;
+    const user = async (id: string) => (await getUser(db, id))!;
+
+    assert.equal(await code(async () => depositAddress(db, { ...cfg, demo: true }, await user(a), 'BTC', now)), 'crypto_off');
+    assert.equal(await code(async () => depositAddress(db, cfg, await user(a), 'BTC', now)), 'kyc_required');
+    await db.prepare('UPDATE users SET kyc_level = 1').run();
+    const addrA = (await depositAddress(db, cfg, await user(a), 'BTC', now)).address;
+    const addrB = (await depositAddress(db, cfg, await user(b), 'BTC', now)).address;
+    assert.equal(addrA, 'bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu');
+    assert.equal(addrB, 'bc1qnjg0jd8228aq7egyzacy8cys3knf9xvrerkf9g', 'the next index for the next player');
+    assert.equal((await depositAddress(db, cfg, await user(a), 'BTC', now)).address, addrA, 'the same address every time');
+    assert.equal(await code(async () => depositAddress(db, cfg, await user(a), 'DOGE', now)), 'invalid_params');
+
+    // 0.001 BTC at 60 000 $ = 60.00 Scrap; in the mempool first, credited at the second confirmation
+    chain.pay(addrA, 100_000, null, 'a'.repeat(64));
+    assert.deepEqual(await scanDeposits(db, cfg, chain, now += 1000), { checked: 2, found: 1, settled: 0 });
+    let st = await cryptoState(db, cfg, a);
+    assert.deepEqual([st.deposits[0].status, st.deposits[0].amount, st.deposits[0].confirmations], ['pending', '0.00100000', 0]);
+    assert.equal(await bal(db, a), 0);
+    chain.txs.set(addrA, [{ ...chain.txs.get(addrA)![0], height: 100 }]);
+    assert.equal((await scanDeposits(db, cfg, chain, now += 1000)).settled, 0, 'one confirmation is not enough');
+    chain.tip = 101;
+    assert.equal((await scanDeposits(db, cfg, chain, now += 1000)).settled, 1);
+    assert.equal(await bal(db, a), frags(60));
+    assert.equal(await balanceOf(db, CRYPTO), -frags(60), 'house:crypto is the counterpart');
+    chain.tip = 150;
+    assert.deepEqual(await scanDeposits(db, cfg, chain, now += 1000), { checked: 2, found: 0, settled: 0 }, 'polling again changes nothing');
+    assert.equal(await bal(db, a), frags(60));
+    st = await cryptoState(db, cfg, a);
+    assert.deepEqual([st.deposits[0].status, st.deposits[0].usd, st.deposits[0].value], ['credited', 60, 60]);
+    assert.equal(Number(((await db.prepare('SELECT deposited FROM player_stats WHERE user_id = ?').get(a)) as { deposited: number }).deposited), frags(60), 'player stats follow');
+
+    // below the minimum (0.00001 BTC = 0.60 $) → held
+    chain.pay(addrA, 1_000, 140, 'b'.repeat(64));
+    await scanDeposits(db, cfg, chain, now += 1000);
+    st = await cryptoState(db, cfg, a);
+    assert.equal(st.deposits.find((d) => d.txid === 'b'.repeat(64))!.status, 'held');
+    assert.match(st.deposits.find((d) => d.txid === 'b'.repeat(64))!.reason!, /minimum/);
+
+    // a self-excluded player: held, never credited by hand, only refunded
+    await selfExclude(db, b, 6, now);
+    chain.pay(addrB, 200_000, 140, 'c'.repeat(64));
+    await scanDeposits(db, cfg, chain, now += 1000);
+    assert.equal(await bal(db, b), 0);
+    const held = (await cryptoAdmin(db, cfg)).deposits.find((d) => d.txid === 'c'.repeat(64))!;
+    assert.equal(held.status, 'held');
+    assert.equal(await code(() => operatorCrypto(db, 'op', held.id, 'credit', 'reviewed by support', now)), 'rg_excluded');
+    assert.equal(await code(() => operatorCrypto(db, 'op', held.id, 'refunded', 'ok', now)), 'reason_required');
+    assert.equal((await operatorCrypto(db, 'op', held.id, 'refunded', 'sent back in tx 9f…', now)).status, 'refunded');
+    assert.equal(await code(() => operatorCrypto(db, 'op', held.id, 'credit', 'second try', now)), 'not_held');
+
+    // a deposit limit: held, then credited by an operator after review
+    await setLimit(db, cfg, a, 'deposit', 'day', frags(70), now);
+    chain.pay(addrA, 50_000, 140, 'd'.repeat(64)); // 30.00 $, would make 90 > 70
+    await scanDeposits(db, cfg, chain, now += 1000);
+    const over = (await cryptoState(db, cfg, a)).deposits.find((d) => d.txid === 'd'.repeat(64))!;
+    assert.deepEqual([over.status, over.usd], ['held', 30]);
+    assert.equal(await bal(db, a), frags(60));
+    await operatorCrypto(db, 'op', over.id, 'credit', 'limit raised by the player, reviewed', now);
+    assert.equal(await bal(db, a), frags(90));
+    assert.deepEqual(await ledgerIntegrity(db), { sum: 0, mismatched: [] });
+  });
+});

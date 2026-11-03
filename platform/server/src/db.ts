@@ -602,6 +602,40 @@ CREATE TABLE IF NOT EXISTS item_icons (
 );
 `;
 
+/** Crypto deposits (crypto.ts): one address per player and coin, one row per received output. */
+export const CRYPTO_SCHEMA = `
+CREATE TABLE IF NOT EXISTS crypto_addresses (
+  address TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  asset TEXT NOT NULL,             -- BTC
+  idx INTEGER NOT NULL,            -- derivation index: <xpub>/0/<idx>
+  created_at INTEGER NOT NULL,
+  checked_at INTEGER NOT NULL DEFAULT 0,
+  seen_txid TEXT                   -- newest confirmed tx read last pass; the next pass pages back only to it
+);
+CREATE UNIQUE INDEX IF NOT EXISTS crypto_addresses_user ON crypto_addresses(user_id, asset);
+CREATE UNIQUE INDEX IF NOT EXISTS crypto_addresses_idx ON crypto_addresses(asset, idx);
+CREATE TABLE IF NOT EXISTS crypto_deposits (
+  id TEXT PRIMARY KEY,             -- asset:txid:vout
+  user_id TEXT NOT NULL REFERENCES users(id),
+  asset TEXT NOT NULL,
+  address TEXT NOT NULL,
+  txid TEXT NOT NULL,
+  vout INTEGER NOT NULL,
+  amount INTEGER NOT NULL,         -- smallest unit (satoshi)
+  confirmations INTEGER NOT NULL,
+  status TEXT NOT NULL,            -- pending | credited | held | refunded
+  usd_cents INTEGER,               -- set when it settles
+  value INTEGER,                   -- mF credited
+  reason TEXT,                     -- why it is held
+  note TEXT,                       -- operator note
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS crypto_deposits_user ON crypto_deposits(user_id, created_at);
+CREATE INDEX IF NOT EXISTS crypto_deposits_status ON crypto_deposits(status);
+`;
+
 /*
  * Live player figures, kept by the database itself: every ledger row on a player's account updates
  * player_stats in the same transaction (trigger), whichever game or rail wrote it. The current balance
@@ -706,6 +740,7 @@ export function openDb(path = ':memory:'): DB {
   raw.exec(SKIN_SCHEMA);
   raw.exec(CHAT_REPORTS_SCHEMA);
   raw.exec(ITEM_ICONS_SCHEMA);
+  raw.exec(CRYPTO_SCHEMA);
   raw.exec(PLAYER_STATS_TABLE);
   raw.exec(CASE_SEED);
   raw.exec(CASE_SYNC);

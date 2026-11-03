@@ -12,7 +12,7 @@
 
 import pg from 'pg';
 
-import { CASE_RETIRE, CASE_SEED, CASE_SYNC, CHAT_REPORTS_SCHEMA, ITEM_ICONS_SCHEMA, PLAYER_STATS_BACKFILL, PLAYER_STATS_TABLE, PLAYER_STATS_TRIGGER_PG, SKIN_SCHEMA, type DB, type RunResult, SCHEMA, type Stmt, runAfterCommit } from './db';
+import { CASE_RETIRE, CASE_SEED, CASE_SYNC, CHAT_REPORTS_SCHEMA, CRYPTO_SCHEMA, ITEM_ICONS_SCHEMA, PLAYER_STATS_BACKFILL, PLAYER_STATS_TABLE, PLAYER_STATS_TRIGGER_PG, SKIN_SCHEMA, type DB, type RunResult, SCHEMA, type Stmt, runAfterCommit } from './db';
 
 pg.types.setTypeParser(20, (v) => Number(v)); // int8
 pg.types.setTypeParser(1700, (v) => Number(v)); // numeric
@@ -90,6 +90,8 @@ const MIGRATIONS: { version: number; sql: () => string }[] = [
   { version: 10, sql: () => pgTypes(CHAT_REPORTS_SCHEMA) },
   // item pictures (Steam market icon hashes)
   { version: 11, sql: () => pgTypes(ITEM_ICONS_SCHEMA) },
+  // crypto deposits
+  { version: 12, sql: () => pgTypes(CRYPTO_SCHEMA) },
 ];
 
 type Queryable = pg.Pool | pg.PoolClient;

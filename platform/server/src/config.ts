@@ -53,6 +53,16 @@ export interface Config {
   skins: SkinConfig;
   /** Item pictures from the Steam market (item-icons.ts): look up crate items the built-in list lacks. */
   itemIcons: { lookup: boolean; searchUrl: string };
+  /** Crypto deposits (crypto.ts): per-player Bitcoin addresses derived from the operator's xpub, detected by polling. */
+  crypto: {
+    enabled: boolean;
+    btc: { xpub: string; api: string; priceUrl: string };
+    /** Blocks a deposit needs before it settles. */
+    confirmations: number;
+    /** mF; smaller deposits are held for an operator. */
+    minDeposit: number;
+    kycBeforeDeposit: boolean;
+  };
 }
 
 export interface SkinConfig {
@@ -102,6 +112,13 @@ export const DEFAULT_CONFIG: Config = {
     enabled: false, depositRate: 1, withdrawRate: ITEM_VALUE_BOOST, minItemFrags: 0.1, minVolume: 3, maxItems: 20, offerTtlMs: 10 * 60_000, kycBeforeDeposit: true,
     inventoryUrl: 'https://steamcommunity.com/inventory/{steamid}/252490/2?l=english&count=2000',
     priceUrl: 'https://api.skinport.com/v1/items?app_id=252490&currency=USD&tradable=0',
+  },
+  crypto: {
+    enabled: false,
+    btc: { xpub: '', api: 'https://mempool.space/api', priceUrl: 'https://mempool.space/api/v1/prices' },
+    confirmations: 2,
+    minDeposit: frags(5),
+    kycBeforeDeposit: true,
   },
   itemIcons: {
     lookup: true,

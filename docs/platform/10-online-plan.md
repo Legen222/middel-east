@@ -190,7 +190,7 @@ Desktop und 390 px: keine Konsolenfehler, kein seitliches Scrollen.
 | 9 | **KYC-Anbieter** (Sumsub, Veriff, Onfido) | Schnittstelle vorbereitet. Beta: Prüfung von Hand im Backoffice. |
 | 10 | **Inventar-Abfrage im großen Stil**: Steam drosselt Abfragen pro Server-IP | Gebaut mit 60 s Cache. Ab einigen hundert Spielern einen bezahlten Spiegel (z. B. steamapis) über `INVENTORY_URL` nutzen. |
 | 11 | Automatische Auszahlung durch den Bot | Bewusst von Hand in der Beta. Später: Bot gibt Items, Bestätigung per `identity_secret`. |
-| 12 | Krypto- und Kartenzahlung | Nicht gebaut, nur die Schnittstelle (`rails.ts`). Braucht einen Zahlungsanbieter mit Glücksspiel-Freigabe. |
+| 12 | Krypto- und Kartenzahlung | **Bitcoin-Einzahlung gebaut** ([14-krypto-einzahlungen.md](14-krypto-einzahlungen.md)): eigene Adresse pro Spieler, automatische Gutschrift. Offen: USDT/Stablecoins und Auszahlungen über einen Anbieter, Kartenzahlung. |
 | 13 | E-Mail und Support (Ticket-System oder Discord) | Fehlt |
 | 14 | Lasttest, Sicherheitsprüfung (Pentest), Bug-Bounty | Fehlt. Vor dem Echtgeldstart einplanen. |
 | 15 | Neuer Name im Code (§ 1) | Wartet auf deine Wahl |

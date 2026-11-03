@@ -30,6 +30,7 @@ import { PgLeader, openPg } from './pg';
 import { settleDue } from './pvp';
 import { JackpotService } from './jackpot';
 import { rainTick } from './rewards';
+import { EsploraChain, scanDeposits } from './crypto';
 import { MarketBusy, resolveItemIcons } from './item-icons';
 import { syncPrices } from './skins';
 import { WheelService } from './wheel';
@@ -105,6 +106,17 @@ const pricePass = () => {
 const priceTimer = setInterval(pricePass, 10 * 60_000);
 setTimeout(pricePass, 10_000);
 
+/* ---------- crypto deposits (leader only): poll the players' addresses, credit what has enough confirmations ---------- */
+const chain = new EsploraChain(cfg.crypto.btc.api, cfg.crypto.btc.priceUrl, httpFetch);
+const cryptoPass = () => {
+  if (!isLeader || !cfg.crypto.enabled || cfg.demo) return;
+  void scanDeposits(db, cfg, chain, Date.now())
+    .then((r) => { if (r.found || r.settled) log({ t: new Date().toISOString(), msg: 'crypto deposits', ...r }); })
+    .catch((e) => log({ t: new Date().toISOString(), level: 'error', msg: 'crypto scan', error: String((e as Error)?.message ?? e) }));
+};
+const cryptoTimer = setInterval(cryptoPass, 30_000);
+setTimeout(cryptoPass, 15_000);
+
 /* ---------- item pictures (leader only): Steam market icons for crate items the built-in list lacks ---------- */
 const iconPass = () => {
   if (!isLeader || !cfg.itemIcons.lookup) return;
@@ -124,6 +136,7 @@ async function stop(signal: string) {
   clearInterval(ticker);
   clearInterval(priceTimer);
   clearInterval(iconTimer);
+  clearInterval(cryptoTimer);
   const hard = setTimeout(() => process.exit(1), 15_000);
   await app.shutdown();
   await leader?.release();

@@ -428,3 +428,46 @@ export async function skinsTab(panel: HTMLElement) {
     }));
   }));
 }
+
+/* ---------- crypto: deposits on hold first; credit after review or record the refund ---------- */
+
+const C_CHIP: Record<string, string> = { credited: 'win', pending: '', held: 'hot', refunded: 'lose' };
+
+export async function cryptoTab(panel: HTMLElement) {
+  const s = await api<any>('GET', '/admin/crypto');
+  const held = s.deposits.filter((d: any) => d.status === 'held');
+  panel.innerHTML = `
+  <section class="card">
+    <h2 class="h-sect">Crypto deposits</h2>
+    <div class="kpis">
+      ${kpi('Status', s.enabled ? 'on' : 'off', s.enabled ? `credited after ${s.confirmations} confirmations` : 'set CRYPTO_BTC_XPUB (needs DEMO=false)')}
+      ${kpi('Credited', frags(s.credited.value), `${s.credited.count} deposits`)}
+      ${kpi('On hold', String(held.length), held.length ? 'needs a decision' : 'nothing waiting')}
+    </div>
+    <p class="muted" style="font-size:13px;max-width:80ch">A deposit is held when it is below the minimum, the player is on a break or self-excluded, it would break a deposit limit, or KYC is missing.
+      <b>Credit</b> books it after your review (never for a break or self-exclusion). <b>Sent back</b> records that you returned the coins from the wallet: put the refund txid in the reason.</p>
+    <div class="tablewrap"><table><thead><tr><th>Time</th><th>Player</th><th>Amount</th><th>Status</th><th class="r">USD</th><th></th></tr></thead><tbody>
+      ${s.deposits.length ? s.deposits.map((d: any) => `<tr>
+        <td class="num" style="font-size:12px;white-space:nowrap">${when(d.createdAt)}</td>
+        <td>${esc(d.name)}<br><small class="muted num">${esc(d.userId)}</small></td>
+        <td class="num">${esc(d.amount)} ${esc(d.asset)}<br><small class="muted" title="${esc(d.txid)}">${esc(d.txid.slice(0, 16))}…</small></td>
+        <td><span class="chip ${C_CHIP[d.status] ?? ''}">${esc(d.status)}${d.status === 'pending' ? ` · ${d.confirmations}/${d.needed}` : ''}</span>${d.reason ? `<br><small class="muted">${esc(d.reason)}</small>` : ''}${d.note ? `<br><small class="muted">note: ${esc(d.note)}</small>` : ''}</td>
+        <td class="r num">${d.usd === null ? '–' : frags(d.usd)}</td>
+        <td class="r">${d.status === 'held' ? `<button class="btn small" type="button" data-cr="credit" data-id="${esc(d.id)}">Credit</button> <button class="btn ghost small" type="button" data-cr="refunded" data-id="${esc(d.id)}">Sent back</button>` : ''}</td></tr>`).join('')
+        : '<tr><td colspan="6" class="muted">No crypto deposits yet.</td></tr>'}
+    </tbody></table></div>
+  </section>`;
+  $$<HTMLButtonElement>('[data-cr]', panel).forEach((b) => b.addEventListener('click', () => {
+    const action = b.dataset.cr!;
+    const m = modal(`<h2 class="h-sect">${action === 'credit' ? 'Credit this deposit' : 'Record the refund'}</h2>
+      <label class="field">Reason${action === 'refunded' ? ' (with the refund txid)' : ''}<textarea class="input" id="cr-note" rows="3" maxlength="300"></textarea></label>
+      <div class="row"><button class="btn" type="button" id="cr-go">${action === 'credit' ? 'Credit' : 'Mark as sent back'}</button><button class="btn ghost" type="button" data-close>Cancel</button></div>`);
+    m.root.querySelector('[data-close]')?.addEventListener('click', m.close);
+    $('#cr-go', m.root).addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {
+      await api('PUT', '/admin/crypto', { id: b.dataset.id, action, note: ($('#cr-note', m.root) as HTMLTextAreaElement).value });
+      m.close();
+      toast(action === 'credit' ? 'Deposit credited.' : 'Refund recorded.');
+      await cryptoTab(panel);
+    }));
+  }));
+}
