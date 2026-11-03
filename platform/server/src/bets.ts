@@ -20,7 +20,8 @@ import {
   minesMultiplier, openCase, playAirdrop, playDice, playPlinko, playUpgrader, raidMultiplier, validateTarget,
   upgraderChance, validateDice, validateZone, type DiceBet, type PlinkoRisk, type PlinkoRows, type RaidTool,
 } from '../../engine/src/index';
-import { type Config, MF_PER_FRAG, fmtFrags } from './config';
+import { betResultOut } from './case-out';
+import { type Config, MF_PER_CENT, MF_PER_FRAG, fmtFrags } from './config';
 import { type DB, PUBLIC_NAME, tx } from './db';
 import { fail } from './errors';
 import { systemMessage } from './chat';
@@ -43,12 +44,12 @@ const payoutFor = (stake: number, mult: number) => Math.floor(stake * mult + 1e-
 
 export function checkStake(cfg: Config, stake: number): void {
   if (!Number.isSafeInteger(stake) || stake < cfg.minStake || stake > cfg.maxStake) {
-    fail('invalid_stake', `Stake: ${cfg.minStake / MF_PER_FRAG} to ${cfg.maxStake / MF_PER_FRAG} Scrap.`, 400, { min: cfg.minStake, max: cfg.maxStake });
+    fail('invalid_stake', `Stake: ${fmtFrags(cfg.minStake)} to ${fmtFrags(cfg.maxStake)} Scrap.`, 400, { min: cfg.minStake, max: cfg.maxStake });
   }
 }
 export function checkMaxWin(cfg: Config, stake: number, maxMult: number): void {
   if (stake * maxMult > cfg.maxWin) {
-    fail('max_win', `Max win per bet is ${cfg.maxWin / MF_PER_FRAG} Scrap. Highest stake here: ${Math.floor(cfg.maxWin / maxMult / MF_PER_FRAG)} Scrap.`, 400, { maxWin: cfg.maxWin, maxStake: Math.floor(cfg.maxWin / maxMult) });
+    fail('max_win', `Max win per bet is ${fmtFrags(cfg.maxWin)} Scrap. Highest stake here: ${fmtFrags(Math.floor(cfg.maxWin / maxMult / MF_PER_CENT) * MF_PER_CENT)} Scrap.`, 400, { maxWin: cfg.maxWin, maxStake: Math.floor(cfg.maxWin / maxMult) });
   }
 }
 
@@ -64,7 +65,7 @@ export async function open(db: DB, userId: string, game: Game, stake: number, pa
 }
 
 /** Wins announced in chat: at least 10× and 100 Scrap. */
-export const BIG_WIN = { minMultiple: 10, minPayout: 100 * MF_PER_FRAG };
+export const BIG_WIN = { minMultiple: 10, minPayout: MF_PER_FRAG };
 
 export async function settle(db: DB, betId: string, userId: string, stake: number, mult: number, result: unknown, now: number): Promise<BetRow> {
   const payout = payoutFor(stake, mult);
@@ -120,8 +121,8 @@ export function playInstant<G extends keyof InstantParams>(db: DB, cfgIn: Config
       case 'cases': {
         box = await playableCase(db, (params as InstantParams['cases']).caseId);
         params = { caseId: box.id, version: box.version } as InstantParams[G]; // the bet records the exact item list it used
-        stake = box.price * MF_PER_FRAG; // price is fixed, the client's stake is ignored
-        maxMult = Math.max(...box.items.map((i) => i.value)) * MF_PER_FRAG / stake;
+        stake = box.price * MF_PER_CENT; // price is fixed, the client's stake is ignored
+        maxMult = Math.max(...box.items.map((i) => i.value)) * MF_PER_CENT / stake;
         break;
       }
       default: return fail('invalid_game', 'Unknown game.');
@@ -137,7 +138,7 @@ export function playInstant<G extends keyof InstantParams>(db: DB, cfgIn: Config
       case 'airdrop': { const o = playAirdrop(src, (params as InstantParams['airdrop']).target); return settle(db, bet, userId, stake, o.multiplier, o, now); }
       default: {
         const o = openCase(src, box!);
-        return settle(db, bet, userId, stake, (o.item.value * MF_PER_FRAG) / stake, { ticket: o.ticket, item: o.item, ev: caseEv(box!), version: box!.version }, now);
+        return settle(db, bet, userId, stake, (o.item.value * MF_PER_CENT) / stake, { ticket: o.ticket, item: o.item, ev: caseEv(box!), version: box!.version }, now);
       }
     }
   });
@@ -289,7 +290,7 @@ export async function publicBet(b: BetRow, db?: DB) {
   const seed = db ? await seedById(db, b.seed_id) : null;
   return {
     id: b.id, game: b.game, status: b.status, stake: b.stake, payout: b.payout, multiplier: b.multiplier,
-    params: JSON.parse(b.params), result: b.result ? JSON.parse(b.result) : null, createdAt: b.created_at, settledAt: b.settled_at,
+    params: JSON.parse(b.params), result: b.result ? betResultOut(b.game, JSON.parse(b.result)) : null, createdAt: b.created_at, settledAt: b.settled_at,
     fairness: seed ? { serverSeedHash: seed.server_hash, clientSeed: seed.client_seed, nonce: b.nonce, serverSeed: seed.revealed_at ? seed.server_seed : null } : { nonce: b.nonce },
   };
 }

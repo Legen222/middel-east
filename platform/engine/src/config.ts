@@ -1,6 +1,6 @@
 /**
- * Crate item values are the item's market price × this factor, in Scrap (100 Scrap = 1 $): a skin selling for
- * 2 $ is worth 300 Scrap in the crates. The skin rail takes items out of stock at the same factor
+ * Crate item values are the item's market price × this factor (1 Scrap = 1 $): a skin selling for 2 $ is worth
+ * 3.00 Scrap in the crates. The skin rail takes items out of stock at the same factor
  * (server SkinConfig.withdrawRate), so a crate win buys exactly the skin it shows.
  */
 export const ITEM_VALUE_BOOST = 1.5;

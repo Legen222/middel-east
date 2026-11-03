@@ -61,7 +61,7 @@ export const coinflipView: View = {
       <p class="eyebrow">PvP · Beacon randomness</p>
       <h1 class="h-display">Coinflip</h1>
       <div class="row" style="align-items:flex-end">
-        <div style="min-width:220px;flex:1">${stakeField('stake', 50)}</div>
+        <div style="min-width:220px;flex:1">${stakeField('stake', 0.5)}</div>
         <div class="seg" role="group" aria-label="Side" style="min-width:200px"><button type="button" data-side="rust" aria-pressed="true">Rust</button><button type="button" data-side="scrap" aria-pressed="false">Scrap</button></div>
         <button class="btn" id="create" type="button">${icon('coin')} Create</button>
       </div>

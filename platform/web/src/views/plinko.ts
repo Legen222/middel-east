@@ -18,7 +18,7 @@ export const plinkoView: View = {
       <p class="status" id="status" role="status">&nbsp;</p>
     </div>
     <aside class="game-side">
-      ${stakeField('stake', 10)}
+      ${stakeField('stake', 0.1)}
       <div class="seg" role="group" aria-label="Rows">${[8, 12, 16].map((r) => `<button type="button" data-rows="${r}" aria-pressed="${r === 12}">${r} rows</button>`).join('')}</div>
       <div class="seg" role="group" aria-label="Risk">${[['low', 'Low'], ['medium', 'Medium'], ['high', 'High']].map(([k, l]) => `<button type="button" data-risk="${k}" aria-pressed="${k === 'medium'}">${l}</button>`).join('')}</div>
       <p class="muted" style="font-size:13px">RTP of this table: <b class="num" id="rtp"></b></p>

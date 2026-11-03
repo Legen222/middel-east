@@ -21,6 +21,10 @@ class Recorder implements FloatSource {
 }
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+/* Crate values are whole cents in the engine; pages show and take Scrap (1 Scrap = 1 $). Jackpot tickets are mF. */
+const MF = 100_000;
+const sc = (cents: number) => (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const toCents = (items: CaseDef['items']) => items.map((i) => ({ ...i, value: Math.round(i.value * 100) }));
 const val = (id: string) => ($<HTMLInputElement>(id).value ?? '').trim();
 const num = (id: string) => Number(val(id).replace(',', '.'));
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -100,15 +104,15 @@ export const VERIFY_GAMES: Record<string, { label: string; fields: string; run: 
   },
   cases: {
     label: 'Cases',
-    fields: `<label>Case<select id="p-case">${SAMPLE_CASES.map((c) => `<option value="${c.id}">${c.name} · ${priceCase(c)} Scrap</option>`).join('')}</select></label>
-      <label>Contents of this case version (JSON, optional)<textarea id="p-items" rows="3" placeholder='[{"name":"Rusty Screw","value":1,"weight":50000}, …]'></textarea></label>
+    fields: `<label>Case<select id="p-case">${SAMPLE_CASES.map((c) => `<option value="${c.id}">${c.name} · ${sc(priceCase(c))} Scrap</option>`).join('')}</select></label>
+      <label>Contents of this case version (JSON, optional)<textarea id="p-items" rows="3" placeholder='[{"name":"Blue Hoodie","value":0.17,"weight":57069}, …]'></textarea></label>
       <small>The bet page shows the exact contents of the case version you opened; paste them here for edited or new cases.</small>`,
     run: (s) => {
       const custom = val('p-items');
-      const c: CaseDef = custom ? { id: 'custom', name: 'Custom case', items: JSON.parse(custom) } : SAMPLE_CASES.find((x) => x.id === val('p-case'))!;
+      const c: CaseDef = custom ? { id: 'custom', name: 'Custom case', items: toCents(JSON.parse(custom)) } : SAMPLE_CASES.find((x) => x.id === val('p-case'))!;
       const o = openCase(s, c);
       const W = c.items.reduce((a, i) => a + i.weight, 0);
-      return { headline: `${o.item.name} · ${o.item.value} Scrap`, tone: o.item.value >= priceCase(c) ? 'win' : 'lose', rows: [
+      return { headline: `${o.item.name} · ${sc(o.item.value)} Scrap`, tone: o.item.value >= priceCase(c) ? 'win' : 'lose', rows: [
         ['Ticket', `⌊f · ${W.toLocaleString('en-US')}⌋ = ${o.ticket.toLocaleString('en-US')}`],
         ['Contents', c.items.map((i) => `${i.name} ${fmt((i.weight / W) * 100, 3)} %`).join(' · ')]] };
     },
@@ -118,32 +122,32 @@ export const VERIFY_GAMES: Record<string, { label: string; fields: string; run: 
     fields: `<label>Cases (ids, comma-separated)<input id="p-bcases" value="barrel,toolbox,elite-crate"></label>
       <label>Seats<select id="p-seats"><option>2</option><option>3</option><option>4</option></select></label>
       <label>Mode<select id="p-mode"><option value="normal">Normal</option><option value="crazy">Crazy</option><option value="terminal">Terminal</option><option value="team">Team 2v2 (4 seats: P1+P2 vs P3+P4)</option><option value="bonus">Bonus (power rounds, jackpot drops, final spin)</option></select></label>
-      <label>Contents of older case versions (JSON, optional)<textarea id="p-bitems" rows="3" placeholder='{"toolbox": [{"name":"Gears","value":30,"weight":22000}, …]}'></textarea></label>
+      <label>Contents of older case versions (JSON, optional)<textarea id="p-bitems" rows="3" placeholder='{"toolbox": [{"name":"Scary Kilt","value":1.5,"weight":22000}, …]}'></textarea></label>
       <small>A battle stores the case versions it used; the battle page shows their contents. Paste them here for cases that changed since.</small>`,
     run: (s) => {
       const ids = val('p-bcases').split(',').map((x) => x.trim());
       const custom = val('p-bitems') ? (JSON.parse(val('p-bitems')) as Record<string, CaseDef['items']>) : {};
       const cases = ids.map((id) => {
-        if (custom[id]) return { id, name: id, items: custom[id] } as CaseDef;
+        if (custom[id]) return { id, name: id, items: toCents(custom[id]) } as CaseDef;
         const c = SAMPLE_CASES.find((x) => x.id === id);
         if (!c) throw new Error(`Unknown case: ${id}`);
         return c;
       });
       const mode = val('p-mode') as BattleMode;
       const o = playBattle(s, cases, Number(val('p-seats')), mode);
-      const teamRow: Row[] = mode === 'team' ? [['Team totals', `P1+P2: ${o.totals[0] + o.totals[1]} · P3+P4: ${o.totals[2] + o.totals[3]}`]] : [];
+      const teamRow: Row[] = mode === 'team' ? [['Team totals', `P1+P2: ${sc(o.totals[0] + o.totals[1])} · P3+P4: ${sc(o.totals[2] + o.totals[3])}`]] : [];
       const b = o.bonus;
       const bonusRows: Row[] = b ? [
         ['Power per round', b.powers.map((p, i) => `R${i + 1} ×${p}${i === b.powers.length - 1 ? ' (golden)' : ''}`).join(' · ')],
-        ['Jackpot drops', b.jackpotPaid.some((x) => x > 0) ? b.jackpotPaid.map((x, i) => (x > 0 ? `P${i + 1}: ${x}` : '')).filter(Boolean).join(' · ') : 'none'],
-        ['Points', b.points.map((x, i) => `P${i + 1}: ${x}`).join(' · ')],
+        ['Jackpot drops', b.jackpotPaid.some((x) => x > 0) ? b.jackpotPaid.map((x, i) => (x > 0 ? `P${i + 1}: ${sc(x)}` : '')).filter(Boolean).join(' · ') : 'none'],
+        ['Points', b.points.map((x, i) => `P${i + 1}: ${sc(x)}`).join(' · ')],
         ['Wheel slices', b.shares.map((x, i) => `P${i + 1}: ${fmt(x * 100, 3)} %`).join(' · ')],
-        ['Spin', `f = ${fmt(b.spin, 8)} → seat ${o.winners[0] + 1}; rest of the pool ${fmt(b.rest)} (90 % to the winner, 10 % scrap back)`],
+        ['Spin', `f = ${fmt(b.spin, 8)} → seat ${o.winners[0] + 1}; rest of the pool ${sc(b.rest)} Scrap (90 % to the winner, 10 % scrap back)`],
       ] : [];
       return { headline: b ? `Spin winner: seat ${o.winners[0] + 1}` : `Winner: seat ${o.winners.map((w) => w + 1).join(' & ')}`, tone: 'neutral', rows: [
         ...teamRow,
-        ...o.drops.map((r, i) => [`Round ${i + 1}`, r.map((it, s2) => `P${s2 + 1}: ${it.name} (${it.value})${b?.jackpots[i][s2] ? ' ★' : ''}`).join(' · ')] as Row),
-        ['Totals', o.totals.map((t, i) => `P${i + 1}: ${t}`).join(' · ')], ...bonusRows, ['Payout', o.payouts.map((p, i) => `P${i + 1}: ${fmt(p)}`).join(' · ')]] };
+        ...o.drops.map((r, i) => [`Round ${i + 1}`, r.map((it, s2) => `P${s2 + 1}: ${it.name} (${sc(it.value)})${b?.jackpots[i][s2] ? ' ★' : ''}`).join(' · ')] as Row),
+        ['Totals', o.totals.map((t, i) => `P${i + 1}: ${sc(t)}`).join(' · ')], ...bonusRows, ['Payout', o.payouts.map((p, i) => `P${i + 1}: ${sc(p)} Scrap`).join(' · ')]] };
     },
   },
   wheel: {
@@ -157,15 +161,15 @@ export const VERIFY_GAMES: Record<string, { label: string; fields: string; run: 
   },
   jackpot: {
     label: 'Jackpot (server seed + beacon value, nonce 0)',
-    fields: `<label>Entries in order (Scrap, comma-separated)<input id="p-entries" value="10, 25.5, 4"></label>`,
+    fields: `<label>Entries in order (Scrap, comma-separated)<input id="p-entries" value="0.1, 0.25, 0.04"></label>`,
     run: (s) => {
-      const entries = val('p-entries').split(',').map((x) => ({ amount: Math.round(Number(x.trim()) * 1000) }));
+      const entries = val('p-entries').split(',').map((x) => ({ amount: Math.round(Number(x.trim()) * MF) }));
       const ranges = jackpotTicketRanges(entries);
       const o = drawJackpot(s, entries);
       return { headline: `Winning ticket ${o.ticket.toLocaleString('en-US')} → entry ${o.winner + 1}`, tone: 'neutral', rows: [
-        ['Formula', `ticket = ⌊f · ${o.total.toLocaleString('en-US')}⌋ (1 ticket = 0.001 Scrap)`],
+        ['Formula', `ticket = ⌊f · ${o.total.toLocaleString('en-US')}⌋ (1 ticket = 0.00001 Scrap)`],
         ...ranges.map((r, i) => [`Entry ${i + 1}`, `tickets ${r.from.toLocaleString('en-US')} – ${(r.to - 1).toLocaleString('en-US')} · ${fmt(((r.to - r.from) / o.total) * 100)} %`] as Row),
-        ['Winner receives', `${fmt(o.payout / 1000)} Scrap (pot − 4 %)`]] };
+        ['Winner receives', `${fmt(o.payout / MF)} Scrap (pot − 4 %)`]] };
     },
   },
   airdrop: {

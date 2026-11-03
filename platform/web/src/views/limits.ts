@@ -45,8 +45,8 @@ export const limitsView: View = {
       $('#block', root).innerHTML = s.block ? `<p class="status lose">Active: ${s.block.kind === 'cooldown' ? 'Break' : s.block.kind === 'operator' ? 'Account hold (support)' : 'Self-exclusion'} ${s.block.until ? `until ${when(s.block.until)}` : '(permanent)'}</p>` : '';
       $('#limits', root).innerHTML = KINDS.map(([k, label]) => `<tr><td>${label}</td>${PERIODS.map(([p]) => {
         const l = s.limits.find((x) => x.kind === k && x.period === p);
-        const pend = l?.pending ? `<br><span class="muted" style="font-size:12px">from ${when(l.pending.effectiveAt)}: ${l.pending.amount === null ? 'no limit' : frags(l.pending.amount, 0)}</span>` : '';
-        const used = l?.amount != null ? `<br><span class="muted num" style="font-size:12px">used ${frags(l.used, 0)}</span>` : '';
+        const pend = l?.pending ? `<br><span class="muted" style="font-size:12px">from ${when(l.pending.effectiveAt)}: ${l.pending.amount === null ? 'no limit' : frags(l.pending.amount)}</span>` : '';
+        const used = l?.amount != null ? `<br><span class="muted num" style="font-size:12px">used ${frags(l.used)}</span>` : '';
         return `<td><div class="row" style="flex-wrap:nowrap"><input class="num" style="width:110px;background:var(--bg);border:1px solid var(--line);border-radius:3px;padding:7px;color:var(--text)" aria-label="${label} per ${p}" data-k="${k}" data-p="${p}" value="${l?.amount ?? ''}" placeholder="none"><button type="button" class="btn ghost small" data-save="${k}:${p}">OK</button></div>${used}${pend}</td>`;
       }).join('')}</tr>`).join('');
       $$<HTMLButtonElement>('[data-save]', root).forEach((b) => b.addEventListener('click', () => guard(b, async () => {

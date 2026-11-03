@@ -18,7 +18,7 @@ export const HELP_LINES = `<a href="https://www.begambleaware.org" target="_blan
 export const termsView: View = {
   title: 'Terms',
   html: () => page('Legal', 'Terms of play', 'The rules of this play-money demo. A real-money launch comes with licence-specific terms that replace these.', [
-    ['1 · Play money only', '<p>Scrap is play money. It has no cash value, cannot be bought, sold, traded or withdrawn, and is not a prize. 100 Scrap is shown as 1 $ only to make prices readable.</p>'],
+    ['1 · Play money only', '<p>Scrap is play money. It has no cash value, cannot be bought, sold, traded or withdrawn, and is not a prize. 1 Scrap is shown as 1 $ only to make prices readable.</p>'],
     ['2 · Who may play', '<p>You must be at least 18 years old and confirm this when you sign up. Access from sanctioned countries is blocked. One account per person.</p>'],
     ['3 · Fair play', `<p>Every game publishes its maths and its house edge; ${GAMES.length} games, RTP 93 % to 99.31 %. Every round can be replayed from its seeds on the <a href="#/fair">Provably fair</a> page and in the <a href="#/verify">Verifier</a>. PvP seats and jackpot entries marked “Demo bot” are filled by the house with play money.</p>`],
     ['4 · Limits and breaks', '<p>You can set deposit, wager and loss limits, take a break or exclude yourself on <a href="#/limits">Responsible play</a>. Lower limits apply at once; higher limits and removals only after a waiting period.</p>'],

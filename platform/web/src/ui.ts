@@ -76,7 +76,7 @@ export function bindStake(root: ParentNode) {
   $$<HTMLButtonElement>('[data-stake]', root).forEach((b) => b.addEventListener('click', () => {
     const inp = $<HTMLInputElement>(`#${b.dataset.stake}`, root);
     const v = readNum(inp.value) * Number(b.dataset.f);
-    inp.value = String(Math.max(1, Math.round(v * 100) / 100));
+    inp.value = String(Math.max(0.01, Math.round(v * 100) / 100));
     inp.dispatchEvent(new Event('input'));
   }));
 }

@@ -29,7 +29,7 @@ export const crashView: View = {
       <div class="tablewrap"><table><thead><tr><th>Player</th><th class="r">Stake</th><th class="r">Auto</th><th class="r">Out at</th><th class="r">Payout</th></tr></thead><tbody id="bets"></tbody></table></div>
     </div>
     <aside class="game-side">
-      ${stakeField('stake', 10)}
+      ${stakeField('stake', 0.1)}
       <label class="field">Auto cash-out (×)<input id="target" inputmode="decimal" value="2.00"></label>
       <button class="btn block" id="bet" type="button">Place bet</button>
       <button class="btn win block" id="out" type="button" hidden>Cash out</button>

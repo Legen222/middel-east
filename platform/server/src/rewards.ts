@@ -18,7 +18,7 @@
 
 import { DAILY_LINEUP, EDGE, FairStream, openCase, optimalRtp, type CaseDef } from '../../engine/src/index';
 import { systemMessage } from './chat';
-import { type Config, MF_PER_FRAG, fmtFrags, frags } from './config';
+import { type Config, MF_PER_CENT, MF_PER_FRAG, centsToScrap, fmtFrags, frags } from './config';
 import { type DB, audit, tx } from './db';
 import { AppError, fail } from './errors';
 import { bus } from './events';
@@ -65,7 +65,7 @@ async function recordClaim(db: DB, userId: string, kind: string, amount: number,
 /* ---------- level & rakeback ---------- */
 
 export async function progress(db: DB, userId: string) {
-  const xp = Math.floor((await expectedLoss(db, userId)) / MF_PER_FRAG);
+  const xp = Math.floor((await expectedLoss(db, userId)) / MF_PER_CENT); // 1 XP per cent of expected loss
   const level = levelForXp(xp);
   const lastRb = await lastClaim(db, userId, 'rakeback');
   const rbAccrued = Math.floor((await expectedLoss(db, userId, lastRb?.created_at ?? -1)) * rakebackRate(level));
@@ -75,7 +75,7 @@ export async function progress(db: DB, userId: string) {
 export function claimRakeback(db: DB, userId: string, now: number): Promise<{ amount: number }> {
   return tx(db, async (db) => {
     const p = await progress(db, userId);
-    if (p.rakebackAvailable < frags(1)) fail('nothing_to_claim', 'Less than 1 Scrap of rakeback so far.');
+    if (p.rakebackAvailable < frags(0.01)) fail('nothing_to_claim', 'Less than 0.01 Scrap of rakeback so far.');
     await transfer(db, HOUSE, userAccount(userId), p.rakebackAvailable, 'rakeback', null, now);
     await recordClaim(db, userId, 'rakeback', p.rakebackAvailable, { level: p.level, rate: p.rakebackRate }, now);
     return { amount: p.rakebackAvailable };
@@ -96,11 +96,11 @@ export function openDaily(db: DB, userId: string, now: number) {
     if (last && now - last.created_at < 86_400_000) fail('daily_wait', 'Your next Scrap Crate is available in 24 hours.', 429, { nextAt: last.created_at + 86_400_000 });
     const { seed, nonce } = await takeNonce(db, userId);
     const { ticket, item } = openCase(new FairStream(seed.server_seed, seed.client_seed, nonce), DAILY_CASE);
-    const amount = item.value * MF_PER_FRAG;
+    const amount = item.value * MF_PER_CENT;
     await transfer(db, PROMO, userAccount(userId), amount, 'promo', 'daily', now);
     const fairness = { serverSeedHash: seed.server_hash, clientSeed: seed.client_seed, nonce };
     await recordClaim(db, userId, 'daily', amount, { ticket, item, fairness }, now);
-    return { item, ticket, fairness };
+    return { item: { ...item, value: centsToScrap(item.value) }, ticket, fairness };
   });
 }
 
@@ -133,7 +133,7 @@ export function rainTick(db: DB, cfg: Config, now: number): Promise<void> {
     // switched off in the backoffice: a running round still pays out above, no new one opens
     if ((!cur || cur.opens_at < slot) && (await getSettings(db)).rainEnabled) {
       const el = ((await db.prepare(`SELECT COALESCE(SUM(stake * ${edgeSql}), 0) AS el FROM wagers WHERE created_at >= ?`).get(slot - RAIN_PERIOD_MS)) as { el: number }).el;
-      const pot = Math.max(Math.floor(el * 0.01), cfg.demo ? frags(500) : 0);
+      const pot = Math.max(Math.floor(el * 0.01), cfg.demo ? frags(5) : 0);
       await db.prepare("INSERT INTO rain_rounds (opens_at, closes_at, pot, status) VALUES (?, ?, ?, 'open')").run(slot, slot + RAIN_WINDOW_MS, pot);
       if (now < slot + RAIN_WINDOW_MS) await systemMessage(db, 'rain', `Oil Rain is open for 2 minutes: ${fmtFrags(pot)} Scrap pot, split equally. Level ${RAIN_MIN_LEVEL}+.`, now);
       db.afterCommit(() => bus.publish({ topic: 'chat', event: { type: 'rain' } }));
@@ -159,7 +159,7 @@ export function joinRain(db: DB, userId: string, now: number) {
     const p = await progress(db, userId);
     if (p.level < RAIN_MIN_LEVEL) fail('level_required', `Oil Rain unlocks at level ${RAIN_MIN_LEVEL}.`, 403);
     const wagered = ((await db.prepare('SELECT COALESCE(SUM(stake), 0) AS s FROM wagers WHERE user_id = ? AND created_at >= ?').get(userId, now - 86_400_000)) as { s: number }).s;
-    if (wagered < frags(100)) fail('activity_required', 'Oil Rain needs 100 Scrap wagered in the last 24 hours.', 403);
+    if (wagered < frags(1)) fail('activity_required', 'Oil Rain needs 1 Scrap wagered in the last 24 hours.', 403);
     await db.prepare('INSERT INTO rain_joins (rain_id, user_id, created_at) VALUES (?, ?, ?) ON CONFLICT DO NOTHING').run(cur!.id, userId, now);
     return rainState(db, userId, now);
   });
@@ -214,7 +214,7 @@ export async function crewState(db: DB, userId: string) {
 export function claimCrew(db: DB, userId: string, now: number): Promise<{ amount: number }> {
   return tx(db, async (db) => {
     const s = await crewState(db, userId);
-    if (s.available < frags(1)) fail('nothing_to_claim', 'Less than 1 Scrap of crew share so far.');
+    if (s.available < frags(0.01)) fail('nothing_to_claim', 'Less than 0.01 Scrap of crew share so far.');
     await transfer(db, HOUSE, userAccount(userId), s.available, 'affiliate', 'crew', now);
     await recordClaim(db, userId, 'affiliate', s.available, { ngr: s.ngr, rate: s.rate, members: s.members }, now);
     return { amount: s.available };
@@ -225,8 +225,8 @@ export function claimCrew(db: DB, userId: string, now: number): Promise<{ amount
 
 export const PROMO_FAIL_LIMIT = 10; // wrong codes per player per hour, against guessing
 const PROMO_CODE = /^[A-Z0-9]{4,20}$/;
-const PROMO_MAX_AMOUNT = frags(10_000);
-const PROMO_MAX_BUDGET = frags(1_000_000);
+const PROMO_MAX_AMOUNT = frags(100);
+const PROMO_MAX_BUDGET = frags(10_000);
 
 interface PromoRow { code: string; amount: number; max_uses: number; uses: number; min_level: number; expires_at: number | null; active: number; note: string | null; created_by: string | null; created_at: number }
 
@@ -239,10 +239,10 @@ export async function createPromo(db: DB, actorId: string, input: { code?: unkno
   const code = String(input.code ?? '').trim().toUpperCase();
   if (!PROMO_CODE.test(code)) fail('invalid_params', 'Code: 4 to 20 letters and digits.');
   const amount = Math.round(Number(input.amount) * MF_PER_FRAG);
-  if (!Number.isSafeInteger(amount) || amount < MF_PER_FRAG || amount > PROMO_MAX_AMOUNT) fail('invalid_params', `Amount: 1 to ${PROMO_MAX_AMOUNT / MF_PER_FRAG} Scrap per player.`);
+  if (!Number.isSafeInteger(amount) || amount < MF_PER_CENT || amount > PROMO_MAX_AMOUNT) fail('invalid_params', `Amount: 0.01 to ${fmtFrags(PROMO_MAX_AMOUNT)} Scrap per player.`);
   const maxUses = Number(input.maxUses);
   if (!Number.isInteger(maxUses) || maxUses < 1 || maxUses > 100_000) fail('invalid_params', 'Uses: 1 to 100,000.');
-  if (amount * maxUses > PROMO_MAX_BUDGET) fail('invalid_params', `Budget (amount × uses) is above ${PROMO_MAX_BUDGET / MF_PER_FRAG} Scrap.`);
+  if (amount * maxUses > PROMO_MAX_BUDGET) fail('invalid_params', `Budget (amount × uses) is above ${fmtFrags(PROMO_MAX_BUDGET)} Scrap.`);
   const minLevel = input.minLevel === undefined ? 1 : Number(input.minLevel);
   if (!Number.isInteger(minLevel) || minLevel < 1 || minLevel > 100) fail('invalid_params', 'Minimum level: 1 to 100.');
   const expiresAt = input.expiresAt == null ? null : Number(input.expiresAt);

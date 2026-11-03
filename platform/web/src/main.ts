@@ -165,14 +165,14 @@ function openSignup() {
   const m = modal(`<form class="signup" id="gate" novalidate>
       <div class="su-head"><a class="logo" href="#/">${LOGO_MARK}<span>SCRAPLINE</span></a><button class="iconbtn" type="button" data-close aria-label="Close">✕</button></div>
       <div><p class="eyebrow">${cfg.demo ? 'Play-money demo' : 'Account'} · 18+</p><h2 class="su-title">Every round with an <em>open blueprint.</em></h2></div>
-      <ul class="su-facts"><li><b>${GAMES.length}</b>games with a proof</li>${cfg.demo ? `<li><b>${scrap(cfg.demoStartBalance ?? 0, 0)}</b>Scrap to start</li>` : '<li><b>Steam</b>sign-in, skins in and out</li>'}<li><b>100 %</b>rounds verifiable</li></ul>
+      <ul class="su-facts"><li><b>${GAMES.length}</b>games with a proof</li>${cfg.demo ? `<li><b>${scrap(cfg.demoStartBalance ?? 0)}</b>Scrap to start</li>` : '<li><b>Steam</b>sign-in, skins in and out</li>'}<li><b>100 %</b>rounds verifiable</li></ul>
       ${site.registrationOpen ? '' : '<p class="status lose">New sign-ups are paused right now. Please try again later.</p>'}
       <label class="check"><input type="checkbox" id="age"> <span>I am at least 18 years old. I understand that gambling can be addictive.</span></label>
       ${cfg.steamLogin ? `<button class="btn block steam-btn" type="button" id="steam">${icon('user')} Sign in with Steam</button>
         <p class="muted" style="font-size:12px;margin-top:-6px">Your Steam name and avatar become your profile. We never see your Steam password.</p>` : ''}
       ${cfg.demo ? `${cfg.steamLogin ? '<p class="su-or"><span>or play with a name</span></p>' : ''}
       <label class="field">Display name<input id="name" autocomplete="nickname" maxlength="24" required placeholder="e.g. Rust Rat"></label>
-      <button class="btn ${cfg.steamLogin ? 'ghost ' : ''}block" type="submit" data-create>Create account · ${scrap(cfg.demoStartBalance ?? 0, 0)} play money</button>`
+      <button class="btn ${cfg.steamLogin ? 'ghost ' : ''}block" type="submit" data-create>Create account · ${scrap(cfg.demoStartBalance ?? 0)} play money</button>`
       : cfg.steamLogin ? '' : '<p class="muted">Sign-up opens soon.</p>'}
       <p class="muted" style="font-size:12px">${cfg.demo ? 'Play money has no cash value and cannot be withdrawn. ' : ''}Help with gambling problems: ${HELP_LINES}</p>
     </form>`);
@@ -312,7 +312,7 @@ function drawerHtml(c: Ctx, showAdmin: boolean) {
   return `
     <div class="dr-head"><a class="logo" href="#/">${LOGO_MARK}<span>SCRAPLINE</span></a><button class="iconbtn" type="button" data-close aria-label="Close menu">✕</button></div>
     ${c.guest
-      ? `<div class="dr-card"><p class="muted">${c.cfg.demo ? `Sign up in ten seconds: ${frags(c.cfg.demoStartBalance ?? 0, 0)} Scrap of play money, every round verifiable.` : 'Sign in with Steam: deposit Rust skins, every round verifiable.'}</p><button class="btn block" type="button" data-signup>${c.cfg.demo ? 'Sign up · play free' : 'Sign in with Steam'}</button></div>`
+      ? `<div class="dr-card"><p class="muted">${c.cfg.demo ? `Sign up in ten seconds: ${frags(c.cfg.demoStartBalance ?? 0)} Scrap of play money, every round verifiable.` : 'Sign in with Steam: deposit Rust skins, every round verifiable.'}</p><button class="btn block" type="button" data-signup>${c.cfg.demo ? 'Sign up · play free' : 'Sign in with Steam'}</button></div>`
       : `<div class="dr-card"><div class="dr-me"><span class="${avatar(c) ? 'has-avatar' : ''}">${avatar(c) || icon('user')}</span><div><b>${esc(c.me.displayName)}</b><small class="muted">Level ${c.me.level}</small></div></div>
           <div class="dr-bal"><span class="muted">Balance</span><b class="num">${SCRAP_SYM}<span id="dr-balance">${frags(c.me.balance)}</span></b>${c.cfg.demo ? '<button class="btn small" type="button" data-refill>Refill</button>' : ''}</div></div>`}
     <nav class="dr-sect" id="dr-games" aria-label="Games">${CATEGORIES.map(([cat, label]) => `<p class="dr-cat">${label}</p>${GAMES.filter((g) => g.cat === cat)

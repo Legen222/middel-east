@@ -18,7 +18,7 @@ import { randomBytes, randomInt } from 'node:crypto';
 
 import type { UserRow } from './accounts';
 import { flagDeposit, withdrawalCheck } from './compliance';
-import { type Config, MF_PER_FRAG } from './config';
+import { type Config, MF_PER_CENT, MF_PER_FRAG, centsToScrap } from './config';
 import { type DB, audit, tx } from './db';
 import { fail } from './errors';
 import { checkDeposit } from './rg';
@@ -138,9 +138,9 @@ export class SkinService {
     const s = this.cfg.skins;
     const out = items.map((i): InventoryItem => {
       const pr = p.get(i.name);
-      const reason = !i.tradable ? 'Not tradable yet' : pending.has(i.assetId) ? 'In an open deposit' : !pr ? 'No price' : pr.price < s.minItemFrags ? 'Below the minimum'
+      const reason = !i.tradable ? 'Not tradable yet' : pending.has(i.assetId) ? 'In an open deposit' : !pr ? 'No price' : pr.price < s.minItemFrags * 100 ? 'Below the minimum'
         : pr.volume < s.minVolume ? 'Too rare to price' : null;
-      return { ...i, price: pr ? pr.price : null, value: pr ? Math.floor(pr.price * MF_PER_FRAG * s.depositRate) / MF_PER_FRAG : null, reason };
+      return { ...i, price: pr ? centsToScrap(pr.price) : null, value: pr ? Math.floor(pr.price * MF_PER_CENT * s.depositRate) / MF_PER_FRAG : null, reason };
     }).sort((a, b) => Number(a.reason !== null) - Number(b.reason !== null) || (b.price ?? 0) - (a.price ?? 0));
     return { items: out, botOnline: await botOnline(this.db, now) };
   }
@@ -164,7 +164,7 @@ export class SkinService {
       const it = byId.get(String(id));
       if (!it) return fail('invalid_items', 'An item is no longer in your inventory. Refresh and try again.', 409);
       if (it.reason) return fail('invalid_items', `${it.name}: ${it.reason.toLowerCase()}.`, 409);
-      return { ...it, mf: Math.floor(it.price! * MF_PER_FRAG * s.depositRate) };
+      return { ...it, mf: Math.floor(Math.round(it.price! * 100) * MF_PER_CENT * s.depositRate) }; // it.price is Scrap here; cents × MF_PER_CENT stays exact
     });
     const value = picked.reduce((a, i) => a + i.mf, 0);
     return tx(this.db, async (db) => {
@@ -191,7 +191,7 @@ export class SkinService {
     const rows = (await this.db.prepare(`SELECT i.asset_id, i.market_hash_name AS name, i.icon_url, p.price FROM skin_items i JOIN item_prices p ON p.market_hash_name = i.market_hash_name
       WHERE i.status = 'in_stock' AND i.tradable = 1 AND p.updated_at >= ? AND LOWER(i.market_hash_name) LIKE ? ORDER BY p.price DESC, i.asset_id LIMIT 300`)
       .all(now - PRICE_MAX_AGE_MS, like)) as { asset_id: string; name: string; icon_url: string | null; price: number }[];
-    return rows.map((r) => ({ assetId: r.asset_id, name: r.name, icon: r.icon_url, price: Math.ceil(Number(r.price) * MF_PER_FRAG * this.cfg.skins.withdrawRate) / MF_PER_FRAG }));
+    return rows.map((r) => ({ assetId: r.asset_id, name: r.name, icon: r.icon_url, price: Math.ceil(Number(r.price) * MF_PER_CENT * this.cfg.skins.withdrawRate) / MF_PER_FRAG }));
   }
 
   async createWithdrawal(user: UserRow, assetIds: unknown, now: number) {
@@ -208,7 +208,7 @@ export class SkinService {
         WHERE i.status = 'in_stock' AND i.tradable = 1 AND p.updated_at >= ? AND i.asset_id IN (${ids.map(() => '?').join(', ')})`).all(now - PRICE_MAX_AGE_MS, ...ids)) as
         { asset_id: string; name: string; price: number }[];
       if (rows.length !== ids.length) fail('invalid_items', 'An item was just taken or has no current price. Refresh and try again.', 409);
-      const value = rows.reduce((a, r) => a + Math.ceil(Number(r.price) * MF_PER_FRAG * s.withdrawRate), 0);
+      const value = rows.reduce((a, r) => a + Math.ceil(Number(r.price) * MF_PER_CENT * s.withdrawRate), 0);
       const check = await withdrawalCheck(db, this.cfg, user, value);
       if (!check.allowed) fail('withdrawal_blocked', check.reasons.map((r) => r.message).join(' '), 403, { reasons: check.reasons });
       const id = randomBytes(8).toString('hex');

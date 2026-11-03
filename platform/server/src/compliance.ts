@@ -16,7 +16,7 @@
  *   - large or structured deposits raise an audit flag for manual review
  */
 
-import type { Config } from './config';
+import { type Config, fmtFrags } from './config';
 import { type DB, audit } from './db';
 import { fail } from './errors';
 import type { UserRow } from './accounts';
@@ -57,7 +57,7 @@ export async function withdrawalCheck(db: DB, cfg: Config, user: UserRow, amount
   if (user.kyc_level < 1) reasons.push({ code: 'kyc_1', message: 'Please verify your identity (ID document and selfie).' });
   if (allDeposits > cfg.kycDepositThreshold && user.kyc_level < 2) reasons.push({ code: 'kyc_2', message: 'Above this deposit total we need proof of the source of your funds.' });
   if (wagered < deposits * cfg.amlWagerMultiple) {
-    reasons.push({ code: 'aml_wager', message: `Wager your deposits at least once before withdrawing (${(deposits * cfg.amlWagerMultiple - wagered) / 1000} Scrap to go).` });
+    reasons.push({ code: 'aml_wager', message: `Wager your deposits at least once before withdrawing (${fmtFrags(deposits * cfg.amlWagerMultiple - wagered)} Scrap to go).` });
   }
   if (amount <= 0) reasons.push({ code: 'invalid_amount', message: 'Amount must be positive.' });
   return { allowed: reasons.length === 0, reasons };

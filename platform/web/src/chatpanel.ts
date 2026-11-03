@@ -88,7 +88,7 @@ export function mountChatPanel(el: HTMLElement, c: Ctx): () => void {
     const r = state.rain;
     const box = $('[data-rain]', el);
     box.classList.toggle('open', r.open);
-    box.innerHTML = `${icon('rain')}<div><b>Oil Rain</b> <span class="num">${scrap(r.pot, 0)}</span><br>
+    box.innerHTML = `${icon('rain')}<div><b>Oil Rain</b> <span class="num">${scrap(r.pot)}</span><br>
       <span class="muted">${r.open ? `open · ${left(r.closesAt!)} left · ${r.joiners} joined` : `next in ${left(r.nextAt)} · level 5+, not during a break`}</span></div>
       ${r.open ? `<button class="btn small ${r.joined ? 'ghost' : 'win'}" type="button" data-join ${r.joined || !c.me.promoEligible ? 'disabled' : ''}>${r.joined ? 'Joined' : 'Join'}</button>` : ''}`;
     $('[data-join]', box)?.addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {

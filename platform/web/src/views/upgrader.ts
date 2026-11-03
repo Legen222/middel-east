@@ -55,7 +55,7 @@ export const upgraderView: View = {
       <div class="upg-bar">
         <div><span class="eyebrow">You put in</span><b class="num">${SCRAP_SYM}<span id="in-val">10.00</span></b></div>
         <span class="arrow">${icon('upgrade')}</span>
-        <div><span class="eyebrow">You get</span><b id="out-name">2.00× stake</b><span class="muted num" id="out-val">20.00 Scrap</span></div>
+        <div><span class="eyebrow">You get</span><b id="out-name">2.00× stake</b><span class="muted num" id="out-val">0.20 Scrap</span></div>
       </div>
       <div class="upg-stage">${ring()}</div>
       <div class="upg-controls">
@@ -68,7 +68,7 @@ export const upgraderView: View = {
       <div class="chips" id="hist" aria-label="Recent upgrades"></div>
     </div>
     <aside class="game-side">
-      ${stakeField('stake', 10)}
+      ${stakeField('stake', 0.1)}
       <div class="seg" role="group" aria-label="Target"><button type="button" data-mode="mult" aria-pressed="true">Multiplier</button><button type="button" data-mode="skin" aria-pressed="false">Skin</button></div>
       <div id="mode-mult">
         <label class="field">Target multiplier<input id="target" inputmode="decimal" value="2.00"></label>
@@ -142,7 +142,7 @@ export const upgraderView: View = {
         const ok = valid(ch);
         const sel = skin && skin.name === k.name && skin.value === k.value;
         return `<li><button type="button" role="option" aria-selected="${Boolean(sel)}" data-skin="${esc(k.name)}|${k.value}" ${ok ? '' : 'disabled'}>
-          ${itemArt(k.name)}<span>${esc(k.name)}</span><span class="num">${frags(k.value, 0)}</span><span class="num ${ok ? '' : 'muted'}">${ok ? pct(ch) : ch > MAX_CHANCE ? '&gt; 80 %' : '&lt; 1 %'}</span></button></li>`;
+          ${itemArt(k.name)}<span>${esc(k.name)}</span><span class="num">${frags(k.value)}</span><span class="num ${ok ? '' : 'muted'}">${ok ? pct(ch) : ch > MAX_CHANCE ? '&gt; 80 %' : '&lt; 1 %'}</span></button></li>`;
       }).join('') || '<li class="muted" style="padding:8px">No skin matches.</li>';
       $$<HTMLButtonElement>('[data-skin]', root).forEach((b) => b.addEventListener('click', () => {
         const [name, value] = b.dataset.skin!.split('|');

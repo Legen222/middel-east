@@ -35,7 +35,7 @@ export const blackjackView: View = {
       <p class="status" id="status" role="status">Set your stake and deal.</p>
     </div>
     <aside class="game-side">
-      ${stakeField('stake', 10)}
+      ${stakeField('stake', 0.1)}
       <button class="btn block" id="deal" type="button">Deal</button>
       <div id="fair"></div>
       <p class="muted" style="font-size:12px">Infinite deck: every card is ⌊f · 52⌋ from your seed stream, drawn in order (you, dealer up, you, dealer hole, then as needed). The hole card is fixed from the start and stays on the server until the hand ends. Double and split place a second stake of the same size.</p>

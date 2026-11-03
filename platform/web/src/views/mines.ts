@@ -19,7 +19,7 @@ export const minesView: View = {
       <p class="status" id="status" role="status">Pick the number of mines and your stake.</p>
     </div>
     <aside class="game-side">
-      ${stakeField('stake', 10)}
+      ${stakeField('stake', 0.1)}
       <label class="field">Mines <input id="mines" type="range" min="1" max="24" value="3"></label>
       <div class="row" style="justify-content:space-between;font-size:13px"><span class="muted">Mines: <b class="num" id="m-count">3</b></span><span class="muted">1st tile: <b class="num" id="m-first"></b> · 5th tile: <b class="num" id="m-fifth"></b></span></div>
       <button class="btn block" id="start" type="button">Start round</button>

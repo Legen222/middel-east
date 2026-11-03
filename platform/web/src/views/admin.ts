@@ -192,7 +192,7 @@ export const adminView: View = {
           <div><h3 class="h-sect" style="font-size:15px">Recent bets</h3><div class="tablewrap"><table><tbody>${p.wagers.map((w: any) => `<tr><td class="num" style="font-size:12px">${when(w.createdAt)}</td><td>${esc(w.game)}</td><td class="r num">${frags(w.stake)}</td><td class="r num ${w.payout > w.stake ? 'pos' : ''}">${w.settled ? frags(w.payout) : 'open'}</td></tr>`).join('') || '<tr><td class="muted">None.</td></tr>'}</tbody></table></div></div>
           <div><h3 class="h-sect" style="font-size:15px">Ledger</h3><div class="tablewrap"><table><tbody>${p.ledger.map((l: any) => `<tr><td class="num" style="font-size:12px">${when(l.createdAt)}</td><td>${esc(l.kind)}</td><td class="r num ${l.amount < 0 ? 'neg' : 'pos'}">${signed(l.amount)}</td></tr>`).join('')}</tbody></table></div></div>
           <div><h3 class="h-sect" style="font-size:15px">Limits &amp; rewards</h3>
-            <p style="font-size:13px">${p.limits.length ? p.limits.map((l: any) => `${esc(l.kind)}/${esc(l.period)}: <span class="num">${l.amount === null ? 'none' : frags(l.amount, 0)}</span> (used ${frags(l.used, 0)})${l.pending ? ' · change pending' : ''}`).join('<br>') : '<span class="muted">No limits set.</span>'}</p>
+            <p style="font-size:13px">${p.limits.length ? p.limits.map((l: any) => `${esc(l.kind)}/${esc(l.period)}: <span class="num">${l.amount === null ? 'none' : frags(l.amount)}</span> (used ${frags(l.used)})${l.pending ? ' · change pending' : ''}`).join('<br>') : '<span class="muted">No limits set.</span>'}</p>
             <p style="font-size:13px">${p.rewards.map((r: any) => `${esc(r.kind)}: ${r.count}× · <span class="num">${frags(r.total)}</span>`).join('<br>') || '<span class="muted">No rewards claimed.</span>'}</p>
             <p style="font-size:13px">${p.cases.map((k: any) => `${esc(REASONS[k.reason] ?? k.reason)} · ${esc(k.status)}`).join('<br>') || '<span class="muted">No RG cases.</span>'}</p></div>
           <div><h3 class="h-sect" style="font-size:15px">Notes</h3>
@@ -217,7 +217,7 @@ export const adminView: View = {
       });
       $('[data-adjust]', box).addEventListener('click', () => {
         const m = modal(`<h2 class="h-sect">Adjust ${esc(p.name)}'s balance</h2>
-          <p class="muted" style="font-size:13px">Positive credits, negative debits (never below zero). At most ±100,000 Scrap; audited with your name. You cannot adjust your own account.</p>
+          <p class="muted" style="font-size:13px">Positive credits, negative debits (never below zero). At most ±1,000 Scrap; audited with your name. You cannot adjust your own account.</p>
           <label class="field">Amount (Scrap)<input data-a inputmode="decimal" data-signed placeholder="e.g. 50 or -20"></label>
           <label class="field">Reason (audited)<input data-r maxlength="200" placeholder="e.g. goodwill after the outage on 12 Oct"></label>
           <div class="row"><button class="btn" data-ok type="button">Book adjustment</button><button class="btn ghost" data-no type="button">Cancel</button></div>`);

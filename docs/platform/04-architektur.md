@@ -120,7 +120,7 @@ Damit ist Punkt 4 aus Phase 3 umgesetzt.
 
 ## 3. Geld und Ledger
 
-- **Einheit:** Milli-Scrap als Ganzzahl (1 Scrap = 1 000 mF = 0,01 $). Auszahlungen werden abgerundet.
+- **Einheit:** 1 Scrap = 1 $, angezeigt mit zwei Nachkommastellen. Gespeichert als Ganzzahl in mF (1 Scrap = 100 000 mF, 1 mF = 0,001 Cent). Kisten-Werte, Kistenpreise und der Skin-Preisfeed rechnen in ganzen Cent. Auszahlungen werden abgerundet.
   Die Rundung kostet höchstens 0,001 Scrap pro Wette (Punkt 5 aus Phase 3).
 - **Doppelte Buchführung:** Jede Buchung schreibt zwei Zeilen, deren Summe null ist. Konten: `user:<id>`,
   `house:bankroll`, `house:demo-faucet`. Spielerkonten können nie ins Minus gehen.

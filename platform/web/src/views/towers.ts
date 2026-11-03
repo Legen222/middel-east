@@ -33,7 +33,7 @@ export const towersView: View = {
       <p class="status" id="status" role="status">Pick a keycard and your stake.</p>
     </div>
     <aside class="game-side">
-      ${stakeField('stake', 10)}
+      ${stakeField('stake', 0.1)}
       <div class="seg" role="group" aria-label="Keycard" id="levels">${(Object.keys(LEVELS) as Level[]).map((l) => `<button type="button" data-level="${l}" aria-pressed="${l === 'green'}"><span class="dot" style="background:${LEVELS[l].color}"></span>${LEVELS[l].label}</button>`).join('')}</div>
       <p class="muted" style="font-size:13px" id="lvl-info"></p>
       <button class="btn block" id="start" type="button">Enter the monument</button>

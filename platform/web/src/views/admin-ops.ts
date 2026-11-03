@@ -88,10 +88,10 @@ export function limitsSection(list: any[], global: { minStake: number; maxStake:
   return `
   <section class="card">
     <h2 class="h-sect">Stake and win limits per game</h2>
-    <p class="muted" style="font-size:13px;max-width:80ch">Empty means the global limit (${frags(global.minStake)} to ${frags(global.maxStake, 0)} Scrap stake, ${frags(global.maxWin, 0)} Scrap max win). A game's limits can only be tighter than the global ones.</p>
+    <p class="muted" style="font-size:13px;max-width:80ch">Empty means the global limit (${frags(global.minStake)} to ${frags(global.maxStake)} Scrap stake, ${frags(global.maxWin)} Scrap max win). A game's limits can only be tighter than the global ones.</p>
     <div class="tablewrap"><table><thead><tr><th>Game</th><th>Min stake</th><th>Max stake</th><th>Max win</th><th></th></tr></thead><tbody>
       ${list.map((g) => `<tr><td><b>${esc(g.name)}</b></td>
-        ${(['minStake', 'maxStake', 'maxWin'] as const).map((k) => `<td><input class="input num" style="max-width:130px" data-lim="${g.game}" data-k="${k}" inputmode="decimal" value="${g.limits[k] ?? ''}" placeholder="${frags(global[k], 0)}" aria-label="${esc(g.name)} ${k}"></td>`).join('')}
+        ${(['minStake', 'maxStake', 'maxWin'] as const).map((k) => `<td><input class="input num" style="max-width:130px" data-lim="${g.game}" data-k="${k}" inputmode="decimal" value="${g.limits[k] ?? ''}" placeholder="${frags(global[k])}" aria-label="${esc(g.name)} ${k}"></td>`).join('')}
         <td><button class="btn ghost small" type="button" data-savelim="${g.game}">Save</button></td></tr>`).join('')}
     </tbody></table></div>
   </section>`;
@@ -116,7 +116,7 @@ export async function casesTab(panel: HTMLElement) {
     <div class="row" style="justify-content:space-between"><h2 class="h-sect">Cases</h2><button class="btn small" type="button" data-new>New case</button></div>
     <p class="muted" style="font-size:13px;max-width:80ch">Every edit publishes a new version; openings and battles keep the version they used, so old rounds stay verifiable. The price is always ⌈EV ÷ (1 − 7 %)⌉, never typed in. New cases start disabled.</p>
     <div class="tablewrap"><table><thead><tr><th>Case</th><th class="r">Version</th><th class="r">Price</th><th class="r">RTP</th><th class="r">Items</th><th class="r">Opened</th><th>Live</th><th class="r">Order</th><th></th></tr></thead><tbody>
-      ${list.map((k) => `<tr><td><b>${esc(k.name)}</b><br><span class="muted num" style="font-size:11px">${esc(k.id)}</span></td><td class="r num">v${k.version}</td><td class="r num">${frags(k.price, 0)}</td><td class="r num">${pct(k.rtp)}</td>
+      ${list.map((k) => `<tr><td><b>${esc(k.name)}</b><br><span class="muted num" style="font-size:11px">${esc(k.id)}</span></td><td class="r num">v${k.version}</td><td class="r num">${frags(k.price)}</td><td class="r num">${pct(k.rtp)}</td>
         <td class="r num">${k.items.length}</td><td class="r num">${frags(k.opened, 0)}</td>
         <td><label class="check"><input type="checkbox" data-live="${esc(k.id)}" ${k.enabled ? 'checked' : ''} aria-label="${esc(k.name)} live"></label></td>
         <td class="r"><input class="input num" style="max-width:70px" data-sort="${esc(k.id)}" value="${k.sort}" inputmode="numeric" aria-label="${esc(k.name)} order"></td>
@@ -150,7 +150,7 @@ function editor(panel: HTMLElement, k: any | null) {
     <div class="row"><button class="btn ghost small" type="button" data-add>Add item</button></div>
     <div class="kpis" data-preview></div>
     <div class="row"><button class="btn" type="button" data-publish>${k ? 'Publish new version' : 'Create case'}</button><span class="status" data-msg></span></div>
-    ${k ? `<details><summary class="muted" style="font-size:13px">Version history (${k.versions.length})</summary><div class="tablewrap"><table><tbody>${k.versions.map((v: any) => `<tr><td class="num">v${v.version}</td><td class="num">${frags(v.price, 0)} Scrap</td><td class="num">${pct(v.rtp)}</td><td class="num" style="font-size:12px">${when(v.created_at || null)}</td><td><a href="/api/cases/${esc(k.id)}/v/${v.version}" target="_blank" rel="noopener">items (JSON)</a></td></tr>`).join('')}</tbody></table></div></details>` : ''}
+    ${k ? `<details><summary class="muted" style="font-size:13px">Version history (${k.versions.length})</summary><div class="tablewrap"><table><tbody>${k.versions.map((v: any) => `<tr><td class="num">v${v.version}</td><td class="num">${frags(v.price)} Scrap</td><td class="num">${pct(v.rtp)}</td><td class="num" style="font-size:12px">${when(v.created_at || null)}</td><td><a href="/api/cases/${esc(k.id)}/v/${v.version}" target="_blank" rel="noopener">items (JSON)</a></td></tr>`).join('')}</tbody></table></div></details>` : ''}
   </section>`;
   box.scrollIntoView({ block: 'start' });
   const rows = $('[data-items]', box);
@@ -161,7 +161,7 @@ function editor(panel: HTMLElement, k: any | null) {
       const msg = $('[data-msg]', box);
       try {
         const p = await api<any>('POST', '/admin/cases/preview', { name: $<HTMLInputElement>('[data-name]', box).value || 'Preview', items });
-        $('[data-preview]', box).innerHTML = kpi('Price', `${frags(p.price, 0)} Scrap`) + kpi('RTP', pct(p.rtp)) + kpi('Top item', `${frags(Math.max(...items.map((i) => i.value)), 0)}`, `${(p.price ? Math.max(...items.map((i) => i.value)) / p.price : 0).toFixed(1)}× the price`);
+        $('[data-preview]', box).innerHTML = kpi('Price', `${frags(p.price)} Scrap`) + kpi('RTP', pct(p.rtp)) + kpi('Top item', `${frags(Math.max(...items.map((i) => i.value)), 0)}`, `${(p.price ? Math.max(...items.map((i) => i.value)) / p.price : 0).toFixed(1)}× the price`);
         p.items.forEach((it: any, n: number) => { const cell = rows.querySelector(`[data-chance="${n}"]`); if (cell) cell.textContent = pct(it.chance, 3); });
         msg.textContent = ''; msg.className = 'status';
       } catch (e: any) { msg.textContent = e?.body?.message ?? 'Check the items.'; msg.className = 'status lose'; }
@@ -187,7 +187,7 @@ function editor(panel: HTMLElement, k: any | null) {
   $('[data-publish]', box).addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {
     const id = $<HTMLInputElement>('[data-id]', box).value.trim().toLowerCase();
     const v = await api<any>('PUT', `/admin/cases/${encodeURIComponent(id)}`, { name: $<HTMLInputElement>('[data-name]', box).value, items });
-    toast(`${v.name} v${v.version} published at ${frags(v.price, 0)} Scrap (${pct(v.rtp)} RTP).`);
+    toast(`${v.name} v${v.version} published at ${frags(v.price)} Scrap (${pct(v.rtp)} RTP).`);
     await casesTab(panel);
   }));
 }
@@ -208,7 +208,7 @@ export async function promosTab(panel: HTMLElement) {
       <label class="field" style="flex:1;min-width:160px">Note<input name="note" maxlength="200" placeholder="Stream giveaway"></label>
       <button class="btn" type="submit">Create</button>
     </form>
-    <p class="muted" style="font-size:12px">One use per player; blocked during a break or self-exclusion; budget (amount × uses) at most 1,000,000 Scrap. Ten wrong codes in an hour lock a player out of redeeming for an hour.</p>
+    <p class="muted" style="font-size:12px">One use per player; blocked during a break or self-exclusion; budget (amount × uses) at most 10,000 Scrap. Ten wrong codes in an hour lock a player out of redeeming for an hour.</p>
   </section>
   <section class="card">
     <h2 class="h-sect">Codes</h2>

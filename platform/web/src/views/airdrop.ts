@@ -22,7 +22,7 @@ export const airdropView: View = {
       <p class="status" id="status" role="status">Set a target between 1.01× and 10,000×.</p>
     </div>
     <aside class="game-side">
-      ${stakeField('stake', 10)}
+      ${stakeField('stake', 0.1)}
       <label class="field">Target (×)<input id="target" inputmode="decimal" value="2.00"></label>
       <div class="row">${[1.5, 2, 5, 10, 100].map((t) => `<button type="button" class="btn ghost small" data-t="${t}">${t}×</button>`).join('')}</div>
       <button class="btn block" id="drop" type="button">Call the drop</button>

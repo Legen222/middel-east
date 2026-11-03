@@ -17,7 +17,7 @@ import { randomBytes } from 'node:crypto';
 
 import { EDGE, FairStream, drawJackpot, newServerSeed } from '../../engine/src/index';
 import type { Beacon } from './beacon';
-import { type Config, MF_PER_FRAG, frags } from './config';
+import { type Config, MF_PER_CENT, MF_PER_FRAG, fmtFrags, frags } from './config';
 import { type DB, PUBLIC_NAME, audit, tx } from './db';
 import { fail } from './errors';
 import { bus } from './events';
@@ -27,8 +27,8 @@ import { HOUSE, transfer, userAccount } from './wallet';
 
 export const JACKPOT_ESCROW = 'house:jackpot-escrow';
 export const JACKPOT_ROOMS = {
-  high: { label: 'High Rollers', min: frags(10), max: Infinity },
-  low: { label: 'Low Ballers', min: frags(1), max: frags(50) },
+  high: { label: 'High Rollers', min: frags(0.1), max: Infinity },
+  low: { label: 'Low Ballers', min: frags(0.01), max: frags(0.5) },
 } as const;
 export type JackpotRoom = keyof typeof JACKPOT_ROOMS;
 export const JACKPOT_COUNTDOWN_MS = 30_000;
@@ -61,7 +61,7 @@ export class JackpotService {
       const lim = JACKPOT_ROOMS[room];
       const max = Math.min(lim.max, cfg.maxStake);
       if (!Number.isSafeInteger(amount) || amount < Math.max(lim.min, cfg.minStake) || amount > max) {
-        fail('invalid_stake', `${lim.label}: ${Math.max(lim.min, cfg.minStake) / MF_PER_FRAG} to ${max / MF_PER_FRAG} Scrap per entry.`);
+        fail('invalid_stake', `${lim.label}: ${fmtFrags(Math.max(lim.min, cfg.minStake))} to ${fmtFrags(max)} Scrap per entry.`);
       }
       let r = await activeRound(db, room);
       if (r && r.status === 'locked') fail('jackpot_locked', 'This pot is being drawn. The next one opens in a moment.', 409);
@@ -104,7 +104,7 @@ export class JackpotService {
     const lim = JACKPOT_ROOMS[room];
     const cfg = await gameConfig(this.db, this.cfg, 'jackpot');
     const hi = Math.min(lim.max, cfg.maxStake, Math.max(lim.min, r!.total));
-    const amount = Math.round((lim.min + Math.random() * (hi - lim.min)) / MF_PER_FRAG) * MF_PER_FRAG;
+    const amount = Math.round((lim.min + Math.random() * (hi - lim.min)) / MF_PER_CENT) * MF_PER_CENT;
     return this.enter(null, room, Math.max(lim.min, amount), now);
   }
 

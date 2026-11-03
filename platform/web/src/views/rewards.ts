@@ -56,7 +56,7 @@ export const rewardsView: View = {
       $('#level', root).innerHTML = `
         <div class="row" style="justify-content:space-between"><b class="h-sect">Level ${r.level}</b><span class="num muted">${r.xp.toLocaleString('en-US')} / ${r.nextLevelXp.toLocaleString('en-US')} XP</span></div>
         <div style="height:10px;border:1px solid var(--line);border-radius:999px;background:var(--bg-2);overflow:hidden"><div style="height:100%;width:${Math.round(k * 100)}%;background:linear-gradient(90deg,var(--bp),var(--bp-hi))"></div></div>
-        <p class="muted" style="font-size:13px">1 XP = 1 Scrap of expected loss. Level L needs 100 · (L − 1)^1.6 XP.</p>`;
+        <p class="muted" style="font-size:13px">1 XP = 0.01 Scrap of expected loss. Level L needs 100 · (L − 1)^1.6 XP.</p>`;
 
       $('#rakeback', root).innerHTML = `
         <h2 class="h-sect">${icon('gauge')} Rakeback</h2>
@@ -71,13 +71,13 @@ export const rewardsView: View = {
         <p class="muted">Free once every 24 hours from level 2. Rolled from your own seed, so it is verifiable.</p>
         <div id="daily-out" class="big-mult" style="font-size:28px;min-height:1.2em">${esc(lastDaily)}</div>
         <button class="btn" id="dl" type="button" ${dailyReady ? '' : 'disabled'}>${r.level < 2 ? 'From level 2' : !r.promoEligible ? 'Break active' : Date.now() < r.daily.nextAt ? `Again in ${until(r.daily.nextAt)}` : 'Open'}</button>
-        <details><summary class="muted" style="cursor:pointer;font-size:13px">Contents</summary><table style="margin-top:6px"><tbody>${r.daily.items.map((i) => `<tr><td>${esc(i.name)}</td><td class="r num">${frags(i.value, 0)}</td><td class="r num">${pctShort(i.chance)}</td></tr>`).join('')}</tbody></table></details>`;
+        <details><summary class="muted" style="cursor:pointer;font-size:13px">Contents</summary><table style="margin-top:6px"><tbody>${r.daily.items.map((i) => `<tr><td>${esc(i.name)}</td><td class="r num">${frags(i.value)}</td><td class="r num">${pctShort(i.chance)}</td></tr>`).join('')}</tbody></table></details>`;
 
       const rain = r.rain;
       $('#rain', root).innerHTML = `
         <h2 class="h-sect">${icon('rain')} Oil Rain</h2>
-        <p class="muted">Every 30 minutes, open for 2 minutes: pot = 1 % of the period's expected loss (demo minimum 500 Scrap), split equally. Requires level 5 and 100 Scrap wagered in 24 h.</p>
-        <p><b class="num">${scrap(rain.pot, 0)}</b> · ${rain.joiners} joined</p>
+        <p class="muted">Every 30 minutes, open for 2 minutes: pot = 1 % of the period's expected loss (demo minimum 5 Scrap), split equally. Requires level 5 and 1 Scrap wagered in 24 h.</p>
+        <p><b class="num">${scrap(rain.pot)}</b> · ${rain.joiners} joined</p>
         <button class="btn" id="rn" type="button" ${rain.open && !rain.joined && r.promoEligible ? '' : 'disabled'}>${rain.joined ? 'You are in' : rain.open ? `Join · ${until(rain.closesAt!)} left` : `Next rain in ${until(rain.nextAt)}`}</button>`;
 
       const crew = r.crew;
@@ -98,7 +98,7 @@ export const rewardsView: View = {
         const x = await api<{ item: { name: string; value: number }; fairness: { nonce: number } }>('POST', '/rewards/daily');
         const out = $('#daily-out', root);
         for (const it of r!.daily.items.slice(0, 4)) { out.textContent = it.name; await sleep(120); }
-        lastDaily = `${x.item.name} · ${frags(x.item.value, 0)}`;
+        lastDaily = `${x.item.name} · ${frags(x.item.value)}`;
         out.textContent = lastDaily;
         await sleep(900); await c.refresh(); await load();
       }));

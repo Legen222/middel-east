@@ -17,7 +17,8 @@ import { randomBytes } from 'node:crypto';
 
 import { EDGE, FairStream, newServerSeed, playBattle, playCoinflip, type BattleMode, type CoinSide } from '../../engine/src/index';
 import type { Beacon } from './beacon';
-import { type Config, MF_PER_FRAG } from './config';
+import { battleResultOut } from './case-out';
+import { type Config, MF_PER_CENT, MF_PER_FRAG, fmtFrags } from './config';
 import { type DB, PUBLIC_NAME, audit, tx } from './db';
 import { fail } from './errors';
 import { type CaseVersion, caseVersion, playableCase } from './cases';
@@ -54,7 +55,7 @@ export function createCoinflip(db: DB, cfgIn: Config, userId: string, stake: num
   if (side !== 'rust' && side !== 'scrap') fail('invalid_params', 'Side: rust or scrap.');
   return tx(db, async (db) => {
     const cfg = await gameConfig(db, cfgIn, 'coinflip');
-    if (!Number.isSafeInteger(stake) || stake < cfg.minStake || stake > cfg.maxStake) fail('invalid_stake', `Stake: ${cfg.minStake / MF_PER_FRAG} to ${cfg.maxStake / MF_PER_FRAG} Scrap.`);
+    if (!Number.isSafeInteger(stake) || stake < cfg.minStake || stake > cfg.maxStake) fail('invalid_stake', `Stake: ${fmtFrags(cfg.minStake)} to ${fmtFrags(cfg.maxStake)} Scrap.`);
     if (stake * 2 * (1 - EDGE.coinflip) > cfg.maxWin) fail('max_win', 'This stake exceeds the max win.');
     return create(db, cfg, userId, 'coinflip', { side }, 2, stake, now);
   });
@@ -69,8 +70,8 @@ export function createBattle(db: DB, cfgIn: Config, userId: string, caseIds: str
     const cfg = await gameConfig(db, cfgIn, 'battle');
     const cases: CaseVersion[] = [];
     for (const id of caseIds) cases.push(await playableCase(db, id));
-    const cost = cases.reduce((s, c) => s + c.price, 0) * MF_PER_FRAG;
-    const bestPool = cases.reduce((s, c) => s + Math.max(...c.items.map((i) => i.value)), 0) * MF_PER_FRAG * seats;
+    const cost = cases.reduce((s, c) => s + c.price, 0) * MF_PER_CENT;
+    const bestPool = cases.reduce((s, c) => s + Math.max(...c.items.map((i) => i.value)), 0) * MF_PER_CENT * seats;
     if (bestPool > cfg.maxWin) fail('max_win', 'This battle could exceed the max win. Pick fewer or cheaper cases.');
     if (cost < cfg.minStake || cost > cfg.maxStake) fail('invalid_stake', cost > cfg.maxStake ? 'This battle is too expensive.' : 'This battle is below the minimum stake.');
     // the versions are fixed now: a case edited while the battle waits for players does not change it
@@ -145,7 +146,7 @@ export async function settleDue(db: DB, beacon: Beacon, now: number): Promise<nu
         const versions = (params.versions ?? []) as number[]; // battles from before case versions used version 1
         for (const [i, id] of (params.caseIds as string[]).entries()) cases.push(await caseVersion(db, id, versions[i] ?? 1));
         const o = playBattle(src, cases, g.seats, params.mode as BattleMode);
-        payouts = o.payouts.map((p) => Math.floor(p * MF_PER_FRAG));
+        payouts = o.payouts.map((p) => Math.floor(p * MF_PER_CENT));
         result = { drops: o.drops.map((r) => r.map((i) => ({ name: i.name, value: i.value }))), totals: o.totals, winners: o.winners, ...(o.bonus ? { bonus: o.bonus } : {}) };
       }
       // Battles can pay out more than was staked (a lucky pool); the bankroll tops up escrow first,
@@ -176,7 +177,7 @@ export async function publicGame(db: DB, beacon: Beacon, id: string, viewerId: s
     id: g.id, type: g.type, status: g.status, params: JSON.parse(g.params), seats: g.seats, seatStake: g.seat_stake / MF_PER_FRAG,
     players: seats.map((s) => ({ seat: s.seat, name: s.user_id ? s.name : 'Demo bot', bot: !s.user_id, you: viewerId !== null && s.user_id === viewerId, payout: s.payout / MF_PER_FRAG })),
     mine: viewerId !== null && g.creator_id === viewerId,
-    result: g.result ? JSON.parse(g.result) : null, createdAt: g.created_at, lockedAt: g.locked_at, settledAt: g.settled_at,
+    result: g.result ? battleResultOut(JSON.parse(g.result)) : null, createdAt: g.created_at, lockedAt: g.locked_at, settledAt: g.settled_at,
     fairness: {
       serverSeedHash: g.server_hash, serverSeed: g.status === 'settled' ? g.server_seed : null, nonce: 0,
       beacon: { name: beacon.name, trustless: beacon.trustless, round: g.beacon_round, resolvesAt: g.beacon_round ? beacon.timeOf(g.beacon_round) : null, value: g.beacon_value, verifyUrl: g.beacon_round ? beacon.verifyUrl(g.beacon_round) : null },

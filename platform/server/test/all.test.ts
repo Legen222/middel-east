@@ -6,7 +6,7 @@ import { FairStream, SAMPLE_CASES, layMines, openCase, playDice, playPlinko, pla
 import { signUp } from '../src/accounts';
 import { getBet, minesCashout, minesReveal, minesStart, openCases, playInstant, raidBlast, raidCashout, raidStart } from '../src/bets';
 import { checkGeo, withdrawalCheck } from '../src/compliance';
-import { type Config, DEFAULT_CONFIG, MF_PER_FRAG, frags } from '../src/config';
+import { type Config, DEFAULT_CONFIG, MF_PER_CENT, MF_PER_FRAG, frags } from '../src/config';
 import { openDb, type DB } from '../src/db';
 import { openPg } from '../src/pg';
 
@@ -89,9 +89,9 @@ describe('accounts & wallet', () => {
     assert.deepEqual(await ledgerIntegrity(db), { sum: 0, mismatched: [] });
   });
   it('rolls back the whole bet when the stake exceeds the balance', async () => {
-    const { db, cfg, userId } = await setup({ demoStartBalance: frags(5) });
+    const { db, cfg, userId } = await setup({ demoStartBalance: frags(0.05) });
     const before = (await db.prepare('SELECT COUNT(*) AS n FROM ledger').get() as { n: number }).n;
-    assert.equal(await code(() => playInstant(db, cfg, userId, 'dice', frags(10), { chance: 50, direction: 'under' }, T0)), 'insufficient_balance');
+    assert.equal(await code(() => playInstant(db, cfg, userId, 'dice', frags(0.1), { chance: 50, direction: 'under' }, T0)), 'insufficient_balance');
     assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM ledger').get() as { n: number }).n, before);
     assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM bets').get() as { n: number }).n, 0);
     assert.equal((await activeSeed(db, userId)).nonce, 0);
@@ -102,11 +102,11 @@ describe('bets settle correctly and replay exactly from the revealed seed', () =
   it('40 mixed instant bets: balances, nonces, ledger and replay all agree', async () => {
     const { db, cfg, userId } = await setup();
     const plans = [
-      ['dice', frags(10), { chance: 49.5, direction: 'under' }],
-      ['dice', frags(3), { chance: 2, direction: 'over' }],
-      ['plinko', frags(5), { rows: 16, risk: 'high' }],
-      ['plinko', frags(7), { rows: 8, risk: 'low' }],
-      ['upgrader', frags(20), { multiplier: 3 }],
+      ['dice', frags(0.1), { chance: 49.5, direction: 'under' }],
+      ['dice', frags(0.03), { chance: 2, direction: 'over' }],
+      ['plinko', frags(0.05), { rows: 16, risk: 'high' }],
+      ['plinko', frags(0.07), { rows: 8, risk: 'low' }],
+      ['upgrader', frags(0.2), { multiplier: 3 }],
       ['cases', 0, { caseId: 'toolbox' }],
     ] as const;
     let expected = await bal(db, userId);
@@ -129,26 +129,26 @@ describe('bets settle correctly and replay exactly from the revealed seed', () =
         case 'dice': mult = playDice(src, p).multiplier; break;
         case 'plinko': mult = playPlinko(src, p.rows, p.risk).multiplier; break;
         case 'upgrader': mult = playUpgrader(src, 1, p.multiplier).win ? p.multiplier : 0; break;
-        default: { const c = SAMPLE_CASES.find((x) => x.id === p.caseId)!; mult = (openCase(src, c).item.value * MF_PER_FRAG) / b.stake; }
+        default: { const c = SAMPLE_CASES.find((x) => x.id === p.caseId)!; mult = (openCase(src, c).item.value * MF_PER_CENT) / b.stake; }
       }
       assert.equal(b.payout, Math.floor(b.stake * mult + 1e-9), `bet ${b.nonce} (${b.game}) replays`);
     }
   });
   it('case price is fixed by the server, the client stake is ignored', async () => {
     const { db, cfg, userId } = await setup();
-    const b = await playInstant(db, cfg, userId, 'cases', frags(1), { caseId: 'military-crate' }, T0);
-    assert.equal(b.stake, priceCase(SAMPLE_CASES.find((c) => c.id === 'military-crate')!) * MF_PER_FRAG);
+    const b = await playInstant(db, cfg, userId, 'cases', frags(0.01), { caseId: 'military-crate' }, T0);
+    assert.equal(b.stake, priceCase(SAMPLE_CASES.find((c) => c.id === 'military-crate')!) * MF_PER_CENT);
   });
 });
 
 describe('mines', () => {
   it('hides the layout while open, blocks seed rotation, pays the ladder, and replays', async () => {
     const { db, cfg, userId } = await setup();
-    const start = await minesStart(db, cfg, userId, frags(10), 3, T0) as any;
+    const start = await minesStart(db, cfg, userId, frags(0.1), 3, T0) as any;
     assert.equal(start.status, 'open');
     assert.equal(JSON.stringify(start).includes('"mines":['), false, 'mine positions must not leak');
     assert.equal(await code(() => rotateSeed(db, userId, null, T0)), 'open_game');
-    assert.equal(await code(() => minesStart(db, cfg, userId, frags(10), 3, T0)), 'open_game');
+    assert.equal(await code(() => minesStart(db, cfg, userId, frags(0.1), 3, T0)), 'open_game');
     const seed = await activeSeed(db, userId);
     const layout = layMines(new FairStream(seed.server_seed, seed.client_seed, 0), 3);
     const safe = [...Array(25).keys()].filter((t) => !layout.includes(t));
@@ -156,8 +156,8 @@ describe('mines', () => {
     await minesReveal(db, cfg, userId, start.id, safe[1], T0);
     const done = await minesCashout(db, userId, start.id, T0) as any;
     assert.equal(done.status, 'settled');
-    assert.equal(done.payout, Math.floor(frags(10) * (0.97 * 300) / 231));
-    const lose = await minesStart(db, cfg, userId, frags(10), 3, T0) as any;
+    assert.equal(done.payout, Math.floor(frags(0.1) * (0.97 * 300) / 231));
+    const lose = await minesStart(db, cfg, userId, frags(0.1), 3, T0) as any;
     const s2 = await activeSeed(db, userId);
     const layout2 = layMines(new FairStream(s2.server_seed, s2.client_seed, 1), 3);
     const hit = await minesReveal(db, cfg, userId, lose.id, layout2[0], T0) as any;
@@ -166,8 +166,8 @@ describe('mines', () => {
     assert.deepEqual(await ledgerIntegrity(db), { sum: 0, mismatched: [] });
   });
   it('refuses a reveal that could exceed the max win (cash-out stays possible)', async () => {
-    const { db, cfg, userId } = await setup({ maxWin: frags(40) });
-    const g = await minesStart(db, cfg, userId, frags(10), 3, T0) as any; // mult(1)=1.10, … mult(3)≈1.52 … grows
+    const { db, cfg, userId } = await setup({ maxWin: frags(0.4) });
+    const g = await minesStart(db, cfg, userId, frags(0.1), 3, T0) as any; // mult(1)=1.10, … mult(3)≈1.52 … grows
     const seed = await activeSeed(db, userId);
     const layout = layMines(new FairStream(seed.server_seed, seed.client_seed, 0), 3);
     const safe = [...Array(25).keys()].filter((t) => !layout.includes(t));
@@ -178,7 +178,7 @@ describe('mines', () => {
     }
     assert.ok(refused);
     const out = await minesCashout(db, userId, g.id, T0) as any;
-    assert.ok(out.payout <= frags(40));
+    assert.ok(out.payout <= frags(0.4));
   });
 });
 
@@ -188,20 +188,20 @@ describe('raid', () => {
     const seed = await activeSeed(db, userId);
     const plan: RaidTool[] = ['c4', 'rocket', 'c4'];
     const expect = playRaid(new FairStream(seed.server_seed, seed.client_seed, 0), (s) => plan[s.length] ?? null);
-    const g = await raidStart(db, cfg, userId, frags(10), T0) as any;
+    const g = await raidStart(db, cfg, userId, frags(0.1), T0) as any;
     let last: any = g;
     for (const t of plan) { last = await raidBlast(db, cfg, userId, g.id, t, T0); if (last.status === 'settled') break; }
     if (last.status === 'open') last = await raidCashout(db, userId, g.id, T0);
-    assert.equal(last.payout, Math.floor(frags(10) * expect.multiplier + 1e-9));
+    assert.equal(last.payout, Math.floor(frags(0.1) * expect.multiplier + 1e-9));
     assert.equal((await getBet(db, g.id))!.status, 'settled');
   });
 });
 
 describe('max win and stake bounds', () => {
   it('refuses a dice bet whose win could exceed the cap and names the max stake', async () => {
-    const { db, cfg, userId } = await setup({ maxWin: frags(1000) });
-    try { await playInstant(db, cfg, userId, 'dice', frags(100), { chance: 1, direction: 'under' }, T0); assert.fail('should throw'); }
-    catch (e) { assert.ok(e instanceof AppError && e.code === 'max_win'); assert.equal((e as AppError).details!.maxStake, Math.floor(frags(1000) / 98)); }
+    const { db, cfg, userId } = await setup({ maxWin: frags(10) });
+    try { await playInstant(db, cfg, userId, 'dice', frags(1), { chance: 1, direction: 'under' }, T0); assert.fail('should throw'); }
+    catch (e) { assert.ok(e instanceof AppError && e.code === 'max_win'); assert.equal((e as AppError).details!.maxStake, Math.floor(frags(10) / 98)); }
   });
   it('refuses stakes outside the min/max band', async () => {
     const { db, cfg, userId } = await setup();
@@ -212,42 +212,42 @@ describe('max win and stake bounds', () => {
 describe('responsible gambling', () => {
   it('loss limit blocks the bet that could break it (open stakes count as lost)', async () => {
     const { db, cfg, userId } = await setup();
-    await setLimit(db, cfg, userId, 'loss', 'day', frags(15), T0);
-    await playInstant(db, cfg, userId, 'dice', frags(10), { chance: 0.01, direction: 'under' }, T0); // almost surely lost
-    assert.equal(await code(() => playInstant(db, cfg, userId, 'dice', frags(10), { chance: 50, direction: 'under' }, T0 + 1)), 'rg_limit');
-    assert.doesNotThrow(() => playInstant(db, cfg, userId, 'dice', frags(4), { chance: 50, direction: 'under' }, T0 + 2));
+    await setLimit(db, cfg, userId, 'loss', 'day', frags(0.15), T0);
+    await playInstant(db, cfg, userId, 'dice', frags(0.1), { chance: 0.01, direction: 'under' }, T0); // almost surely lost
+    assert.equal(await code(() => playInstant(db, cfg, userId, 'dice', frags(0.1), { chance: 50, direction: 'under' }, T0 + 1)), 'rg_limit');
+    assert.doesNotThrow(() => playInstant(db, cfg, userId, 'dice', frags(0.04), { chance: 50, direction: 'under' }, T0 + 2));
   });
   it('lowering applies now, raising only after 24 h, removing only after 24 h', async () => {
     const { db, cfg, userId } = await setup();
-    assert.equal((await setLimit(db, cfg, userId, 'wager', 'week', frags(500), T0)).applied, 'now');
-    assert.equal((await setLimit(db, cfg, userId, 'wager', 'week', frags(200), T0)).applied, 'now');
-    const r = await setLimit(db, cfg, userId, 'wager', 'week', frags(5000), T0);
+    assert.equal((await setLimit(db, cfg, userId, 'wager', 'week', frags(5), T0)).applied, 'now');
+    assert.equal((await setLimit(db, cfg, userId, 'wager', 'week', frags(2), T0)).applied, 'now');
+    const r = await setLimit(db, cfg, userId, 'wager', 'week', frags(50), T0);
     assert.equal(r.applied, 'delayed');
-    assert.equal((await getLimits(db, userId, T0 + 23 * HOUR))[0].amount, frags(200));
-    assert.equal((await getLimits(db, userId, T0 + 24 * HOUR))[0].amount, frags(5000));
+    assert.equal((await getLimits(db, userId, T0 + 23 * HOUR))[0].amount, frags(2));
+    assert.equal((await getLimits(db, userId, T0 + 24 * HOUR))[0].amount, frags(50));
     await setLimit(db, cfg, userId, 'wager', 'week', null, T0 + 25 * HOUR);
-    assert.equal((await getLimits(db, userId, T0 + 48 * HOUR))[0].amount, frags(5000));
+    assert.equal((await getLimits(db, userId, T0 + 48 * HOUR))[0].amount, frags(50));
     assert.equal((await getLimits(db, userId, T0 + 49 * HOUR))[0].amount, null);
   });
   it('cooldown blocks bets until it ends and cannot be shortened', async () => {
     const { db, cfg, userId } = await setup();
     await startCooldown(db, userId, 24, T0);
-    assert.equal(await code(() => playInstant(db, cfg, userId, 'dice', frags(1), { chance: 50, direction: 'under' }, T0 + HOUR)), 'rg_cooldown');
+    assert.equal(await code(() => playInstant(db, cfg, userId, 'dice', frags(0.01), { chance: 50, direction: 'under' }, T0 + HOUR)), 'rg_cooldown');
     assert.equal(await code(() => startCooldown(db, userId, 1, T0)), 'invalid_cooldown');
-    assert.doesNotThrow(() => playInstant(db, cfg, userId, 'dice', frags(1), { chance: 50, direction: 'under' }, T0 + 25 * HOUR));
+    assert.doesNotThrow(() => playInstant(db, cfg, userId, 'dice', frags(0.01), { chance: 50, direction: 'under' }, T0 + 25 * HOUR));
   });
   it('self-exclusion blocks play and ends all sessions', async () => {
     const { db, cfg, userId } = await setup();
     await db.prepare('INSERT INTO sessions (token_hash, user_id, started_at, expires_at) VALUES (?, ?, ?, ?)').run('x'.repeat(64), userId, T0, T0 + 1e9);
     await selfExclude(db, userId, 6, T0);
-    assert.equal(await code(() => playInstant(db, cfg, userId, 'dice', frags(1), { chance: 50, direction: 'under' }, T0 + 1)), 'rg_excluded');
+    assert.equal(await code(() => playInstant(db, cfg, userId, 'dice', frags(0.01), { chance: 50, direction: 'under' }, T0 + 1)), 'rg_excluded');
     assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM sessions WHERE user_id = ?').get(userId) as { n: number }).n, 0);
   });
   it('session summary reports wagered, net and the next reality check', async () => {
     const { db, cfg, userId } = await setup();
-    const b = await playInstant(db, cfg, userId, 'dice', frags(10), { chance: 50, direction: 'under' }, T0 + 1000);
+    const b = await playInstant(db, cfg, userId, 'dice', frags(0.1), { chance: 50, direction: 'under' }, T0 + 1000);
     const s = await sessionSummary(db, userId, T0, T0 + 61 * 60_000);
-    assert.equal(s.wagered, frags(10));
+    assert.equal(s.wagered, frags(0.1));
     assert.equal(s.net, b.payout - b.stake);
     assert.equal(s.nextRealityCheckAt, T0 + 120 * 60_000);
   });
@@ -262,7 +262,7 @@ describe('compliance', () => {
   });
   it('withdrawal check explains every missing precondition', async () => {
     const { db, cfg, userId } = await setup();
-    const r = await withdrawalCheck(db, cfg, (await getUser(db, userId))!, frags(10));
+    const r = await withdrawalCheck(db, cfg, (await getUser(db, userId))!, frags(0.1));
     assert.equal(r.allowed, false);
     assert.deepEqual(r.reasons.map((x) => x.code), ['demo', 'kyc_1']);
   });
@@ -311,7 +311,7 @@ describe('HTTP API (end to end)', () => {
       assert.equal(s.status, 200);
       token = s.json.token;
       const me = await call('GET', '/me');
-      assert.equal(me.json.balance, 250_000);
+      assert.equal(me.json.balance, 2_500);
       assert.equal(me.json.seed.nextNonce, 0);
 
       const dice = await call('POST', '/bets/dice', { stake: 25, params: { chance: 49.5, direction: 'under' } });
@@ -363,7 +363,7 @@ describe('PvP (coinflip, battles)', () => {
   };
   it('coinflip: locks on join, waits for the beacon, pays 2B·0.96, reveals the seed, replays', async () => {
     const { db, cfg, userId, other, beacon } = await setup2();
-    const id = await createCoinflip(db, cfg, userId, frags(100), 'rust', T0);
+    const id = await createCoinflip(db, cfg, userId, frags(1), 'rust', T0);
     assert.equal((await publicGame(db, beacon, id)).fairness.serverSeed, null);
     await joinGame(db, cfg, beacon, id, other, T0);
     const locked = await publicGame(db, beacon, id);
@@ -376,18 +376,18 @@ describe('PvP (coinflip, battles)', () => {
     assert.equal(g.result.winnerSeat, expect.creatorWins ? 0 : 1);
     const winner = expect.creatorWins ? userId : other;
     const loser = expect.creatorWins ? other : userId;
-    assert.equal(await bal(db, winner), DEFAULT_CONFIG.demoStartBalance - frags(100) + frags(192));
-    assert.equal(await bal(db, loser), DEFAULT_CONFIG.demoStartBalance - frags(100));
+    assert.equal(await bal(db, winner), DEFAULT_CONFIG.demoStartBalance - frags(1) + frags(1.92));
+    assert.equal(await bal(db, loser), DEFAULT_CONFIG.demoStartBalance - frags(1));
     assert.equal(await balanceOf(db, ESCROW), 0);
     assert.deepEqual(await ledgerIntegrity(db), { sum: 0, mismatched: [] });
   });
   it('cancel refunds; nobody can join twice; bots only in demo', async () => {
     const { db, cfg, userId, beacon } = await setup2();
-    const id = await createCoinflip(db, cfg, userId, frags(50), 'scrap', T0);
+    const id = await createCoinflip(db, cfg, userId, frags(0.5), 'scrap', T0);
     assert.equal(await code(() => joinGame(db, cfg, beacon, id, userId, T0)), 'already_seated');
     await cancelGame(db, id, userId, T0);
     assert.equal(await bal(db, userId), DEFAULT_CONFIG.demoStartBalance);
-    const id2 = await createCoinflip(db, { ...cfg, demo: false }, userId, frags(50), 'scrap', T0);
+    const id2 = await createCoinflip(db, { ...cfg, demo: false }, userId, frags(0.5), 'scrap', T0);
     assert.equal(await code(() => joinGame(db, { ...cfg, demo: false }, beacon, id2, null, T0)), 'no_bots');
   });
   it('battle: 3 seats with demo bots, payouts = pool, rest to house, escrow empty, replays', async () => {
@@ -402,7 +402,7 @@ describe('PvP (coinflip, battles)', () => {
     const o = playBattle(new FairStream(g.fairness.serverSeed!, g.fairness.beacon.value!, 0), cases, 3, 'normal');
     assert.deepEqual(g.result.winners, o.winners);
     const pool = o.totals.reduce((a, b) => a + b, 0);
-    assert.ok(Math.abs(g.players.reduce((a, p) => a + p.payout, 0) - pool) < 0.01);
+    assert.ok(Math.abs(g.players.reduce((a, p) => a + p.payout, 0) - pool / 100) < 0.01);
     assert.equal(await balanceOf(db, ESCROW), 0);
     assert.deepEqual(await ledgerIntegrity(db), { sum: 0, mismatched: [] });
   });
@@ -423,8 +423,8 @@ describe('PvP (coinflip, battles)', () => {
   });
   it('responsible-gambling limits apply to PvP seats', async () => {
     const { db, cfg, userId, other, beacon } = await setup2();
-    await setLimit(db, cfg, other, 'wager', 'day', frags(50), T0);
-    const id = await createCoinflip(db, cfg, userId, frags(100), 'rust', T0);
+    await setLimit(db, cfg, other, 'wager', 'day', frags(0.5), T0);
+    const id = await createCoinflip(db, cfg, userId, frags(1), 'rust', T0);
     assert.equal(await code(() => joinGame(db, cfg, beacon, id, other, T0)), 'rg_limit');
   });
 });
@@ -443,8 +443,8 @@ describe('crash (Scrap Press)', () => {
     const st = await svc.state(readyAt, userId);
     assert.equal(st.round!.status, 'betting');
     assert.equal(st.round!.crash, null);
-    await svc.placeBet(userId, frags(10), 150, readyAt + 100);
-    assert.equal(await code(() => svc.placeBet(userId, frags(10), 150, readyAt + 200)), 'already_bet');
+    await svc.placeBet(userId, frags(0.1), 150, readyAt + 100);
+    assert.equal(await code(() => svc.placeBet(userId, frags(0.1), 150, readyAt + 200)), 'already_bet');
     await run(svc, readyAt + 100, readyAt + 6000 + 200_000, 250);
     const after = await svc.state(readyAt + 206_000, userId);
     const first = after.history[after.history.length - 1];
@@ -453,7 +453,7 @@ describe('crash (Scrap Press)', () => {
     for (let i = 0; i + 1 < after.history.length; i++) assert.ok(verifyCrashLink(after.history[i].seed, after.history[i + 1].seed), 'each seed links to the previous one');
     const bet = await db.prepare('SELECT * FROM crash_bets WHERE user_id = ?').get(userId) as any;
     assert.equal(bet.status, 'settled');
-    assert.equal(bet.payout, first.crash >= 1.5 ? frags(15) : 0);
+    assert.equal(bet.payout, first.crash >= 1.5 ? frags(0.15) : 0);
     assert.deepEqual(await ledgerIntegrity(db), { sum: 0, mismatched: [] });
   });
   it('manual cash-out pays the current multiplier and only before the crash', async () => {
@@ -467,12 +467,12 @@ describe('crash (Scrap Press)', () => {
       await svc.tick(t);
       const r = await db.prepare('SELECT * FROM crash_rounds ORDER BY id DESC LIMIT 1').get() as any;
       if (r.status === 'betting' && r.crash >= 130) {
-        await svc.placeBet(userId, frags(10), 100000, t);
+        await svc.placeBet(userId, frags(0.1), 100000, t);
         const at = r.betting_ends_at + 3100; // e^(0.00006·3100) ≈ 1.204
         await svc.tick(at);
         const out = await svc.cashout(userId, at);
         assert.equal(out.multiplier, multiplierAt(3100) / 100);
-        assert.equal(out.payout, Math.floor(10_000 * multiplierAt(3100) / 100) / 1000);
+        assert.equal(out.payout, Math.floor(10_000 * multiplierAt(3100) / 100) / MF_PER_FRAG);
         assert.equal(await code(() => svc.cashout(userId, at + 10)), 'no_bet');
         return;
       }
@@ -481,16 +481,16 @@ describe('crash (Scrap Press)', () => {
     assert.fail('no suitable round found');
   });
   it('refuses bets outside the betting window and over the max win', async () => {
-    const { db, cfg, userId } = await setup({ maxWin: frags(100) });
+    const { db, cfg, userId } = await setup({ maxWin: frags(1) });
     const beacon = new LocalBeacon(T0 - 60_000, 1000);
     const svc = new CrashService(db, cfg, beacon, 20);
     await svc.tick(T0);
     const t = beacon.timeOf((await svc.state(T0, null)).chain!.beaconRound);
     await svc.tick(t);
-    assert.equal(await code(() => svc.placeBet(userId, frags(10), 2000, t)), 'max_win');
-    assert.equal(await code(() => svc.placeBet(userId, frags(10), 100, t)), 'invalid_params');
+    assert.equal(await code(() => svc.placeBet(userId, frags(0.1), 2000, t)), 'max_win');
+    assert.equal(await code(() => svc.placeBet(userId, frags(0.1), 100, t)), 'invalid_params');
     await svc.tick(t + 6000);
-    assert.equal(await code(() => svc.placeBet(userId, frags(10), 200, t + 6000)), 'not_betting');
+    assert.equal(await code(() => svc.placeBet(userId, frags(0.1), 200, t + 6000)), 'not_betting');
   });
 });
 
@@ -505,20 +505,20 @@ describe('rewards (level, rakeback, Scrap Crate, Oil Rain, crew codes)', () => {
   });
   it('XP and rakeback follow expected loss (stake × edge), claim once, ledger stays balanced', async () => {
     const { db, cfg, userId } = await setup();
-    await playInstant(db, cfg, userId, 'dice', frags(1000), { chance: 49.5, direction: 'under' }, T0);     // EL 20
-    await playInstant(db, cfg, userId, 'upgrader', frags(1000), { multiplier: 2 }, T0 + 1);                // EL 50
+    await playInstant(db, cfg, userId, 'dice', frags(10), { chance: 49.5, direction: 'under' }, T0);     // EL 20
+    await playInstant(db, cfg, userId, 'upgrader', frags(10), { multiplier: 2 }, T0 + 1);                // EL 50
     const p = await progress(db, userId);
     assert.equal(p.xp, 70);
     assert.equal(p.level, 1);
-    assert.equal(p.rakebackAvailable, Math.floor(frags(70) * 0.05));
-    assert.equal((await claimRakeback(db, userId, T0 + 2)).amount, frags(3.5));
+    assert.equal(p.rakebackAvailable, Math.floor(frags(0.7) * 0.05));
+    assert.equal((await claimRakeback(db, userId, T0 + 2)).amount, frags(0.035));
     assert.equal(await code(() => claimRakeback(db, userId, T0 + 3)), 'nothing_to_claim');
     assert.deepEqual(await ledgerIntegrity(db), { sum: 0, mismatched: [] });
   });
   it('Scrap Crate: level 2+, once per 24 h, blocked during a pause, replays from the revealed seed', async () => {
     const { db, cfg, userId } = await setup();
     assert.equal(await code(() => openDaily(db, userId, T0)), 'level_required');
-    await playInstant(db, cfg, userId, 'dice', frags(5000), { chance: 49.5, direction: 'under' }, T0); // EL 100 → level 2
+    await playInstant(db, cfg, userId, 'dice', frags(50), { chance: 49.5, direction: 'under' }, T0); // EL 100 → level 2
     const d = await openDaily(db, userId, T0 + 1);
     assert.equal(await code(() => openDaily(db, userId, T0 + 2)), 'daily_wait');
     const { revealed } = await rotateSeed(db, userId, null, T0 + 3);
@@ -533,7 +533,7 @@ describe('rewards (level, rakeback, Scrap Crate, Oil Rain, crew codes)', () => {
     const { db, cfg, userId } = await setup();
     const { userId: low } = await signUp(db, cfg, { displayName: 'Neu', ageConfirmed: true, country: 'NZ' }, T0);
     const slot = Math.ceil(T0 / RAIN_PERIOD_MS) * RAIN_PERIOD_MS;
-    await playInstant(db, cfg, userId, 'upgrader', frags(20000), { multiplier: 2 }, slot - 1000); // EL 1000 → level 5
+    await playInstant(db, cfg, userId, 'upgrader', frags(200), { multiplier: 2 }, slot - 1000); // EL 1000 → level 5
     await rainTick(db, cfg, slot);
     assert.equal((await rainState(db, userId, slot + 1)).open, true);
     assert.equal(await code(() => joinRain(db, low, slot + 2)), 'level_required');
@@ -541,7 +541,7 @@ describe('rewards (level, rakeback, Scrap Crate, Oil Rain, crew codes)', () => {
     const before = await bal(db, userId);
     await rainTick(db, cfg, slot + RAIN_WINDOW_MS);
     const pot = await rainState(db, userId, slot + RAIN_WINDOW_MS + 1);
-    assert.equal(await bal(db, userId) - before, frags(500), 'single joiner gets the whole demo pot (500 Scrap minimum)');
+    assert.equal(await bal(db, userId) - before, frags(5), 'single joiner gets the whole demo pot (500 Scrap minimum)');
     assert.equal(await code(() => joinRain(db, userId, slot + RAIN_WINDOW_MS + 10)), 'rain_closed');
     assert.ok(pot.nextAt > slot);
     assert.deepEqual(await ledgerIntegrity(db), { sum: 0, mismatched: [] });
@@ -553,12 +553,12 @@ describe('rewards (level, rakeback, Scrap Crate, Oil Rain, crew codes)', () => {
     assert.equal(await code(() => redeemCrewCode(db, owner, 'RUSTCREW', T0)), 'own_code');
     await redeemCrewCode(db, member, 'RUSTCREW', T0 + 1);
     assert.equal(await code(() => redeemCrewCode(db, member, 'RUSTCREW', T0 + 2)), 'already_redeemed');
-    const b1 = await playInstant(db, cfg, member, 'dice', frags(1000), { chance: 1, direction: 'under' }, T0 + 3); // lost with 99 %
+    const b1 = await playInstant(db, cfg, member, 'dice', frags(10), { chance: 1, direction: 'under' }, T0 + 3); // lost with 99 %
     const s = await crewState(db, owner);
     assert.equal(s.members, 1);
     assert.equal(s.rate, 0.05);
     assert.equal(s.ngr, b1.stake - b1.payout);
-    if (s.available >= frags(1)) assert.equal((await claimCrew(db, owner, T0 + 4)).amount, s.available);
+    if (s.available >= frags(0.01)) assert.equal((await claimCrew(db, owner, T0 + 4)).amount, s.available);
     const { userId: late } = await signUp(db, cfg, { displayName: 'Spät', ageConfirmed: true, country: 'NZ' }, T0);
     assert.equal(await code(() => redeemCrewCode(db, late, 'RUSTCREW', T0 + 86_400_001)), 'too_late');
     assert.deepEqual(await ledgerIntegrity(db), { sum: 0, mismatched: [] });
@@ -570,10 +570,10 @@ describe('operations: kill switch', () => {
     const { db, cfg, userId } = await setup();
     assert.equal(await code(() => setGameFlag(db, 'op', 'dice', false, '', T0)), 'invalid_params', 'pausing needs a reason');
     await setGameFlag(db, 'op', 'dice', false, 'table review', T0);
-    assert.equal(await code(() => playInstant(db, cfg, userId, 'dice', frags(10), { chance: 50, direction: 'under' }, T0)), 'game_disabled');
-    await playInstant(db, cfg, userId, 'plinko', frags(10), { rows: 8, risk: 'low' }, T0); // other games keep running
+    assert.equal(await code(() => playInstant(db, cfg, userId, 'dice', frags(0.1), { chance: 50, direction: 'under' }, T0)), 'game_disabled');
+    await playInstant(db, cfg, userId, 'plinko', frags(0.1), { rows: 8, risk: 'low' }, T0); // other games keep running
 
-    const m = await minesStart(db, cfg, userId, frags(10), 1, T0);
+    const m = await minesStart(db, cfg, userId, frags(0.1), 1, T0);
     const layout = JSON.parse((await getBet(db, m.id))!.state!).mines as number[];
     const safe = [...Array(25).keys()].filter((t) => !layout.includes(t));
     await minesReveal(db, cfg, userId, m.id, safe[0], T0);
@@ -582,14 +582,14 @@ describe('operations: kill switch', () => {
     assert.equal((await minesCashout(db, userId, m.id, T0)).status, 'settled', 'cash-out still works');
 
     await setGameFlag(db, 'op', 'coinflip', false, 'incident', T0);
-    assert.equal(await code(() => createCoinflip(db, cfg, userId, frags(10), 'rust', T0)), 'game_disabled');
+    assert.equal(await code(() => createCoinflip(db, cfg, userId, frags(0.1), 'rust', T0)), 'game_disabled');
     const beacon = new LocalBeacon(T0 - 60_000, 1000);
     const crash = new CrashService(db, cfg, beacon, 20);
     await setGameFlag(db, 'op', 'crash', false, 'incident', T0);
-    assert.equal(await code(() => crash.placeBet(userId, frags(10), 200, T0)), 'game_disabled');
+    assert.equal(await code(() => crash.placeBet(userId, frags(0.1), 200, T0)), 'game_disabled');
 
     await setGameFlag(db, 'op', 'dice', true, null, T0 + 1);
-    assert.equal((await playInstant(db, cfg, userId, 'dice', frags(10), { chance: 50, direction: 'under' }, T0 + 2)).status, 'settled');
+    assert.equal((await playInstant(db, cfg, userId, 'dice', frags(0.1), { chance: 50, direction: 'under' }, T0 + 2)).status, 'settled');
     const events = (await db.prepare("SELECT event FROM audit WHERE event LIKE 'admin_game_%'").all() as { event: string }[]).map((e) => e.event);
     assert.deepEqual(events, ['admin_game_disabled', 'admin_game_disabled', 'admin_game_disabled', 'admin_game_disabled', 'admin_game_enabled']);
     assert.deepEqual(await ledgerIntegrity(db), { sum: 0, mismatched: [] });
@@ -626,16 +626,16 @@ describe('operations: chat', () => {
     const { db, cfg, userId } = await setup();
     const slot = Math.ceil(T0 / RAIN_PERIOD_MS) * RAIN_PERIOD_MS;
     await rainTick(db, cfg, slot);
-    await playInstant(db, cfg, userId, 'upgrader', frags(20000), { multiplier: 2 }, slot + 1); // level 5 for the rain
+    await playInstant(db, cfg, userId, 'upgrader', frags(200), { multiplier: 2 }, slot + 1); // level 5 for the rain
     await joinRain(db, userId, slot + 2);
     await rainTick(db, cfg, slot + RAIN_WINDOW_MS);
     let t = slot + RAIN_WINDOW_MS + 1;
     const end = t + 2000;
-    while (!(await listMessages(db, null)).some((m) => m.kind === 'win') && t < end) await playInstant(db, cfg, userId, 'dice', frags(10), { chance: 9.8, direction: 'under' }, t++);
+    while (!(await listMessages(db, null)).some((m) => m.kind === 'win') && t < end) await playInstant(db, cfg, userId, 'dice', frags(0.1), { chance: 9.8, direction: 'under' }, t++);
     const kinds = (await listMessages(db, null)).map((m) => `${m.kind}:${m.body}`);
-    assert.ok(kinds[0].startsWith('rain:Oil Rain is open for 2 minutes: 500.00 Scrap pot'), kinds[0]);
-    assert.equal(kinds[1], 'rain:Oil Rain paid 500.00 Scrap each to 1 player.');
-    assert.equal(kinds[kinds.length - 1], 'win:Tester hit 10× on Dice: +100.00 Scrap');
+    assert.ok(kinds[0].startsWith('rain:Oil Rain is open for 2 minutes: 5.00 Scrap pot'), kinds[0]);
+    assert.equal(kinds[1], 'rain:Oil Rain paid 5.00 Scrap each to 1 player.');
+    assert.equal(kinds[kinds.length - 1], 'win:Tester hit 10× on Dice: +1.00 Scrap');
     assert.equal(kinds.filter((k) => k.startsWith('win:')).length, 1, 'the 2× upgrader win stays quiet, the first 10× dice win is announced');
   });
 });
@@ -643,7 +643,7 @@ describe('operations: chat', () => {
 describe('operations: backoffice', () => {
   it('RTP monitor: honest play is ok, a paytable bug raises an alarm', async () => {
     const { db, cfg, userId } = await setup();
-    for (let i = 0; i < 2000; i++) await playInstant(db, cfg, userId, 'dice', frags(1), { chance: 49.5, direction: 'under' }, T0 + i);
+    for (let i = 0; i < 2000; i++) await playInstant(db, cfg, userId, 'dice', frags(0.01), { chance: 49.5, direction: 'under' }, T0 + i);
     for (let i = 0; i < 50; i++) await playInstant(db, cfg, userId, 'cases', 0, { caseId: 'toolbox' }, T0 + 5000 + i);
     let rows = await rtpMonitor(db, T0 - 1);
     const dice = rows.find((r) => r.game === 'dice')!;
@@ -659,7 +659,7 @@ describe('operations: backoffice', () => {
   });
   it('holds block play; operators lift their own holds but never a cooldown or self-exclusion', async () => {
     const { db, cfg, userId } = await setup();
-    const dice = (t: number) => code(() => playInstant(db, cfg, userId, 'dice', frags(1), { chance: 50, direction: 'under' }, t));
+    const dice = (t: number) => code(() => playInstant(db, cfg, userId, 'dice', frags(0.01), { chance: 50, direction: 'under' }, t));
     assert.equal(await code(() => holdPlayer(db, 'op', userId, 24, ' ', T0)), 'invalid_params');
     await holdPlayer(db, 'op', userId, null, 'chargeback review', T0);
     assert.equal(await dice(T0 + 1), 'account_hold');
@@ -675,11 +675,11 @@ describe('operations: backoffice', () => {
     assert.equal(await dice(T0 + 11), 'rg_excluded');
   });
   it('RG cases: net loss, repeated limit raises and long sessions, one open case each', async () => {
-    const { db, cfg, userId } = await setup({ rgAlert: { netLoss24h: frags(100), limitRaises30d: 3, sessionHours: 3 } });
+    const { db, cfg, userId } = await setup({ rgAlert: { netLoss24h: frags(1), limitRaises30d: 3, sessionHours: 3 } });
     await createSession(db, cfg, userId, T0);
-    await setLimit(db, cfg, userId, 'loss', 'day', frags(50_000), T0);
-    for (const x of [60_000, 70_000, 80_000]) await setLimit(db, cfg, userId, 'loss', 'day', frags(x), T0 + 1000);
-    await minesStart(db, cfg, userId, frags(200), 3, T0 + 3.5 * HOUR); // open stake counts as lost
+    await setLimit(db, cfg, userId, 'loss', 'day', frags(500), T0);
+    for (const x of [60_000, 70_000, 80_000]) await setLimit(db, cfg, userId, 'loss', 'day', frags((x) / 100), T0 + 1000);
+    await minesStart(db, cfg, userId, frags(2), 3, T0 + 3.5 * HOUR); // open stake counts as lost
     assert.equal(await rgScan(db, cfg, T0 + 3.5 * HOUR), 3);
     assert.equal(await rgScan(db, cfg, T0 + 3.5 * HOUR + 1), 0, 'no duplicates while a case is open');
     const cases = await rgCases(db, 'open');
@@ -742,12 +742,12 @@ describe('operations: backoffice', () => {
 
 describe('concurrency (run with TEST_PG_URL for real parallelism)', () => {
   it('parallel requests keep nonces unique, claims single, balances non-negative and the ledger at zero', async () => {
-    const { db, cfg, userId } = await setup({ demoStartBalance: frags(1000) });
+    const { db, cfg, userId } = await setup({ demoStartBalance: frags(10) });
     // 40 parallel dice bets: every nonce used exactly once
-    const bets = await Promise.all(Array.from({ length: 40 }, (_, i) => playInstant(db, cfg, userId, 'dice', frags(1), { chance: 50, direction: 'under' }, T0 + i)));
+    const bets = await Promise.all(Array.from({ length: 40 }, (_, i) => playInstant(db, cfg, userId, 'dice', frags(0.01), { chance: 50, direction: 'under' }, T0 + i)));
     assert.deepEqual(bets.map((b) => b.nonce).sort((a, b) => a - b), Array.from({ length: 40 }, (_, i) => i));
     // 10 parallel mines rounds: only one may be open
-    const starts = await Promise.all(Array.from({ length: 10 }, () => code(() => minesStart(db, cfg, userId, frags(1), 3, T0 + 100))));
+    const starts = await Promise.all(Array.from({ length: 10 }, () => code(() => minesStart(db, cfg, userId, frags(0.01), 3, T0 + 100))));
     assert.equal(starts.filter((c) => c === 'no-error').length, 1);
     assert.ok(starts.every((c) => c === 'no-error' || c === 'open_game' || c === 'conflict'), starts.join(','));
     // 8 parallel stakes of 60 % of the balance: at most one fits
@@ -759,7 +759,7 @@ describe('concurrency (run with TEST_PG_URL for real parallelism)', () => {
     // 5 parallel rakeback claims after enough play: paid once
     const { userId: whale } = await signUp(db, cfg, { displayName: 'Whale', ageConfirmed: true, country: 'NZ' }, T0);
     await transferForTest(db, whale);
-    await playInstant(db, cfg, whale, 'upgrader', frags(50_000), { multiplier: 2 }, T0 + 300);
+    await playInstant(db, cfg, whale, 'upgrader', frags(500), { multiplier: 2 }, T0 + 300);
     const claims = await Promise.all(Array.from({ length: 5 }, () => code(() => claimRakeback(db, whale, T0 + 400))));
     assert.equal(claims.filter((c) => c === 'no-error').length, 1, claims.join(','));
     assert.equal(((await db.prepare("SELECT COUNT(*) AS n FROM reward_claims WHERE user_id = ? AND kind = 'rakeback'").get(whale)) as { n: number }).n, 1);
@@ -769,7 +769,7 @@ describe('concurrency (run with TEST_PG_URL for real parallelism)', () => {
 
 async function transferForTest(db: DB, userId: string) {
   const { transfer, FAUCET } = await import('../src/wallet');
-  await transfer(db, FAUCET, userAccount(userId), frags(100_000), 'demo_grant', 'test', T0);
+  await transfer(db, FAUCET, userAccount(userId), frags(1000), 'demo_grant', 'test', T0);
 }
 
 describe('operator security', () => {
@@ -822,17 +822,17 @@ describe('new originals (phase 11)', () => {
 
   it('airdrop: instant result replays from the seed; targets over the max win are refused', async () => {
     const { db, cfg, userId } = await setup();
-    const bet = await playInstant(db, cfg, userId, 'airdrop', frags(10), { target: 2 }, T0);
+    const bet = await playInstant(db, cfg, userId, 'airdrop', frags(0.1), { target: 2 }, T0);
     const seed = await seedOf(db, bet.id);
     const replay = playAirdrop(new FairStream(seed.server_seed, seed.client_seed, bet.nonce), 2);
-    assert.equal(bet.payout, replay.win ? frags(20) : 0);
-    assert.equal(await code(() => playInstant(db, cfg, userId, 'airdrop', frags(1000), { target: 9000 }, T0 + 1)), 'max_win');
-    assert.equal(await code(() => playInstant(db, cfg, userId, 'airdrop', frags(10), { target: 1 }, T0 + 2)), 'RangeError', 'the router maps this to invalid_params');
+    assert.equal(bet.payout, replay.win ? frags(0.2) : 0);
+    assert.equal(await code(() => playInstant(db, cfg, userId, 'airdrop', frags(10), { target: 9000 }, T0 + 1)), 'max_win');
+    assert.equal(await code(() => playInstant(db, cfg, userId, 'airdrop', frags(0.1), { target: 1 }, T0 + 2)), 'RangeError', 'the router maps this to invalid_params');
   });
 
   it('monument run: traps stay hidden, safe doors pay the ladder, a trap ends the run, layout replays', async () => {
     const { db, cfg, userId } = await setup();
-    const run = (await towersStart(db, cfg, userId, frags(10), 'red', T0)) as any;
+    const run = (await towersStart(db, cfg, userId, frags(0.1), 'red', T0)) as any;
     assert.equal('traps' in run, false);
     assert.equal(JSON.stringify(run).includes('traps'), false, 'no trap positions in the public view');
     const { traps } = await stateOf(db, run.id);
@@ -843,20 +843,20 @@ describe('new originals (phase 11)', () => {
     const before = await bal(db, userId);
     const done = (await towersCashout(db, userId, run.id, T0 + 3)) as any;
     assert.equal(done.status, 'settled');
-    assert.equal(await bal(db, userId) - before, Math.floor(frags(10) * towersMultiplier('red', 2)));
-    const run2 = (await towersStart(db, cfg, userId, frags(10), 'red', T0 + 4)) as any;
+    assert.equal(await bal(db, userId) - before, Math.floor(frags(0.1) * towersMultiplier('red', 2)));
+    const run2 = (await towersStart(db, cfg, userId, frags(0.1), 'red', T0 + 4)) as any;
     const t2 = (await stateOf(db, run2.id)).traps;
     const lost = (await towersPick(db, cfg, userId, run2.id, t2[0][0], T0 + 5)) as any;
     assert.equal(lost.status, 'settled');
     assert.equal(lost.payout, 0);
     const seed = await seedOf(db, run2.id);
     assert.deepEqual(layTraps(new FairStream(seed.server_seed, seed.client_seed, run2.fairness.nonce), 'red'), t2);
-    assert.equal(await code(() => towersStart(db, cfg, userId, frags(1), 'purple' as never, T0 + 6)), 'invalid_params');
+    assert.equal(await code(() => towersStart(db, cfg, userId, frags(0.01), 'purple' as never, T0 + 6)), 'invalid_params');
   });
 
   it('hi-lo: guesses follow the replayed cards, p = 1 guesses are refused, skips keep the value', async () => {
     const { db, cfg, userId } = await setup();
-    const round = (await hiloStart(db, cfg, userId, frags(10), T0)) as any;
+    const round = (await hiloStart(db, cfg, userId, frags(0.1), T0)) as any;
     const seed = await seedOf(db, round.id);
     const src = new FairStream(seed.server_seed, seed.client_seed, round.fairness.nonce);
     const cards = Array.from({ length: 6 }, () => drawCard(src));
@@ -874,7 +874,7 @@ describe('new originals (phase 11)', () => {
       assert.equal(done.status, 'settled');
       assert.ok(done.payout > 0);
     }
-    const r2 = (await hiloStart(db, cfg, userId, frags(10), T0 + 20)) as any;
+    const r2 = (await hiloStart(db, cfg, userId, frags(0.1), T0 + 20)) as any;
     const s2 = await seedOf(db, r2.id);
     const src2 = new FairStream(s2.server_seed, s2.client_seed, r2.fairness.nonce);
     const c0 = drawCard(src2).rank, c1 = drawCard(src2).rank;
@@ -892,7 +892,7 @@ describe('new originals (phase 11)', () => {
     let doubled = 0, split = 0;
     for (let i = 0; i < 400 && (doubled < 2 || split < 1); i++) {
       const start0 = await bal(db, userId);
-      let r: any = await bjStart(db, cfg, userId, frags(10), T0 + i * 10);
+      let r: any = await bjStart(db, cfg, userId, frags(0.1), T0 + i * 10);
       if (r.status === 'open') {
         assert.equal(JSON.stringify(r).includes('"dealer":[') , false, 'the hole card is not in the public view');
         assert.deepEqual(Object.keys(r.dealer).sort(), ['up', 'upValue']);
@@ -910,7 +910,7 @@ describe('new originals (phase 11)', () => {
       // replay the round from the seed with the same decisions recorded in the result
       const seed = await seedOf(db, r.id);
       const res = r.result;
-      const base = frags(10);
+      const base = frags(0.1);
       assert.equal(r.stake, base * res.results.reduce((a: number, h: { stake: number }) => a + h.stake, 0), 'stake = base × stake units');
       assert.equal(r.payout, Math.floor(base * res.results.reduce((a: number, h: { payout: number }) => a + h.payout, 0) + 1e-9));
       assert.equal(await bal(db, userId) - start0, r.payout - r.stake);
@@ -935,16 +935,16 @@ describe('new originals (phase 11)', () => {
     const s1 = await svc.state(readyAt, userId);
     assert.equal(s1.round!.status, 'betting');
     assert.equal(s1.round!.field, null);
-    await svc.placeBet(userId, '1', frags(10), readyAt + 10);
-    await svc.placeBet(userId, '20', frags(5), readyAt + 20);
-    assert.equal(await code(() => svc.placeBet(userId, '1', frags(10), readyAt + 30)), 'already_bet');
-    assert.equal(await code(() => svc.placeBet(userId, '7' as never, frags(10), readyAt + 30)), 'invalid_params');
+    await svc.placeBet(userId, '1', frags(0.1), readyAt + 10);
+    await svc.placeBet(userId, '20', frags(0.05), readyAt + 20);
+    assert.equal(await code(() => svc.placeBet(userId, '1', frags(0.1), readyAt + 30)), 'already_bet');
+    assert.equal(await code(() => svc.placeBet(userId, '7' as never, frags(0.1), readyAt + 30)), 'invalid_params');
     for (let t = readyAt; t <= readyAt + 15_000 + 100; t += 500) await svc.tick(t);
     const spinning = await svc.state(readyAt + 15_200, userId);
     assert.equal(spinning.round!.status, 'spinning');
     assert.ok(spinning.round!.field !== null);
     assert.equal(spinning.round!.seed, null);
-    assert.equal(await code(() => svc.placeBet(userId, '3', frags(1), readyAt + 15_300)), 'not_betting');
+    assert.equal(await code(() => svc.placeBet(userId, '3', frags(0.01), readyAt + 15_300)), 'not_betting');
     for (let t = readyAt + 15_000; t <= readyAt + 60_000; t += 500) await svc.tick(t);
     const st = await svc.state(readyAt + 60_000, userId);
     const first = st.history[st.history.length - 1];
@@ -964,58 +964,58 @@ describe('new originals (phase 11)', () => {
     const { userId: b } = await signUp(db, cfg, { displayName: 'Bea', ageConfirmed: true, country: 'NZ' }, T0);
     const beacon = new LocalBeacon(T0 - 60_000, 1000);
     const jp = new JackpotService(db, cfg, beacon);
-    assert.equal(await code(() => jp.enter(userId, 'low', frags(60), T0)), 'invalid_stake');
-    await jp.enter(userId, 'low', frags(30), T0);
+    assert.equal(await code(() => jp.enter(userId, 'low', frags(0.6), T0)), 'invalid_stake');
+    await jp.enter(userId, 'low', frags(0.3), T0);
     let st = await jp.state('low', T0, userId);
     assert.equal(st.current!.status, 'open');
-    await jp.enter(b, 'low', frags(10), T0 + 1000);
-    await jp.enter(userId, 'low', frags(20), T0 + 2000);
+    await jp.enter(b, 'low', frags(0.1), T0 + 1000);
+    await jp.enter(userId, 'low', frags(0.2), T0 + 2000);
     st = await jp.state('low', T0 + 2000, userId);
     assert.equal(st.current!.status, 'counting');
-    assert.equal(st.current!.total, 60);
+    assert.equal(st.current!.total, 0.6);
     assert.deepEqual(st.current!.entries.map((e) => e.ticketFrom), [0, 30_000, 40_000]);
     assert.equal(st.current!.fairness.serverSeed, null);
     const before = [await bal(db, userId), await bal(db, b)];
     await jp.tick(T0 + 1000 + JACKPOT_COUNTDOWN_MS);
     st = await jp.state('low', T0 + 1000 + JACKPOT_COUNTDOWN_MS, userId);
     assert.equal(st.current!.status, 'locked');
-    assert.equal(await code(() => jp.enter(b, 'low', frags(5), T0 + 1000 + JACKPOT_COUNTDOWN_MS + 1)), 'jackpot_locked');
+    assert.equal(await code(() => jp.enter(b, 'low', frags(0.05), T0 + 1000 + JACKPOT_COUNTDOWN_MS + 1)), 'jackpot_locked');
     const resolves = st.current!.fairness.beacon.resolvesAt!;
     await jp.tick(resolves);
     st = await jp.state('low', resolves, userId);
     assert.equal(st.current, null);
     const last = st.last!;
     assert.equal(last.status, 'settled');
-    const replay = drawJackpot(new FairStream(last.fairness.serverSeed!, last.fairness.beacon.value!, 0), [{ amount: frags(30) }, { amount: frags(10) }, { amount: frags(20) }]);
+    const replay = drawJackpot(new FairStream(last.fairness.serverSeed!, last.fairness.beacon.value!, 0), [{ amount: frags(0.3) }, { amount: frags(0.1) }, { amount: frags(0.2) }]);
     assert.equal(last.winner!.ticket, replay.ticket);
-    assert.equal(last.winner!.payout, Math.floor(frags(60) * 0.96) / 1000);
+    assert.equal(last.winner!.payout, Math.floor(frags(0.6) * 0.96) / MF_PER_FRAG);
     const gains = [await bal(db, userId) - before[0], await bal(db, b) - before[1]];
-    assert.equal(gains.reduce((x, y) => x + y, 0), Math.floor(frags(60) * 0.96));
+    assert.equal(gains.reduce((x, y) => x + y, 0), Math.floor(frags(0.6) * 0.96));
     assert.equal(await balanceOf(db, JACKPOT_ESCROW), 0);
     // alone for 10 minutes → full refund
     const solo = await bal(db, b);
-    await jp.enter(b, 'high', frags(50), T0 + 100_000);
+    await jp.enter(b, 'high', frags(0.5), T0 + 100_000);
     await jp.tick(T0 + 100_000 + JACKPOT_REFUND_MS);
     assert.equal(await bal(db, b), solo);
     assert.equal(await balanceOf(db, JACKPOT_ESCROW), 0);
     // RG limits apply to entries
-    await setLimit(db, cfg, userId, 'wager', 'day', frags(70), T0 + 200_000);
-    assert.equal(await code(() => jp.enter(userId, 'low', frags(25), T0 + 200_001)), 'rg_limit', '50 Scrap already in jackpots today + 25 > 70');
+    await setLimit(db, cfg, userId, 'wager', 'day', frags(0.7), T0 + 200_000);
+    assert.equal(await code(() => jp.enter(userId, 'low', frags(0.25), T0 + 200_001)), 'rg_limit', '50 Scrap already in jackpots today + 25 > 70');
     assert.deepEqual(await ledgerIntegrity(db), { sum: 0, mismatched: [] });
   });
 
   it('open rounds come back after a reload without hidden state; the kill switch covers every new mode', async () => {
     const { db, cfg, userId } = await setup();
-    await towersStart(db, cfg, userId, frags(5), 'green', T0);
-    await hiloStart(db, cfg, userId, frags(5), T0 + 1);
+    await towersStart(db, cfg, userId, frags(0.05), 'green', T0);
+    await hiloStart(db, cfg, userId, frags(0.05), T0 + 1);
     const rounds = await openRounds(db, userId);
     assert.deepEqual(rounds.map((r) => r.game).sort(), ['hilo', 'towers']);
     assert.ok(!JSON.stringify(rounds).includes('traps'));
     for (const g of ['airdrop', 'towers', 'hilo', 'blackjack', 'wheel', 'jackpot']) await setGameFlag(db, 'op', g, false, 'test', T0 + 2);
-    assert.equal(await code(() => playInstant(db, cfg, userId, 'airdrop', frags(1), { target: 2 }, T0 + 3)), 'game_disabled');
+    assert.equal(await code(() => playInstant(db, cfg, userId, 'airdrop', frags(0.01), { target: 2 }, T0 + 3)), 'game_disabled');
     assert.equal(await code(() => towersPick(db, cfg, userId, rounds.find((r) => r.game === 'towers')!.id, 0, T0 + 3)), 'game_disabled');
-    assert.equal(await code(() => bjStart(db, cfg, userId, frags(1), T0 + 3)), 'game_disabled');
-    assert.equal(await code(() => new JackpotService(db, cfg, new LocalBeacon(T0, 100)).enter(userId, 'high', frags(10), T0 + 3)), 'game_disabled');
+    assert.equal(await code(() => bjStart(db, cfg, userId, frags(0.01), T0 + 3)), 'game_disabled');
+    assert.equal(await code(() => new JackpotService(db, cfg, new LocalBeacon(T0, 100)).enter(userId, 'high', frags(0.1), T0 + 3)), 'game_disabled');
     const rtp = await rtpMonitor(db, T0 - 1);
     assert.ok(['wheel', 'jackpot', 'towers', 'hilo', 'blackjack', 'airdrop'].every((g) => rtp.some((r) => r.game === g)));
     assert.equal(rtp.find((r) => r.game === 'blackjack')!.status, 'skill');
@@ -1027,7 +1027,7 @@ describe('admin (phase 11)', () => {
 
   it('settings: maintenance pauses every game but not cash-outs; sign-ups, chat pace and rain follow the switches', async () => {
     const { db, cfg, userId } = await setup();
-    const mines = await minesStart(db, cfg, userId, frags(10), 3, T0);
+    const mines = await minesStart(db, cfg, userId, frags(0.1), 3, T0);
     const layout = JSON.parse((await getBet(db, mines.id))!.state!).mines as number[];
     await minesReveal(db, cfg, userId, mines.id, [...Array(25).keys()].find((t) => !layout.includes(t))!, T0 + 1);
     assert.equal(await code(() => setSettings(db, userId, { maintenance: 'yes' }, T0)), 'invalid_params');
@@ -1035,8 +1035,8 @@ describe('admin (phase 11)', () => {
     assert.equal(await code(() => setSettings(db, userId, { chatSlowModeSeconds: 0 }, T0)), 'invalid_params');
     await setSettings(db, userId, { maintenance: true, registrationOpen: false, chatSlowModeSeconds: 10, rainEnabled: false, announcement: { text: 'Back at 18:00 UTC', tone: 'warn' } }, T0 + 2);
     assert.deepEqual(await publicSite(db), { announcement: { text: 'Back at 18:00 UTC', tone: 'warn' }, maintenance: true, registrationOpen: false });
-    assert.equal(await code(() => playInstant(db, cfg, userId, 'dice', frags(1), { chance: 50, direction: 'under' }, T0 + 3)), 'maintenance');
-    assert.equal(await code(() => towersStart(db, cfg, userId, frags(1), 'green', T0 + 3)), 'maintenance');
+    assert.equal(await code(() => playInstant(db, cfg, userId, 'dice', frags(0.01), { chance: 50, direction: 'under' }, T0 + 3)), 'maintenance');
+    assert.equal(await code(() => towersStart(db, cfg, userId, frags(0.01), 'green', T0 + 3)), 'maintenance');
     assert.equal(await code(() => minesReveal(db, cfg, userId, mines.id, 0, T0 + 3)), 'maintenance');
     assert.equal((await minesCashout(db, userId, mines.id, T0 + 4)).status, 'settled', 'cash-out still works');
     assert.equal(await code(() => signUp(db, cfg, { displayName: 'Late', ageConfirmed: true, country: 'NZ' }, T0 + 5)), 'registration_closed');
@@ -1047,39 +1047,39 @@ describe('admin (phase 11)', () => {
     await rainTick(db, cfg, T0 + 6);
     assert.equal(((await db.prepare('SELECT COUNT(*) AS n FROM rain_rounds').get()) as { n: number }).n, 0, 'no new Oil Rain while switched off');
     await setSettings(db, userId, { maintenance: false, announcement: null }, T0 + 7);
-    assert.equal((await playInstant(db, cfg, userId, 'dice', frags(1), { chance: 50, direction: 'under' }, T0 + 8)).status, 'settled');
+    assert.equal((await playInstant(db, cfg, userId, 'dice', frags(0.01), { chance: 50, direction: 'under' }, T0 + 8)).status, 'settled');
     assert.equal((await publicSite(db)).announcement, null);
   });
 
   it('per-game limits only tighten the global ones and apply to that game only', async () => {
     const { db, cfg, userId } = await setup();
     assert.equal(await code(() => setGameLimits(db, cfg, userId, 'dice', { minStake: null, maxStake: cfg.maxStake + 1, maxWin: null }, T0)), 'invalid_params');
-    assert.equal(await code(() => setGameLimits(db, cfg, userId, 'dice', { minStake: frags(50), maxStake: frags(10), maxWin: null }, T0)), 'invalid_params');
+    assert.equal(await code(() => setGameLimits(db, cfg, userId, 'dice', { minStake: frags(0.5), maxStake: frags(0.1), maxWin: null }, T0)), 'invalid_params');
     assert.equal(await code(() => setGameLimits(db, cfg, userId, 'nope', { minStake: null, maxStake: null, maxWin: null }, T0)), 'not_found');
-    const g = await setGameLimits(db, cfg, userId, 'dice', { minStake: frags(5), maxStake: frags(50), maxWin: frags(200) }, T0);
-    assert.deepEqual(g.limits, { minStake: frags(5), maxStake: frags(50), maxWin: frags(200) });
+    const g = await setGameLimits(db, cfg, userId, 'dice', { minStake: frags(0.05), maxStake: frags(0.5), maxWin: frags(2) }, T0);
+    assert.deepEqual(g.limits, { minStake: frags(0.05), maxStake: frags(0.5), maxWin: frags(2) });
     const dice = (stake: number, chance = 50) => playInstant(db, cfg, userId, 'dice', stake, { chance, direction: 'under' }, T0 + 1);
-    assert.equal(await code(() => dice(frags(1))), 'invalid_stake');
-    assert.equal(await code(() => dice(frags(60))), 'invalid_stake');
-    assert.equal(await code(() => dice(frags(50), 10)), 'max_win', '50 × 9.6 > 200');
-    assert.equal((await dice(frags(20))).status, 'settled');
-    assert.equal((await playInstant(db, cfg, userId, 'plinko', frags(1), { rows: 8, risk: 'low' }, T0 + 2)).status, 'settled', 'other games keep the global limits');
+    assert.equal(await code(() => dice(frags(0.01))), 'invalid_stake');
+    assert.equal(await code(() => dice(frags(0.6))), 'invalid_stake');
+    assert.equal(await code(() => dice(frags(0.5), 10)), 'max_win', '50 × 9.6 > 200');
+    assert.equal((await dice(frags(0.2))).status, 'settled');
+    assert.equal((await playInstant(db, cfg, userId, 'plinko', frags(0.01), { rows: 8, risk: 'low' }, T0 + 2)).status, 'settled', 'other games keep the global limits');
     await setGameFlag(db, userId, 'dice', false, 'check', T0 + 3);
     await setGameFlag(db, userId, 'dice', true, null, T0 + 4);
-    assert.deepEqual((await gameFlags(db)).find((x) => x.game === 'dice')!.limits, { minStake: frags(5), maxStake: frags(50), maxWin: frags(200) }, 'the kill switch keeps the limits');
+    assert.deepEqual((await gameFlags(db)).find((x) => x.game === 'dice')!.limits, { minStake: frags(0.05), maxStake: frags(0.5), maxWin: frags(2) }, 'the kill switch keeps the limits');
     const crash = new CrashService(db, cfg, beaconAt(), 20);
-    await setGameLimits(db, cfg, userId, 'crash', { minStake: null, maxStake: frags(3), maxWin: null }, T0 + 5);
+    await setGameLimits(db, cfg, userId, 'crash', { minStake: null, maxStake: frags(0.03), maxWin: null }, T0 + 5);
     await crash.tick(T0);
     const readyAt = beaconAt().timeOf((await crash.state(T0, null)).chain!.beaconRound);
     await crash.tick(readyAt);
-    assert.equal(await code(() => crash.placeBet(userId, frags(4), 200, readyAt + 1)), 'invalid_stake');
-    await crash.placeBet(userId, frags(3), 200, readyAt + 2);
+    assert.equal(await code(() => crash.placeBet(userId, frags(0.04), 200, readyAt + 1)), 'invalid_stake');
+    await crash.placeBet(userId, frags(0.03), 200, readyAt + 2);
   });
 
   it('cases: built-ins are version 1, edits publish new versions, old openings and battles keep theirs', async () => {
     const { db, cfg, userId } = await setup();
     const listed = await listCases(db);
-    assert.deepEqual(listed.map((c) => [c.id, c.price, c.version]), SAMPLE_CASES.map((c) => [c.id, priceCase(c), 1]));
+    assert.deepEqual(listed.map((c) => [c.id, c.price, c.version]), SAMPLE_CASES.map((c) => [c.id, priceCase(c) / 100, 1]));
     const box = SAMPLE_CASES[0];
     const first = await playInstant(db, cfg, userId, 'cases', 0, { caseId: box.id }, T0);
     assert.deepEqual(JSON.parse(first.params), { caseId: box.id, version: 1 });
@@ -1090,7 +1090,7 @@ describe('admin (phase 11)', () => {
     assert.equal(await code(() => saveCase(db, cfg, userId, { id: 'neg', name: 'Neg', items: [{ name: 'a', value: -1, weight: 1 }, { name: 'b', value: 1, weight: 1 }] }, T0)), 'invalid_params');
     const fresh = await saveCase(db, cfg, userId, { id: 'scrapyard', name: 'Scrapyard', items }, T0);
     assert.equal(fresh.version, 1);
-    assert.equal(fresh.price, priceCase({ id: 'x', name: 'x', items }));
+    assert.equal(fresh.price, priceCase({ id: 'x', name: 'x', items: items.map((i) => ({ ...i, value: i.value * 100 })) }) / 100);
     assert.ok(fresh.rtp <= 1 - EDGE.cases + 1e-12 && fresh.rtp > 0.9, 'priced at ⌈EV / (1 − edge)⌉');
     assert.equal(await code(() => playInstant(db, cfg, userId, 'cases', 0, { caseId: 'scrapyard' }, T0 + 1)), 'case_disabled', 'new cases start disabled');
     await setCaseState(db, userId, 'scrapyard', { enabled: true }, T0 + 2);
@@ -1108,14 +1108,14 @@ describe('admin (phase 11)', () => {
     assert.equal((await caseVersion(db, box.id, 1)).name, box.name, 'version 1 is unchanged');
     const second = await playInstant(db, cfg, userId, 'cases', 0, { caseId: box.id }, T0 + 5);
     assert.deepEqual(JSON.parse(second.params), { caseId: box.id, version: 2 });
-    assert.equal(second.stake, v2.price * MF_PER_FRAG);
+    assert.equal(second.stake, Math.round(v2.price * 100) * MF_PER_CENT);
 
     await joinGame(db, cfg, beacon, battle, other, T0 + 6);
     const g = await publicGame(db, beacon, battle);
     await settleDue(db, beacon, g.fairness.beacon.resolvesAt!);
     const settled = await publicGame(db, beacon, battle);
     const replay = playBattle(new FairStream(settled.fairness.serverSeed!, settled.fairness.beacon.value!, 0), [box, box], 2, 'normal');
-    assert.deepEqual(settled.result.totals, replay.totals, 'settled with the version it was created with');
+    assert.deepEqual(settled.result.totals, replay.totals.map((t) => t / 100), 'settled with the version it was created with');
     for (const b of [first, second]) assert.equal((await betDetail(db, beacon, 'cases', b.id, T0 + 10)).verification.status, 'verified');
     assert.equal((await betDetail(db, beacon, 'battle', battle, T0 + 10)).verification.status, 'verified');
     const monitor = await rtpMonitor(db, 0);
@@ -1159,11 +1159,11 @@ describe('admin (phase 11)', () => {
   });
 
   it('player tools: capped and reasoned adjustments, never on oneself; notes; ending sessions', async () => {
-    const { db, cfg, userId: op } = await setup({ demoStartBalance: frags(100) });
+    const { db, cfg, userId: op } = await setup({ demoStartBalance: frags(1) });
     const { userId: p } = await signUp(db, cfg, { displayName: 'Pat', ageConfirmed: true, country: 'NZ' }, T0);
     const token = await createSession(db, cfg, p, T0);
     assert.equal(await code(() => adjustBalance(db, op, p, 50, 'ok', T0)), 'invalid_params', 'reason too short');
-    assert.equal(await code(() => adjustBalance(db, op, p, 100_001, 'goodwill after outage', T0)), 'invalid_params');
+    assert.equal(await code(() => adjustBalance(db, op, p, 1_001, 'goodwill after outage', T0)), 'invalid_params');
     assert.equal(await code(() => adjustBalance(db, op, op, 50, 'goodwill after outage', T0)), 'forbidden');
     const start = await bal(db, p);
     assert.equal((await adjustBalance(db, op, p, 50, 'goodwill after outage', T0 + 1)).balance, (start + frags(50)) / MF_PER_FRAG);
@@ -1189,30 +1189,30 @@ describe('admin (phase 11)', () => {
     let t = T0;
     const ids: [string, string][] = [];
     for (const [g, p, s] of [['dice', { chance: 40, direction: 'over' }, 2], ['plinko', { rows: 12, risk: 'high' }, 1], ['upgrader', { multiplier: 3 }, 2], ['airdrop', { target: 1.7 }, 2], ['cases', { caseId: SAMPLE_CASES[1].id }, 0]] as const) {
-      ids.push([g, (await playInstant(db, cfg, userId, g as 'dice', frags(s as number), p as never, ++t)).id]);
+      ids.push([g, (await playInstant(db, cfg, userId, g as 'dice', frags((s as number) / 100), p as never, ++t)).id]);
     }
-    const m = await minesStart(db, cfg, userId, frags(1), 5, ++t);
+    const m = await minesStart(db, cfg, userId, frags(0.01), 5, ++t);
     await minesReveal(db, cfg, userId, m.id, 0, ++t).catch(() => undefined);
     const mb = (await getBet(db, m.id))!;
     if (mb.status === 'open') await minesCashout(db, userId, m.id, ++t);
     ids.push(['mines', m.id]);
-    const tw = (await towersStart(db, cfg, userId, frags(1), 'blue', ++t)) as any;
+    const tw = (await towersStart(db, cfg, userId, frags(0.01), 'blue', ++t)) as any;
     await towersPick(db, cfg, userId, tw.id, 0, ++t);
     if ((await getBet(db, tw.id))!.status === 'open') await towersCashout(db, userId, tw.id, ++t);
     ids.push(['towers', tw.id]);
-    const hl = (await hiloStart(db, cfg, userId, frags(1), ++t)) as any;
+    const hl = (await hiloStart(db, cfg, userId, frags(0.01), ++t)) as any;
     await hiloMove(db, cfg, userId, hl.id, 'skip', ++t);
     const card = ((await hiloMove(db, cfg, userId, hl.id, 'skip', ++t)) as any).cards.at(-1).rank;
     // a king only allows "hi" (same), an ace only "lo" (same): a sure guess is refused
     await hiloMove(db, cfg, userId, hl.id, card === 13 ? 'hi' : card === 1 ? 'lo' : card <= 7 ? 'hi' : 'lo', ++t);
     if ((await getBet(db, hl.id))!.status === 'open') await hiloCashout(db, userId, hl.id, ++t);
     ids.push(['hilo', hl.id]);
-    const rd = await raidStart(db, cfg, userId, frags(1), ++t);
+    const rd = await raidStart(db, cfg, userId, frags(0.01), ++t);
     await raidBlast(db, cfg, userId, rd.id, 'c4', ++t);
     if ((await getBet(db, rd.id))!.status === 'open') await raidCashout(db, userId, rd.id, ++t);
     ids.push(['raid', rd.id]);
     for (let i = 0; i < 6; i++) {
-      let h = (await bjStart(db, cfg, userId, frags(1), ++t)) as any;
+      let h = (await bjStart(db, cfg, userId, frags(0.01), ++t)) as any;
       while (h.status === 'open') h = await bjAction(db, userId, h.id, h.actions.includes('double') && i % 2 ? 'double' : h.actions.includes('split') ? 'split' : 'stand', ++t);
       ids.push(['blackjack', h.id]);
     }
@@ -1222,7 +1222,7 @@ describe('admin (phase 11)', () => {
       assert.equal((d.fairness as any).serverSeed, null, 'the active server seed is not shown');
       assert.equal((d.fairness as any).seedRevealed, false);
     }
-    const open = (await towersStart(db, cfg, userId, frags(1), 'green', ++t)) as any;
+    const open = (await towersStart(db, cfg, userId, frags(0.01), 'green', ++t)) as any;
     assert.equal((await betDetail(db, beacon, 'towers', open.id, t)).verification.status, 'pending');
     const trap = JSON.parse((await getBet(db, open.id))!.state!).traps[0][0] as number;
     await towersPick(db, cfg, userId, open.id, trap === 0 ? 1 : 0, ++t);
@@ -1253,7 +1253,7 @@ describe('admin (phase 11)', () => {
     await crash.tick(T0);
     const readyAt = beacon.timeOf((await crash.state(T0, null)).chain!.beaconRound);
     await crash.tick(readyAt);
-    const bet = await crash.placeBet(userId, frags(5), 120, readyAt + 1);
+    const bet = await crash.placeBet(userId, frags(0.05), 120, readyAt + 1);
     await run(readyAt, readyAt + 400_000);
     const rounds = (await db.prepare('SELECT chain_id, idx FROM crash_rounds ORDER BY id').all()) as { chain_id: number; idx: number }[];
     assert.ok(rounds.length > 3, 'rounds go on after the 3-round chain is used up');
@@ -1281,19 +1281,19 @@ describe('admin (phase 11)', () => {
     await wheel.tick(now);
     const wReady = beacon.timeOf((await wheel.state(now, null)).chain!.beaconRound);
     await wheel.tick(wReady);
-    await wheel.placeBet(userId, '3', frags(2), wReady + 1);
+    await wheel.placeBet(userId, '3', frags(0.02), wReady + 1);
     for (let x = wReady; x <= wReady + 30_000; x += 500) await wheel.tick(x);
     const wb = ((await db.prepare('SELECT id FROM wheel_bets WHERE user_id = ?').get(userId)) as { id: string }).id;
     assert.equal((await betDetail(db, beacon, 'wheel', wb, wReady + 30_000)).verification.status, 'verified');
 
-    const cf = await createCoinflip(db, cfg, userId, frags(10), 'scrap', now);
+    const cf = await createCoinflip(db, cfg, userId, frags(0.1), 'scrap', now);
     await joinGame(db, cfg, beacon, cf, other, now);
     await settleDue(db, beacon, (await publicGame(db, beacon, cf)).fairness.beacon.resolvesAt!);
     assert.equal((await betDetail(db, beacon, 'coinflip', cf, now)).verification.status, 'verified');
 
     const jp = new JackpotService(db, cfg, beacon);
-    await jp.enter(userId, 'low', frags(10), now);
-    await jp.enter(other, 'low', frags(30), now + 1);
+    await jp.enter(userId, 'low', frags(0.1), now);
+    await jp.enter(other, 'low', frags(0.3), now + 1);
     await jp.tick(now + 1 + JACKPOT_COUNTDOWN_MS);
     const pot = (await jp.state('low', now + 1 + JACKPOT_COUNTDOWN_MS, userId)).current!;
     await jp.tick(beacon.timeOf(pot.fairness.beacon.round!));
@@ -1325,7 +1325,7 @@ describe('admin (phase 11)', () => {
     assert.deepEqual((await call(p, 'GET', '/games/status')).json.find((g: any) => g.game === 'dice').limits, { minStake: 2, maxStake: 20, maxWin: DEFAULT_CONFIG.maxWin / MF_PER_FRAG });
     assert.equal((await call(p, 'POST', '/bets/dice', { stake: 1, params: { chance: 50, direction: 'under' } })).json.error, 'invalid_stake');
     const items = [{ name: 'Rock', value: 1, weight: 9 }, { name: 'Sword', value: 30, weight: 1 }];
-    assert.equal((await call(a, 'POST', '/admin/cases/preview', { name: 'Stone Age', items })).json.price, priceCase({ id: 'x', name: 'x', items }));
+    assert.equal((await call(a, 'POST', '/admin/cases/preview', { name: 'Stone Age', items })).json.price, priceCase({ id: 'x', name: 'x', items: items.map((i) => ({ ...i, value: i.value * 100 })) }) / 100, 'the API takes and shows Scrap, the case stores cents');
     assert.equal((await call(a, 'PUT', '/admin/cases/stone-age', { name: 'Stone Age', items })).json.version, 1);
     assert.equal((await call(a, 'PUT', '/admin/cases/stone-age/state', { enabled: true })).status, 200);
     assert.ok((await call('', 'GET', '/config')).json.cases.some((c: any) => c.id === 'stone-age'));
@@ -1353,7 +1353,7 @@ describe('cases, battles and upgrader (phase 13)', () => {
     let wins = 0;
     for (let i = 0; i < 40; i++) {
       const zone = (i * 2477) % 10_000;
-      const b = await playInstant(db, cfg, userId, 'upgrader', frags(2), { multiplier: 2, zone }, T0 + i);
+      const b = await playInstant(db, cfg, userId, 'upgrader', frags(0.02), { multiplier: 2, zone }, T0 + i);
       assert.deepEqual(JSON.parse(b.params), { multiplier: 2, zone });
       const r = JSON.parse(b.result!);
       const start = zone / 10_000;
@@ -1363,16 +1363,16 @@ describe('cases, battles and upgrader (phase 13)', () => {
       assert.equal((await betDetail(db, beacon, 'upgrader', b.id, T0 + 100)).verification.status, 'verified');
     }
     assert.ok(wins > 5 && wins < 35, 'about half of 40 at 47.5 %');
-    const legacy = await playInstant(db, cfg, userId, 'upgrader', frags(2), { multiplier: 3 }, T0 + 50);
+    const legacy = await playInstant(db, cfg, userId, 'upgrader', frags(0.02), { multiplier: 3 }, T0 + 50);
     assert.deepEqual(JSON.parse(legacy.params), { multiplier: 3, zone: 0 }, 'no zone = zone 0 (roll under)');
-    for (const zone of [-1, 10_000, 12.5]) assert.equal(await code(() => playInstant(db, cfg, userId, 'upgrader', frags(2), { multiplier: 2, zone }, T0 + 60)), 'RangeError', 'the router answers invalid_params');
+    for (const zone of [-1, 10_000, 12.5]) assert.equal(await code(() => playInstant(db, cfg, userId, 'upgrader', frags(0.02), { multiplier: 2, zone }, T0 + 60)), 'RangeError', 'the router answers invalid_params');
     assert.deepEqual(await ledgerIntegrity(db), { sum: 0, mismatched: [] });
   });
 
   it('multi-open: up to five of one case, one bet and nonce each, all or nothing', async () => {
     const { db, cfg, userId } = await setup();
     const toolbox = SAMPLE_CASES.find((c) => c.id === 'toolbox')!;
-    const price = priceCase(toolbox) * MF_PER_FRAG;
+    const price = priceCase(toolbox) * MF_PER_CENT;
     // a wager limit counts stakes only, so where the batch fails does not depend on what the first cases paid
     await setLimit(db, cfg, userId, 'wager', 'day', 4 * price, T0);
     const before = await bal(db, userId);
@@ -1416,7 +1416,7 @@ describe('cases, battles and upgrader (phase 13)', () => {
     const pool = totals.reduce((a: number, b: number) => a + b, 0);
     const expect = team[0] > team[1] ? [0, 1] : team[1] > team[0] ? [2, 3] : [0, 1, 2, 3];
     assert.deepEqual(g.result.winners, expect);
-    for (const p of g.players) assert.equal(p.payout, expect.includes(p.seat) ? pool / expect.length : 0);
+    for (const p of g.players) assert.ok(Math.abs(p.payout - (expect.includes(p.seat) ? pool / expect.length : 0)) < 1e-9);
     assert.equal(await balanceOf(db, ESCROW), 0);
     assert.equal((await betDetail(db, beacon, 'battle', id, T0)).verification.status, 'verified');
     assert.deepEqual(await ledgerIntegrity(db), { sum: 0, mismatched: [] });
@@ -1428,10 +1428,10 @@ describe('twenty crates and the bonus battle (phase 14)', () => {
     const { db, cfg, userId } = await setup();
     const list = await listCases(db);
     assert.equal(list.length, 20);
-    assert.deepEqual([list[0].id, list[0].price, list[19].id, list[19].price], ['barrel', 100, 'gold-egg', 150_000]);
+    assert.deepEqual([list[0].id, list[0].price, list[19].id, list[19].price], ['barrel', 1, 'gold-egg', 1_500]);
     assert.ok(list.every((c) => c.rtp > 0.9299 && c.rtp <= 0.93));
     const bet = await playInstant(db, cfg, userId, 'cases', 0, { caseId: 'gold-egg' }, T0);
-    assert.equal(bet.stake, frags(150_000));
+    assert.equal(bet.stake, frags(1500));
     assert.equal(await code(() => createBattle(db, cfg, userId, ['gold-egg', 'gold-egg'], 2, 'normal', T0 + 1)), 'invalid_stake', '3 000 $ per seat is above the max stake');
   });
 
@@ -1507,9 +1507,9 @@ describe('player account: history, detail, seeds, wallet, profile, feed (phase 1
     const { db, cfg, userId } = await setup();
     const beacon = new LocalBeacon(T0 - 60_000, 1000);
     const { userId: other } = await signUp(db, cfg, { displayName: 'Other', ageConfirmed: true, country: 'NZ' }, T0);
-    for (let i = 0; i < 3; i++) await playInstant(db, cfg, userId, 'dice', frags(1), { chance: 49.5, direction: 'under' }, T0 + i);
+    for (let i = 0; i < 3; i++) await playInstant(db, cfg, userId, 'dice', frags(0.01), { chance: 49.5, direction: 'under' }, T0 + i);
     await openCases(db, cfg, userId, 'barrel', 5, T0 + 10); // five bets in the same millisecond
-    const flip = await createCoinflip(db, cfg, userId, frags(5), 'rust', T0 + 20);
+    const flip = await createCoinflip(db, cfg, userId, frags(0.05), 'rust', T0 + 20);
     await joinGame(db, cfg, beacon, flip, other, T0 + 21);
     await settleDue(db, beacon, (await publicGame(db, beacon, flip)).fairness.beacon.resolvesAt!);
     const seen: string[] = [];
@@ -1532,7 +1532,7 @@ describe('player account: history, detail, seeds, wallet, profile, feed (phase 1
     const { db, cfg, userId } = await setup();
     const beacon = new LocalBeacon(T0 - 60_000, 1000);
     const { userId: other } = await signUp(db, cfg, { displayName: 'Other', ageConfirmed: true, country: 'NZ' }, T0);
-    const bet = await playInstant(db, cfg, userId, 'dice', frags(2), { chance: 30, direction: 'over' }, T0);
+    const bet = await playInstant(db, cfg, userId, 'dice', frags(0.02), { chance: 30, direction: 'over' }, T0);
     const d = (await playerBetDetail(db, beacon, userId, 'dice', bet.id, T0)) as any;
     assert.equal(d.verification.status, 'verified');
     assert.equal(d.fairness.serverSeed, null, 'still secret before rotation');
@@ -1549,12 +1549,12 @@ describe('player account: history, detail, seeds, wallet, profile, feed (phase 1
 
   it('wallet transactions: every balance change, newest first, with the game, pageable and filterable', async () => {
     const { db, cfg, userId } = await setup();
-    for (let i = 0; i < 4; i++) await playInstant(db, cfg, userId, 'dice', frags(1), { chance: 90, direction: 'under' }, T0 + i);
+    for (let i = 0; i < 4; i++) await playInstant(db, cfg, userId, 'dice', frags(0.01), { chance: 90, direction: 'under' }, T0 + i);
     const all = await transactions(db, userId, { limit: 100 });
     assert.equal(all.transactions[all.transactions.length - 1].kind, 'demo_grant');
     const stakes = all.transactions.filter((t) => t.kind === 'stake');
     assert.equal(stakes.length, 4);
-    assert.ok(stakes.every((t) => t.amount === -1 && t.game === 'dice'));
+    assert.ok(stakes.every((t) => t.amount === -0.01 && t.game === 'dice'));
     const sum = all.transactions.reduce((a, t) => a + t.amount, 0);
     assert.ok(Math.abs(sum - (await bal(db, userId)) / MF_PER_FRAG) < 1e-9, 'the ledger adds up to the balance');
     const p1 = await transactions(db, userId, { limit: 2 });
@@ -1567,10 +1567,10 @@ describe('player account: history, detail, seeds, wallet, profile, feed (phase 1
   it('stats, profile (name once per 24 h, hidden in public lists) and sign-out everywhere', async () => {
     const { db, cfg, userId } = await setup();
     const beacon = new LocalBeacon(T0 - 60_000, 1000);
-    await playInstant(db, cfg, userId, 'dice', frags(10), { chance: 49.5, direction: 'under' }, T0);
-    await playInstant(db, cfg, userId, 'dice', frags(10), { chance: 49.5, direction: 'over' }, T0 + 1);
+    await playInstant(db, cfg, userId, 'dice', frags(0.1), { chance: 49.5, direction: 'under' }, T0);
+    await playInstant(db, cfg, userId, 'dice', frags(0.1), { chance: 49.5, direction: 'over' }, T0 + 1);
     const st = await playerStats(db, userId, T0 + 2);
-    assert.deepEqual([st.bets, st.wagered, st.games[0].game], [2, 20, 'dice']);
+    assert.deepEqual([st.bets, st.wagered, st.games[0].game], [2, 0.2, 'dice']);
     assert.equal(st.memberSince, T0);
 
     assert.equal((await updateProfile(db, userId, { displayName: 'Neon Rat' }, T0 + 10)).displayName, 'Neon Rat');
@@ -1585,7 +1585,7 @@ describe('player account: history, detail, seeds, wallet, profile, feed (phase 1
     await updateProfile(db, userId, { hidePublic: true }, T0 + 200);
     const hidden = (await publicFeed(db, 'all', T0 + 5000)) as { name: string }[];
     assert.ok(hidden.every((r) => r.name === 'Hidden player'));
-    const flip = await createCoinflip(db, cfg, userId, frags(5), 'rust', T0 + 300);
+    const flip = await createCoinflip(db, cfg, userId, frags(0.05), 'rust', T0 + 300);
     const g = await publicGame(db, beacon, flip, userId);
     assert.deepEqual([g.players[0].name, g.players[0].you], ['Hidden player', true], 'the player still knows the seat is theirs');
 
@@ -1599,7 +1599,7 @@ describe('player account: history, detail, seeds, wallet, profile, feed (phase 1
 
   it('public feed: high wins only above 5×, refuses unknown kinds', async () => {
     const { db, cfg, userId } = await setup();
-    for (let i = 0; i < 30; i++) await playInstant(db, cfg, userId, 'dice', frags(1), { chance: 10, direction: 'under' }, T0 + i);
+    for (let i = 0; i < 30; i++) await playInstant(db, cfg, userId, 'dice', frags(0.01), { chance: 10, direction: 'under' }, T0 + i);
     const high = (await publicFeed(db, 'high', T0 + 100)) as { multiplier: number }[];
     assert.ok(high.every((r) => r.multiplier >= 5));
     assert.ok(((await publicFeed(db, 'all', T0 + 100)) as unknown[]).length <= 20);
@@ -1614,7 +1614,7 @@ describe('player account: history, detail, seeds, wallet, profile, feed (phase 1
     await resolveSession(db, t1, T0 + 1000);
     await resolveSession(db, t2, T0 + 2000);
     await resolveSession(db, t1, T0 + 3000); // within the minute: no second write needed
-    await playInstant(db, cfg, userId, 'dice', frags(10), { chance: 90, direction: 'under' }, T0 + 4000);
+    await playInstant(db, cfg, userId, 'dice', frags(0.1), { chance: 90, direction: 'under' }, T0 + 4000);
     let live = await liveStats(db, T0 + 10_000);
     assert.equal(live.online, 2);
     assert.equal(live.roundsToday, 1);
@@ -1729,9 +1729,9 @@ describe('Steam profile and trade URL', () => {
 describe('live player stats (database trigger)', () => {
   it('every ledger entry updates player_stats in the same transaction; a rebuild from the ledger matches', async () => {
     const { db, cfg, userId } = await setup();
-    for (let i = 0; i < 25; i++) await playInstant(db, cfg, userId, 'dice', frags(3 + i), { chance: 40, direction: 'under' }, T0 + i);
+    for (let i = 0; i < 25; i++) await playInstant(db, cfg, userId, 'dice', frags((3 + i) / 100), { chance: 40, direction: 'under' }, T0 + i);
     await openCases(db, cfg, userId, 'toolbox', 3, T0 + 100);
-    const flip = await createCoinflip(db, cfg, userId, frags(50), 'scrap', T0 + 200);
+    const flip = await createCoinflip(db, cfg, userId, frags(0.5), 'scrap', T0 + 200);
     await cancelGame(db, flip, userId, T0 + 300); // stake and refund
     await adjustBalance(db, 'op', userId, 12.5, 'goodwill', T0 + 400);
     await claimRakeback(db, userId, T0 + 500).catch(() => null);
@@ -1832,7 +1832,7 @@ describe('skin rail: Steam deposits through the bot, withdrawals for operators',
 
     const dep = await skins.createDeposit(await user(), ['1001', '1006'], now);
     assert.equal(dep.status, 'requested');
-    assert.equal(dep.value, 1334);
+    assert.equal(dep.value, 13.34);
     assert.match(dep.securityCode, /^[A-Z2-9]{6}$/);
     assert.equal(await code(async () => skins.createDeposit(await user(), ['1001'], now)), 'deposit_open');
     assert.equal((await skins.inventory(await user(), false, now)).items.find((i) => i.assetId === '1001')!.reason, 'In an open deposit');
@@ -1850,10 +1850,10 @@ describe('skin rail: Steam deposits through the bot, withdrawals for operators',
     offer.state = 'accepted';
     await botTick(db, cfg, bot, now += 5000);
     await botTick(db, cfg, bot, now += 5000);
-    assert.equal(await bal(db, userId), frags(1334), 'credited exactly once');
+    assert.equal(await bal(db, userId), frags(13.34), 'credited exactly once');
     assert.equal((await skins.deposits(userId))[0].status, 'accepted');
-    assert.equal(Number(((await db.prepare('SELECT deposited FROM player_stats WHERE user_id = ?').get(userId)) as { deposited: number }).deposited), frags(1334));
-    assert.deepEqual((await skins.shop('', now)).map((i) => [i.assetId, i.price]), [['n1001', 1851], ['n1006', 150]], 'stock is sold at market price × ITEM_VALUE_BOOST, the crate value factor');
+    assert.equal(Number(((await db.prepare('SELECT deposited FROM player_stats WHERE user_id = ?').get(userId)) as { deposited: number }).deposited), frags(13.34));
+    assert.deepEqual((await skins.shop('', now)).map((i) => [i.assetId, i.price]), [['n1001', 18.51], ['n1006', 1.5]], 'stock is sold at market price × ITEM_VALUE_BOOST, the crate value factor');
 
     // declined, trade hold, timeout, and a bot that crashed after sending
     const next = async () => (await skins.createDeposit(await user(), ['1006'], now)).id;
@@ -1882,7 +1882,7 @@ describe('skin rail: Steam deposits through the bot, withdrawals for operators',
     assert.equal((await skins.deposits(userId)).find((d) => d.id === id)!.offerId, '9999');
     bot.offers.get('9999')!.state = 'canceled';
     await botTick(db, cfg, bot, now += 1000);
-    assert.equal(await bal(db, userId), frags(1334));
+    assert.equal(await bal(db, userId), frags(13.34));
 
     // withdrawals: AML wager rule first, then reserve, refund on cancel, sent by an operator
     const blocked = await code(async () => skins.createWithdrawal(await user(), ['n1006'], now));
@@ -1890,12 +1890,12 @@ describe('skin rail: Steam deposits through the bot, withdrawals for operators',
     const easy = new SkinService(db, { ...cfg, amlWagerMultiple: 0 }, fetchFn);
     const w1 = await easy.createWithdrawal(await user(), ['n1006'], now += 1000);
     assert.equal(w1.status, 'pending');
-    assert.equal(await bal(db, userId), frags(1334 - 150));
+    assert.equal(await bal(db, userId), frags((1334 - 150) / 100));
     assert.deepEqual((await skins.shop('', now)).map((i) => i.assetId), ['n1001']);
     assert.equal(await code(async () => easy.createWithdrawal(await user(), ['n1006'], now)), 'invalid_items');
     await easy.cancelWithdrawal(userId, w1.id, now += 1000);
-    assert.equal(await bal(db, userId), frags(1334), 'refunded');
-    assert.ok((await withdrawalCheck(db, cfg, await user(), frags(100))).reasons.some((r) => r.code === 'aml_wager'), 'a cancelled withdrawal does not reset the wager rule');
+    assert.equal(await bal(db, userId), frags(13.34), 'refunded');
+    assert.ok((await withdrawalCheck(db, cfg, await user(), frags(1))).reasons.some((r) => r.code === 'aml_wager'), 'a cancelled withdrawal does not reset the wager rule');
     const w2 = await easy.createWithdrawal(await user(), ['n1006'], now += 1000);
     assert.equal(await code(() => operatorWithdrawal(db, 'op', w2.id, 'cancel', null, '', now)), 'reason_required');
     assert.equal(await code(() => operatorWithdrawal(db, 'op', w2.id, 'sent', 'abc', null, now)), 'invalid_offer');
@@ -1903,8 +1903,8 @@ describe('skin rail: Steam deposits through the bot, withdrawals for operators',
     assert.equal(done.status, 'sent');
     assert.equal(await code(() => operatorWithdrawal(db, 'op', w2.id, 'cancel', null, 'too late', now)), 'not_pending');
     assert.equal(await code(() => easy.cancelWithdrawal(userId, w2.id, now)), 'not_pending');
-    assert.equal(Number(((await db.prepare('SELECT withdrawn FROM player_stats WHERE user_id = ?').get(userId)) as { withdrawn: number }).withdrawn), frags(150));
-    assert.equal(await balanceOf(db, SKINS), -frags(1334 - 150), 'house:skins holds the counterpart of the stock still at the site');
+    assert.equal(Number(((await db.prepare('SELECT withdrawn FROM player_stats WHERE user_id = ?').get(userId)) as { withdrawn: number }).withdrawn), frags(1.5));
+    assert.equal(await balanceOf(db, SKINS), -frags((1334 - 150) / 100), 'house:skins holds the counterpart of the stock still at the site');
 
     // stock sync: new items come in, items gone without a withdrawal leave the shop
     bot.inv = [{ assetId: 'n1001', name: 'Tempered AK47', icon: 'ic', tradable: true }, { assetId: 'x2000', name: 'Glory AK47', icon: 'g', tradable: true }];

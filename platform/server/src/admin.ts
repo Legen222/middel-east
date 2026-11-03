@@ -219,7 +219,7 @@ export async function playerDetail(db: DB, userId: string, now: number) {
 
 /* ---------- player tools ---------- */
 
-export const ADJUST_MAX = 100_000 * MF_PER_FRAG;
+export const ADJUST_MAX = 1_000 * MF_PER_FRAG;
 
 /**
  * Credits (amount > 0) or debits (amount < 0) a player from `house:adjustments`, e.g. goodwill after an
@@ -227,7 +227,7 @@ export const ADJUST_MAX = 100_000 * MF_PER_FRAG;
  */
 export async function adjustBalance(db: DB, actorId: string, userId: string, amountFrags: number, reason: string, now: number) {
   const amount = Math.round(amountFrags * MF_PER_FRAG);
-  if (!Number.isSafeInteger(amount) || amount === 0 || Math.abs(amount) > ADJUST_MAX) fail('invalid_params', `Adjustment: ±0.001 to ±${ADJUST_MAX / MF_PER_FRAG} Scrap.`);
+  if (!Number.isSafeInteger(amount) || amount === 0 || Math.abs(amount) > ADJUST_MAX) fail('invalid_params', `Adjustment: ±0.00001 to ±${ADJUST_MAX / MF_PER_FRAG} Scrap.`);
   const why = String(reason ?? '').trim();
   if (why.length < 5 || why.length > 200) fail('invalid_params', 'Give a reason (5 to 200 characters).');
   if (actorId === userId) fail('forbidden', 'Operators cannot adjust their own balance.', 403);

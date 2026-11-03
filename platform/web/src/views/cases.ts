@@ -4,10 +4,6 @@ import { crateArt, itemArt } from '../loot-art';
 import type { View } from '../main';
 import { $, $$, esc, fairBox, frags, guard, pct, reducedMotion, scrap } from '../ui';
 
-
-/** Scrap → "$1,500" (play money; 100 Scrap = 1 $). */
-const usd = (f: number, perDollar: number) => `$${(f / perDollar).toLocaleString('en-US', { minimumFractionDigits: f % perDollar ? 2 : 0, maximumFractionDigits: 2 })}`;
-
 const REEL_LEN = 60;
 const STOP = 50;
 const ITEM_W = 126; // 120 + 6 gap
@@ -25,7 +21,7 @@ export const casesView: View = {
       <button type="button" class="case" data-id="${k.id}" aria-pressed="${i === 0}">
         <span class="art">${crateArt(k.id, k.price)}</span>
         <b>${esc(k.name)}</b>
-        <span class="price"><span class="num">${scrap(k.price, 0)}</span><span class="muted num" style="font-size:12px">≈ ${usd(k.price, c.cfg.fragsPerDollar)} · RTP ${pct(k.rtp)}</span></span>
+        <span class="price"><span class="num">${scrap(k.price)}</span><span class="muted num" style="font-size:12px">RTP ${pct(k.rtp)}</span></span>
       </button>`).join('')}</div>
   </section>
   <section class="card" style="gap:14px">
@@ -62,13 +58,13 @@ export const casesView: View = {
     const status = (t: string, cls = '') => { const s = $('#status', root); s.textContent = t; s.className = `status ${cls}`; };
     const pickCosmetic = (k: CaseInfo) => { let r = Math.random(); for (const it of k.items) { r -= it.chance; if (r < 0) return it; } return k.items[0]; };
     const reelHtml = (k: CaseInfo, final?: Drop) => Array.from({ length: REEL_LEN }, (_, i) => (i === STOP && final ? final : pickCosmetic(k)))
-      .map((it) => `<div class="reel-item" style="--rc:${rarity(it.value, k.price)}">${itemArt(it.name)}<b>${esc(it.name)}</b><span class="num muted">${frags(it.value, 0)}</span></div>`).join('');
+      .map((it) => `<div class="reel-item" style="--rc:${rarity(it.value, k.price)}">${itemArt(it.name)}<b>${esc(it.name)}</b><span class="num muted">${frags(it.value)}</span></div>`).join('');
 
     const layout = () => {
       $('#reels', root).innerHTML = Array.from({ length: count }, (_, i) => `<div class="reel ${count > 2 ? 'compact' : ''}" aria-hidden="true"><div class="reel-track" data-track="${i}">${reelHtml(current)}</div></div>`).join('');
       $('#cur-name', root).textContent = current.name;
-      $('#cur-cost', root).textContent = `${count} × ${frags(current.price, 0)} = ${frags(current.price * count, 0)} Scrap`;
-      $('#open', root).textContent = `Open ${count} · ${frags(current.price * count, 0)} Scrap`;
+      $('#cur-cost', root).textContent = `${count} × ${frags(current.price)} = ${frags(current.price * count)} Scrap`;
+      $('#open', root).textContent = `Open ${count} · ${frags(current.price * count)} Scrap`;
     };
     const showCase = (k: CaseInfo) => {
       if (busy) return;
@@ -93,10 +89,10 @@ export const casesView: View = {
 
     const paintSession = () => {
       if (!session.length) return;
-      $('#session', root).innerHTML = session.slice(0, 40).map((d) => `<span class="chip" style="border-color:${rarity(d.value, d.price)};color:${rarity(d.value, d.price)}">${esc(d.name)} · ${frags(d.value, 0)}</span>`).join('');
+      $('#session', root).innerHTML = session.slice(0, 40).map((d) => `<span class="chip" style="border-color:${rarity(d.value, d.price)};color:${rarity(d.value, d.price)}">${esc(d.name)} · ${frags(d.value)}</span>`).join('');
       const spent = session.reduce((s, d) => s + d.price, 0);
       const got = session.reduce((s, d) => s + d.value, 0);
-      $('#session-sum', root).textContent = `${session.length} crates · spent ${frags(spent, 0)} · dropped ${frags(got, 0)} Scrap (${got >= spent ? '+' : '−'}${frags(Math.abs(got - spent), 0)})`;
+      $('#session-sum', root).textContent = `${session.length} crates · spent ${frags(spent)} · dropped ${frags(got)} Scrap (${got >= spent ? '+' : '−'}${frags(Math.abs(got - spent))})`;
     };
 
     $('#open', root).addEventListener('click', (e) => guard(e.currentTarget as HTMLButtonElement, async () => {
@@ -127,10 +123,10 @@ export const casesView: View = {
         const total = drops.reduce((s, d) => s + d.value, 0);
         const cost = k.price * drops.length;
         const box = $('#drops', root);
-        box.innerHTML = drops.map((d) => `<div class="drop" style="--rc:${rarity(d.value, k.price)}">${itemArt(d.name)}<b>${esc(d.name)}</b><span class="num">${frags(d.value, 0)}</span></div>`).join('')
-          + `<div class="drop sum ${total >= cost ? 'win' : 'lose'}"><span class="eyebrow">Total</span><b class="num">${frags(total, 0)}</b><span class="num">${total >= cost ? '+' : '−'}${frags(Math.abs(total - cost), 0)}</span></div>`;
+        box.innerHTML = drops.map((d) => `<div class="drop" style="--rc:${rarity(d.value, k.price)}">${itemArt(d.name)}<b>${esc(d.name)}</b><span class="num">${frags(d.value)}</span></div>`).join('')
+          + `<div class="drop sum ${total >= cost ? 'win' : 'lose'}"><span class="eyebrow">Total</span><b class="num">${frags(total)}</b><span class="num">${total >= cost ? '+' : '−'}${frags(Math.abs(total - cost))}</span></div>`;
         box.hidden = false;
-        status(drops.length === 1 ? `${drops[0].name} · ${frags(drops[0].value, 0)} Scrap` : `${drops.length} crates: ${frags(total, 0)} Scrap for ${frags(cost, 0)}.`, total >= cost ? 'win' : 'lose');
+        status(drops.length === 1 ? `${drops[0].name} · ${frags(drops[0].value)} Scrap` : `${drops.length} crates: ${frags(total)} Scrap for ${frags(cost)}.`, total >= cost ? 'win' : 'lose');
         session.unshift(...drops.map((d) => ({ ...d, price: k.price })));
         paintSession();
         $('#fair', root).innerHTML = fairBox(bets[bets.length - 1].fairness) + (bets.length > 1 ? `<p class="muted" style="font-size:12px;margin-top:6px">Nonces ${bets.map((b) => b.fairness.nonce).join(', ')}: one round per crate.</p>` : '');

@@ -19,7 +19,7 @@ export const walletView: View = {
     <div class="sect-head"><div><p class="eyebrow">Account</p><h1 class="h-display">Wallet</h1>
       <p class="muted">Your balance and every change to it: stakes, payouts, rewards, refills and adjustments.</p></div></div>
     <div class="wallet-hero">
-      <div><span class="muted">Balance</span><b class="num">${SCRAP_SYM}<span id="w-bal">${frags(c.me.balance)}</span></b><small class="muted">Scrap · 100 Scrap = 1 $ ${c.cfg.demo ? 'play money' : ''}</small></div>
+      <div><span class="muted">Balance</span><b class="num">${SCRAP_SYM}<span id="w-bal">${frags(c.me.balance)}</span></b><small class="muted">Scrap · 1 Scrap = 1 $ ${c.cfg.demo ? 'play money' : ''}</small></div>
       ${c.cfg.demo ? `<button class="btn" type="button" id="w-refill">${icon('upgrade')} Refill demo balance</button>` : ''}
     </div>
   </section>
@@ -35,7 +35,7 @@ export const walletView: View = {
       ${c.cfg.skins?.enabled
         ? `<p class="muted">Deposit Rust skins from your Steam inventory: our bot sends a trade offer with a security code, you accept it in Steam, the Scrap arrives at once.</p><div class="row"><a class="btn" href="#/deposit">${icon('crate')} Deposit skins</a></div>`
         : c.cfg.demo
-        ? `<p class="muted">This is a play-money demo: Scrap has no cash value and cannot be bought. When the balance runs low you can refill it once a day, back to ${frags(c.cfg.demoStartBalance ?? 0, 0)} Scrap.</p>`
+        ? `<p class="muted">This is a play-money demo: Scrap has no cash value and cannot be bought. When the balance runs low you can refill it once a day, back to ${frags(c.cfg.demoStartBalance ?? 0)} Scrap.</p>`
         : '<p class="muted">Deposits open with the licence: Rust skins via Steam trade, crypto and cards, each with its own checks. Until then nothing can be deposited.</p>'}
     </section>
     <section class="card">

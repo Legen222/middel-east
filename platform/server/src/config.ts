@@ -1,10 +1,14 @@
 /**
- * Money: all amounts are integer milli-Scrap (mF). 1 Scrap = 1 000 mF = 0.01 $.
- * Payouts are floored to whole mF, so rounding never favours the player and costs at most 0.001 Scrap per bet.
+ * Money: 1 Scrap = 1 $, shown with two decimals. Amounts are stored as integer mF: 1 Scrap = 100 000 mF, so
+ * 1 mF = 0.001 cent. Payouts are floored to whole mF, so rounding never favours the player.
+ * Crate item values, crate prices and the skin price feed count in whole cents (the engine's integer unit):
+ * MF_PER_CENT converts them, centsToScrap shows them.
  */
 import { ITEM_VALUE_BOOST } from '../../engine/src/config';
 
-export const MF_PER_FRAG = 1000;
+export const MF_PER_FRAG = 100_000;
+export const MF_PER_CENT = MF_PER_FRAG / 100;
+export const centsToScrap = (cents: number): number => cents / 100;
 export const frags = (n: number): number => Math.round(n * MF_PER_FRAG);
 /** mF → "1,234.50" for server-written text (chat, audit). */
 export const fmtFrags = (mf: number): string => (mf / MF_PER_FRAG).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -74,20 +78,20 @@ export interface SkinConfig {
 
 export const DEFAULT_CONFIG: Config = {
   demo: true,
-  minStake: frags(1),
-  maxStake: frags(200_000), // 2 000 $: the 1 500 $ Gold Egg fits
-  maxWin: frags(5_000_000), // 50 000 $: a 4-seat battle over two Gold Eggs fits (pool cap = top items × seats)
-  demoStartBalance: frags(250_000),
-  demoRefill: frags(250_000),
+  minStake: frags(0.01),
+  maxStake: frags(2_000), // 2 000 $: the 1 500 $ Gold Egg fits
+  maxWin: frags(50_000), // 50 000 $: a 4-seat battle over two Gold Eggs fits (pool cap = top items × seats)
+  demoStartBalance: frags(2_500),
+  demoRefill: frags(2_500),
   sanctioned: ['KP', 'IR', 'SY', 'CU'],
   realMoneyBlocked: ['US', 'GB', 'FR', 'NL', 'DE', 'AU', 'ES', 'IT', 'BE', 'DK', 'SE', 'PT', 'CH', 'AT', 'SG', 'TR', 'IL'],
   countryHeader: 'cf-ipcountry',
   limitIncreaseDelayHours: 24,
-  kycDepositThreshold: frags(200_000), // 2 000 $
+  kycDepositThreshold: frags(2_000), // 2 000 $
   amlWagerMultiple: 1,
-  amlLargeDeposit: frags(100_000), // 1 000 $
+  amlLargeDeposit: frags(1_000), // 1 000 $
   sessionTtlHours: 24 * 7,
-  rgAlert: { netLoss24h: frags(50_000), limitRaises30d: 3, sessionHours: 3 },
+  rgAlert: { netLoss24h: frags(500), limitRaises30d: 3, sessionHours: 3 },
   requireOperatorMfa: false,
   operatorMfaMaxAgeMinutes: 12 * 60,
   operatorIpAllowlist: [],
@@ -95,7 +99,7 @@ export const DEFAULT_CONFIG: Config = {
   steamLogin: false,
   steamApiKey: null,
   skins: {
-    enabled: false, depositRate: 1, withdrawRate: ITEM_VALUE_BOOST, minItemFrags: 10, minVolume: 3, maxItems: 20, offerTtlMs: 10 * 60_000, kycBeforeDeposit: true,
+    enabled: false, depositRate: 1, withdrawRate: ITEM_VALUE_BOOST, minItemFrags: 0.1, minVolume: 3, maxItems: 20, offerTtlMs: 10 * 60_000, kycBeforeDeposit: true,
     inventoryUrl: 'https://steamcommunity.com/inventory/{steamid}/252490/2?l=english&count=2000',
     priceUrl: 'https://api.skinport.com/v1/items?app_id=252490&currency=USD&tradable=0',
   },

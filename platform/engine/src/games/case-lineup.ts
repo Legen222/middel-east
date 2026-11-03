@@ -1,7 +1,7 @@
 /**
  * The crate line-up, written by `npm run build-crates` (platform/server/tools/build-crates.ts) on 2026-11-03.
  * Only real Rust skins with a picture. value = market price × ITEM_VALUE_BOOST (1.5) in Scrap
- * (100 Scrap = 1 $); the comment is the market price it was taken from. Do not edit by hand: re-run the tool.
+ * in whole cents (1 Scrap = 1 $, so 11651 is 116.51 Scrap); the comment is the market price it was taken from. Do not edit by hand: re-run the tool.
  */
 import type { CaseDef, CaseItem } from './cases';
 

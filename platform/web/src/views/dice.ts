@@ -23,7 +23,7 @@ export const diceView: View = {
       <div class="chips" id="hist" aria-label="Recent rolls"></div>
     </div>
     <aside class="game-side">
-      ${stakeField('stake', 10)}
+      ${stakeField('stake', 0.1)}
       <label class="field">Win chance (%)<input id="chance" type="range" min="1" max="9800" value="4950"></label>
       <div class="row" style="justify-content:space-between;font-size:14px"><span>Chance <b class="num" id="c-val">49.50 %</b></span><span>Multiplier <b class="num" id="c-mult">1.9798×</b></span></div>
       <div class="seg" role="group" aria-label="Direction"><button type="button" data-dir="under" aria-pressed="true">Under</button><button type="button" data-dir="over" aria-pressed="false">Over</button></div>

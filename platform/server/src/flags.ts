@@ -4,7 +4,7 @@
  * so no player money is ever trapped by a switch. Every change is audited with the operator's id.
  */
 
-import type { Config } from './config';
+import { type Config, fmtFrags } from './config';
 import { type DB, audit } from './db';
 import { fail } from './errors';
 import { getSettings } from './site';
@@ -67,7 +67,7 @@ export async function setGameLimits(db: DB, cfg: Config, actorId: string, game: 
   if (!(GAME_IDS as readonly string[]).includes(game)) fail('not_found', 'Unknown game.', 404);
   const check = (v: number | null, name: string, lo: number, hi: number) => {
     if (v === null) return null;
-    if (!Number.isSafeInteger(v) || v < lo || v > hi) fail('invalid_params', `${name} must be between ${lo / 1000} and ${hi / 1000} Scrap (the global limits).`);
+    if (!Number.isSafeInteger(v) || v < lo || v > hi) fail('invalid_params', `${name} must be between ${fmtFrags(lo)} and ${fmtFrags(hi)} Scrap (the global limits).`);
     return v;
   };
   const minStake = check(limits.minStake, 'Min stake', cfg.minStake, cfg.maxStake);

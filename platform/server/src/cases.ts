@@ -9,7 +9,8 @@
  */
 
 import { type CaseDef, type CaseItem, EDGE, caseRtp, caseWeight, priceCase } from '../../engine/src/index';
-import { type Config, MF_PER_FRAG } from './config';
+import { caseOut } from './case-out';
+import { type Config, MF_PER_CENT, centsToScrap, fmtFrags } from './config';
 import { type DB, audit, tx } from './db';
 import { fail } from './errors';
 
@@ -37,7 +38,7 @@ export async function playableCase(db: DB, id: string): Promise<CaseVersion> {
 
 const withChances = (c: CaseVersion) => {
   const W = caseWeight(c);
-  return { id: c.id, name: c.name, version: c.version, price: c.price, rtp: c.rtp, items: c.items.map((i) => ({ name: i.name, value: i.value, chance: i.weight / W })) };
+  return caseOut({ id: c.id, name: c.name, version: c.version, price: c.price, rtp: c.rtp, items: c.items.map((i) => ({ name: i.name, value: i.value, chance: i.weight / W })) });
 };
 
 /** Lobby list: enabled cases, current versions, in display order. */
@@ -55,7 +56,7 @@ export async function adminCases(db: DB) {
     const cur = await caseVersion(db, r.id, Number(r.current_version));
     const versions = (await db.prepare('SELECT version, price, rtp, created_by, created_at FROM case_versions WHERE case_id = ? ORDER BY version DESC').all(r.id)) as { version: number; price: number; rtp: number; created_by: string | null; created_at: number }[];
     const opened = (await db.prepare("SELECT COUNT(*) AS n FROM bets WHERE game = 'cases' AND status = 'settled' AND params LIKE ?").get(`%"caseId":"${r.id}"%`)) as { n: number };
-    out.push({ ...withChances(cur), weights: cur.items.map((i) => i.weight), enabled: Number(r.enabled) === 1, sort: Number(r.sort), opened: Number(opened.n), versions });
+    out.push({ ...withChances(cur), weights: cur.items.map((i) => i.weight), enabled: Number(r.enabled) === 1, sort: Number(r.sort), opened: Number(opened.n), versions: versions.map((v) => ({ ...v, price: centsToScrap(Number(v.price)) })) });
   }
   return out;
 }
@@ -69,10 +70,10 @@ function validateItems(cfg: Config, name: string, items: unknown): { name: strin
   const out: CaseItem[] = (items as unknown[]).map((raw, k) => {
     const i = raw as { name?: unknown; value?: unknown; weight?: unknown };
     const iname = String(i?.name ?? '').trim();
-    const value = Number(i?.value);
+    const value = Math.round(Number(i?.value) * 100); // the API takes Scrap, the case stores cents
     const weight = Number(i?.weight);
     if (iname.length < 1 || iname.length > 60) fail('invalid_params', `Item ${k + 1}: name 1 to 60 characters.`);
-    if (!Number.isSafeInteger(value) || value < 0 || value > 10_000_000) fail('invalid_params', `Item ${k + 1}: value must be whole Scrap (0 to 10,000,000).`);
+    if (!Number.isSafeInteger(value) || Math.abs(value - Number(i?.value) * 100) > 1e-6 || value < 0 || value > 10_000_000) fail('invalid_params', `Item ${k + 1}: value must be 0 to 100,000 Scrap with at most two decimals.`);
     if (!Number.isSafeInteger(weight) || weight < 1 || weight > 1_000_000_000) fail('invalid_params', `Item ${k + 1}: weight must be a whole number of tickets (1 to 1,000,000,000).`);
     return { name: iname, value, weight };
   });
@@ -80,8 +81,8 @@ function validateItems(cfg: Config, name: string, items: unknown): { name: strin
   if (caseWeight(c) > 4_000_000_000) fail('invalid_params', 'Total weight is above 4,000,000,000 tickets.');
   const price = priceCase(c);
   if (price < 1) fail('invalid_params', 'The case has no value: every item is worth 0.');
-  if (price * MF_PER_FRAG > cfg.maxStake) fail('invalid_params', `Price ${price} Scrap is above the max stake (${cfg.maxStake / MF_PER_FRAG} Scrap).`);
-  if (Math.max(...out.map((i) => i.value)) * MF_PER_FRAG > cfg.maxWin) fail('invalid_params', `An item is worth more than the max win (${cfg.maxWin / MF_PER_FRAG} Scrap).`);
+  if (price * MF_PER_CENT > cfg.maxStake) fail('invalid_params', `Price ${fmtFrags(price * MF_PER_CENT)} Scrap is above the max stake (${fmtFrags(cfg.maxStake)} Scrap).`);
+  if (Math.max(...out.map((i) => i.value)) * MF_PER_CENT > cfg.maxWin) fail('invalid_params', `An item is worth more than the max win (${fmtFrags(cfg.maxWin)} Scrap).`);
   return { name: n, items: out };
 }
 

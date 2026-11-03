@@ -6,7 +6,7 @@
  *   SKINS=true           skin deposits and withdrawals (only outside the demo, so only with LICENCE_ID)
  *   DEPOSIT_RATE=1       share of the market price credited per deposited item
  *   WITHDRAW_RATE=1.5    price factor for items taken from the site's stock; keep it at ITEM_VALUE_BOOST (engine config), the crate value factor
- *   SKIN_MIN_ITEM=10     cheapest item accepted, in Scrap
+ *   SKIN_MIN_ITEM=0.1    cheapest item accepted, in Scrap (1 Scrap = 1 $)
  *   KYC_BEFORE_DEPOSIT   default true; whether the licence allows later checks is the licence holder's call
  *   PRICE_FEED_URL       default Skinport's public Rust price list
  *   INVENTORY_URL        default Steam's community inventory endpoint ({steamid} is replaced)
@@ -51,7 +51,7 @@ export function configFromEnv(env: Env): Config {
       enabled: flag(env.SKINS, false),
       depositRate: num(env, 'DEPOSIT_RATE', d.depositRate, 0.5, 1),
       withdrawRate: num(env, 'WITHDRAW_RATE', d.withdrawRate, 1, 2),
-      minItemFrags: num(env, 'SKIN_MIN_ITEM', d.minItemFrags, 1, 100_000),
+      minItemFrags: num(env, 'SKIN_MIN_ITEM', d.minItemFrags, 0.01, 1_000),
       kycBeforeDeposit: flag(env.KYC_BEFORE_DEPOSIT, d.kycBeforeDeposit),
       priceUrl: env.PRICE_FEED_URL || d.priceUrl,
       inventoryUrl: env.INVENTORY_URL || d.inventoryUrl,

@@ -30,7 +30,7 @@ export function oddsTable(k: CaseInfo): string {
     ${items.map((i) => {
       const t = tierOf(i.value, k.price);
       return `<tr style="--rc:${t.color}"><td><span class="odds-item"><span class="oi-art">${itemArt(i.name, true)}</span>${esc(i.name)}</span></td><td><span class="rarity-tag">${t.name}</span></td>
-        <td class="r num">${frags(i.value, 0)}</td><td class="r num muted">${(i.value / k.price).toFixed(2)}×</td>
+        <td class="r num">${frags(i.value)}</td><td class="r num muted">${(i.value / k.price).toFixed(2)}×</td>
         <td class="r num"><span class="chance-bar"><i style="width:${Math.max(2, Math.sqrt(i.chance) * 100)}%"></i></span>${chanceTxt(i.chance)}</td><td class="r num muted hide-xs">${oneIn(i.chance)}</td></tr>`;
     }).join('')}
   </tbody></table></div>`;
@@ -38,7 +38,7 @@ export function oddsTable(k: CaseInfo): string {
 
 /** Price, RTP, expected value and the item count, as a row of figures. */
 export const crateFigures = (k: CaseInfo) => `<div class="odds-figs">
-  <div><span>Price</span><b>${scrap(k.price, 0)}</b></div><div><span>RTP</span><b class="num">${pct(k.rtp)}</b></div>
+  <div><span>Price</span><b>${scrap(k.price)}</b></div><div><span>RTP</span><b class="num">${pct(k.rtp)}</b></div>
   <div><span>Expected value</span><b>${scrap(evOf(k))}</b></div><div><span>Items</span><b class="num">${k.items.length}</b></div></div>`;
 
 /** A dialog with one crate's full contents. */

@@ -33,7 +33,7 @@ export const jackpotView: View = {
       <div class="tablewrap"><table><thead><tr><th>Winner</th><th class="r">Pot</th><th class="r">Chance</th><th class="r">Paid</th></tr></thead><tbody id="hist"></tbody></table></div>
     </div>
     <aside class="game-side">
-      <label class="field">Amount${scrapInput('amount', 10)}</label>
+      <label class="field">Amount${scrapInput('amount', 0.1)}</label>
       <p class="muted" style="font-size:13px" id="range"></p>
       <button class="btn block" id="enter" type="button">Join the pot</button>
       <button class="btn ghost block" id="bot" type="button" hidden>Add a demo bot</button>

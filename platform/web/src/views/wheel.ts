@@ -33,7 +33,7 @@ export const wheelView: View = {
       <div class="tablewrap"><table><thead><tr><th>Player</th><th>Field</th><th class="r">Stake</th><th class="r">Payout</th></tr></thead><tbody id="bets"></tbody></table></div>
     </div>
     <aside class="game-side">
-      ${stakeField('stake', 10)}
+      ${stakeField('stake', 0.1)}
       <p class="muted" style="font-size:13px">Tap a field to bet on it. One bet per field per spin; you can cover several fields.</p>
       <p class="status" id="status" role="status">&nbsp;</p>
       <dl class="fairbox" id="fair"></dl>

@@ -23,7 +23,7 @@ export const raidView: View = {
       <p class="status" id="status" role="status">Set your stake and start the raid.</p>
     </div>
     <aside class="game-side">
-      ${stakeField('stake', 10)}
+      ${stakeField('stake', 0.1)}
       <div class="tools" id="tools">${TOOLS.map((t) => `<button type="button" class="tool" data-tool="${t.id}" disabled><b>${t.name}</b><span>${Math.round(t.p * 100)} % · ×${(1 / t.p).toFixed(2)}</span></button>`).join('')}</div>
       <button class="btn block" id="start" type="button">Start raid</button>
       <button class="btn win block" id="cash" type="button" hidden>Secure loot</button>

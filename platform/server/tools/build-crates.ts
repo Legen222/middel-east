@@ -1,8 +1,8 @@
 /**
  * Writes engine/src/games/case-lineup.ts: the twenty crates and the daily Scrap Crate, filled only with real Rust
  * skins that have a picture (Steam's item list, needs STEAM_API_KEY) and a market price (the skin price feed,
- * cfg.skins.priceUrl, Skinport by default). Each item is worth its price × ITEM_VALUE_BOOST in Scrap
- * (100 Scrap = 1 $). The crates keep their ids, names and prices; the weights are solved so every crate pays
+ * cfg.skins.priceUrl, Skinport by default). Each item is worth its price × ITEM_VALUE_BOOST, stored in whole
+ * cents (1 Scrap = 1 $). The crates keep their ids, names and prices; the weights are solved so every crate pays
  * back 93.00 % of its price (engine tests check price, RTP and every ticket).
  *
  *   npm run build-crates      then `npm run item-icons -- --all --no-market` for the pictures
@@ -134,7 +134,7 @@ const row = (i: CaseItem, cents: number, indent: string) => `${indent}{ name: ${
 writeFileSync(OUT, `/**
  * The crate line-up, written by \`npm run build-crates\` (platform/server/tools/build-crates.ts) on ${new Date().toISOString().slice(0, 10)}.
  * Only real Rust skins with a picture. value = market price × ITEM_VALUE_BOOST (${ITEM_VALUE_BOOST}) in Scrap
- * (100 Scrap = 1 $); the comment is the market price it was taken from. Do not edit by hand: re-run the tool.
+ * in whole cents (1 Scrap = 1 $, so 11651 is 116.51 Scrap); the comment is the market price it was taken from. Do not edit by hand: re-run the tool.
  */
 import type { CaseDef, CaseItem } from './cases';
 

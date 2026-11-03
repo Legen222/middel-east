@@ -65,7 +65,7 @@ export const depositView: View = {
   <section class="card">
     <div class="sect-head"><div><p class="eyebrow">Wallet · Steam</p><h1 class="h-display">Deposit skins</h1>
       <p class="muted">Pick Rust items from your Steam inventory. Our bot sends you a trade offer that only <b>asks</b> for these items; you accept it in Steam and the Scrap arrives straight away.
-      Credit: ${Math.round((c.cfg.skins!.depositRate) * 100)} % of the market price, items from ${frags(c.cfg.skins!.minItem, 0)} Scrap.</p></div>
+      Credit: ${Math.round((c.cfg.skins!.depositRate) * 100)} % of the market price, items from ${frags(c.cfg.skins!.minItem)} Scrap.</p></div>
       <div class="row"><a class="btn ghost" href="#/withdraw">${icon('upgrade')} Withdraw</a><a class="btn ghost" href="#/wallet">${icon('pot')} Wallet</a></div></div>
     <ul class="checks">
       <li class="ok"><b>Security code</b> The offer message shows a code. Accept only if it matches the one on this page.</li>

@@ -5,7 +5,7 @@
  *   ticket = ⌊f · W⌋,  W = Σ weights  → the item whose cumulative range contains the ticket.
  *   EV     = Σ w_i · value_i / W
  *   price  = ⌈EV / (1 − e)⌉  (whole Scrap)  ⇒  RTP = EV / price ≤ 1 − e
- * Values and prices are integer Scrap (1 Scrap = 0.01 $). Rounding the price up costs at most one Scrap,
+ * Values and prices are whole cents (1 Scrap = 1 $ = 100 cents). Rounding the price up costs at most one cent,
  * i.e. < 1/price of RTP (0.3 pp on a 3 $ case, 0.001 pp on a 1 000 $ case). Item values must be
  * re-priced from the skin price feed on a schedule, and case prices recomputed with priceCase().
  *
@@ -40,7 +40,7 @@ import { CASE_LINEUP } from './case-lineup';
 
 export interface CaseItem {
   name: string;
-  value: number; // Scrap (integer, 1 Scrap = 0.01 $)
+  value: number; // whole cents (1 Scrap = 1 $ = 100 cents)
   weight: number; // integer tickets
 }
 

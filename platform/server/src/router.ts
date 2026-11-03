@@ -21,7 +21,8 @@ import { adminCases, caseVersion, listCases, previewCase, saveCase, setCaseState
 import { type ChainGame, listChains } from './chains';
 import { activeMute, chatRules, deleteMessage, listMessages, mute, openReportCount, openReports, postMessage, reportMessage, resolveReport, unmute } from './chat';
 import { checkGeo, withdrawalCheck } from './compliance';
-import { type Clock, type Config, MF_PER_FRAG, ipAllowed } from './config';
+import { caseOut } from './case-out';
+import { type Clock, type Config, MF_PER_FRAG, centsToScrap, ipAllowed } from './config';
 import type { CrashService } from './crash';
 import type { DB } from './db';
 import { AppError, fail } from './errors';
@@ -92,7 +93,7 @@ export function createRouter(deps: AppDeps) {
     return { ok: true, dialect: db.dialect, ...(deps.ready ? await deps.ready() : {}) };
   });
   route('GET', '/config', async () => ({
-    demo: cfg.demo, currency: 'Scrap', fragsPerDollar: 100, minStake: cfg.minStake / MF_PER_FRAG, maxStake: cfg.maxStake / MF_PER_FRAG, maxWin: cfg.maxWin / MF_PER_FRAG,
+    demo: cfg.demo, currency: 'Scrap', fragsPerDollar: 1, minStake: cfg.minStake / MF_PER_FRAG, maxStake: cfg.maxStake / MF_PER_FRAG, maxWin: cfg.maxWin / MF_PER_FRAG,
     demoStartBalance: cfg.demoStartBalance / MF_PER_FRAG, steamLogin: cfg.steamLogin,
     skins: { enabled: cfg.skins.enabled && !cfg.demo, depositRate: cfg.skins.depositRate, withdrawRate: cfg.skins.withdrawRate, minItem: cfg.skins.minItemFrags, maxItems: cfg.skins.maxItems, kycBeforeDeposit: cfg.skins.kycBeforeDeposit },
     games: GAMES, houseEdge: EDGE, operatorMfa: cfg.requireOperatorMfa,
@@ -108,7 +109,7 @@ export function createRouter(deps: AppDeps) {
   route('GET', '/cases/:id/v/:version', async (_c, p) => {
     const v = await caseVersion(db, p.id, num(Number(p.version), 'version'));
     const W = v.items.reduce((s, i) => s + i.weight, 0);
-    return { ...v, items: v.items.map((i) => ({ ...i, chance: i.weight / W })) };
+    return caseOut({ ...v, items: v.items.map((i) => ({ ...i, chance: i.weight / W })) });
   });
   route('GET', '/chains/:game', (_c, p) => {
     if (p.game !== 'crash' && p.game !== 'wheel') fail('not_found', 'Unknown game.', 404);
@@ -277,7 +278,7 @@ export function createRouter(deps: AppDeps) {
     const crew = await crewState(db, u);
     return {
       ...p, rakebackAvailable: p.rakebackAvailable / MF_PER_FRAG, rakebackBands: RAKEBACK_BANDS,
-      daily: { nextAt: lastDaily ? lastDaily.t + 86_400_000 : 0, items: DAILY_CASE.items.map((i) => ({ name: i.name, value: i.value, chance: i.weight / W })) },
+      daily: { nextAt: lastDaily ? lastDaily.t + 86_400_000 : 0, items: DAILY_CASE.items.map((i) => ({ name: i.name, value: centsToScrap(i.value), chance: i.weight / W })) },
       rain: await rainState(db, u, clock()), promoEligible: await promoEligible(db, u, clock()),
       crew: { ...crew, ngr: crew.ngr / MF_PER_FRAG, available: crew.available / MF_PER_FRAG },
     };

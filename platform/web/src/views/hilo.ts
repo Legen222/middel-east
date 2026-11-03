@@ -32,7 +32,7 @@ export const hiloView: View = {
       <p class="status" id="status" role="status">Set your stake and draw the first card.</p>
     </div>
     <aside class="game-side">
-      ${stakeField('stake', 10)}
+      ${stakeField('stake', 0.1)}
       <button class="btn block" id="start" type="button">Draw first card</button>
       <button class="btn win block" id="cash" type="button" hidden>Cash out</button>
       <div id="fair"></div>

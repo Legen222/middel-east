@@ -43,7 +43,7 @@ export const lobbyView: View = {
         <h1 class="mh-brand">SCRAPLINE</h1>
         <p class="mh-tag">Rust originals with an open blueprint</p></div>
       <p class="mh-online"><span class="live-dot"></span><b class="num" id="mh-online">–</b> online<span class="sep">·</span><b class="num" id="mh-rounds">–</b> rounds today</p>
-      ${c.guest ? `<button class="btn cta block m-only" type="button" data-signup-inline>${c.cfg.demo ? `Sign up · ${scrap(c.cfg.demoStartBalance ?? 0, 0)} play money` : 'Sign in with Steam'}</button>` : ''}
+      ${c.guest ? `<button class="btn cta block m-only" type="button" data-signup-inline>${c.cfg.demo ? `Sign up · ${scrap(c.cfg.demoStartBalance ?? 0)} play money` : 'Sign in with Steam'}</button>` : ''}
     </section>
 
     <section class="wins" aria-label="Live wins">
@@ -188,7 +188,7 @@ function mountLive(root: HTMLElement): () => void {
     if (wheel && !wheel.round) set('lv-wheel-sub', 'First spin starts in a moment');
     if (wheel?.round) {
       const r = wheel.round, now = Date.now() + wheelSkew;
-      if (now < r.bettingEndsAt) { set('lv-wheel', `${Math.ceil((r.bettingEndsAt - now) / 1000)} s`, ''); set('lv-wheel-sub', `Next spin · ${frags(Object.values(wheel.totals).reduce((a, b) => a + b, 0), 0)} Scrap on the board`); }
+      if (now < r.bettingEndsAt) { set('lv-wheel', `${Math.ceil((r.bettingEndsAt - now) / 1000)} s`, ''); set('lv-wheel-sub', `Next spin · ${frags(Object.values(wheel.totals).reduce((a, b) => a + b, 0))} Scrap on the board`); }
       else if (r.field === null || now < r.spinEndsAt) { set('lv-wheel', 'Spinning', ''); set('lv-wheel-sub', 'Bets closed'); }
       else { set('lv-wheel', `${r.field} → ${wheel.payouts[r.field]}×`, r.field >= 10 ? 'ok' : ''); set('lv-wheel-sub', 'Landed · next round soon'); }
     }
@@ -203,9 +203,9 @@ function mountLive(root: HTMLElement): () => void {
     if (w) { wheel = w; wheelSkew = w.now - Date.now(); hist('lv-wheel-hist', w.history.slice(0, 8).map((h) => [`${w.payouts[h.field]}×`, h.field === 20 ? 'top' : h.field >= 5 ? 'hi' : ''])); }
     if (high || low) {
       const pot = high?.current?.total ?? 0;
-      set('lv-pot', `${frags(pot, 0)}`, pot > 0 ? 'ok' : '');
-      set('lv-pot-sub', `${high?.label ?? 'High Rollers'} · ${high?.current?.entries.length ?? 0} in · ${low?.label ?? 'Low Ballers'} ${frags(low?.current?.total ?? 0, 0)}`);
-      hist('lv-pot-hist', [...(high?.history ?? []), ...(low?.history ?? [])].slice(0, 6).map((h) => [frags(h.payout, 0), h.chance < 0.25 ? 'top' : 'hi']));
+      set('lv-pot', `${frags(pot)}`, pot > 0 ? 'ok' : '');
+      set('lv-pot-sub', `${high?.label ?? 'High Rollers'} · ${high?.current?.entries.length ?? 0} in · ${low?.label ?? 'Low Ballers'} ${frags(low?.current?.total ?? 0)}`);
+      hist('lv-pot-hist', [...(high?.history ?? []), ...(low?.history ?? [])].slice(0, 6).map((h) => [frags(h.payout), h.chance < 0.25 ? 'top' : 'hi']));
     }
     if (battles) {
       const open = battles.filter((b) => b.status === 'open').length;
@@ -214,7 +214,7 @@ function mountLive(root: HTMLElement): () => void {
       set('lv-battle-sub', drawing ? `${drawing} drawing right now` : open ? 'Take a seat or watch' : 'Start one, bots fill the seats');
       hist('lv-battle-hist', battles.filter((b) => b.status === 'settled' && b.result).slice(0, 6).map((b) => {
         const pool = b.result!.totals.reduce((a, x) => a + x, 0);
-        return [`${b.params.mode === 'bonus' ? '★ ' : ''}${frags(pool, 0)}`, pool > b.seatStake * b.seats ? 'hi' : ''];
+        return [`${b.params.mode === 'bonus' ? '★ ' : ''}${frags(pool)}`, pool > b.seatStake * b.seats ? 'hi' : ''];
       }));
     }
     fast();
