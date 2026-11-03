@@ -6,3 +6,5 @@ dist
 platform/server/data
 deploy/.env
 platform/web/art/out
+platform/web/demo/.steam-cache
+platform/web/demo/scrapline-demo-preview.html

@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "build:demo": "node demo/build.mjs",
+    "build:demo-preview": "NODE_USE_ENV_PROXY=1 node --no-warnings demo/build.mjs --preview",
     "art": "NODE_USE_ENV_PROXY=1 node tools/imagegen.mjs",
     "art:brief": "node tools/art-brief.mjs"
   },

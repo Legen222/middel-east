@@ -142,8 +142,10 @@ const drawn = (kind: ItemKind) =>
 
 /* Steam market pictures by item name (sent with /config, see the server's item-icons.ts). */
 let icons: Record<string, string> = {};
+/* the private demo preview carries the pictures in the page (the artifact viewer refuses outside images, demo/build.mjs --preview) */
+const INLINE = (globalThis as { __ITEM_IMG__?: Record<string, string> }).__ITEM_IMG__ ?? {};
 /* community.cloudflare.steamstatic.com now answers with a redirect to this host */
-export const steamImg = (hash: string, size = 256) => `https://community.steamstatic.com/economy/image/${encodeURIComponent(hash)}/${size}fx${size}f`;
+export const steamImg = (hash: string, size = 256) => INLINE[hash] ?? `https://community.steamstatic.com/economy/image/${encodeURIComponent(hash)}/${size}fx${size}f`;
 export function setItemIcons(map: Record<string, string> | undefined): void {
   icons = Object.fromEntries(Object.entries(map ?? {}).filter(([, h]) => /^[\w-]+$/.test(h)));
 }
