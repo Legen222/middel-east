@@ -15,12 +15,11 @@ const ART = join(dirname(fileURLToPath(import.meta.url)), '..', 'art');
 const OUT = join(ART, '..', '..', '..', 'ART-BRIEFS-CHATGPT.md');
 const m = JSON.parse(readFileSync(join(ART, 'manifest.json'), 'utf8'));
 
-const BATCHES = ['style-test', 'crates', 'tiles', 'banners', 'items', 'avatars', 'illustrations'];
+const BATCHES = ['style-test', 'crates', 'tiles', 'banners', 'avatars', 'illustrations'];
 const USE = {
   crate: 'crate cards, the crate-opening reel, Case Battle and the odds tables, shown from about 60 to 300 px',
   tile: 'game cards in the lobby and the Games menu, about 220 × 300 px, game title laid over the top',
   banner: 'lobby hero, lobby slider and the link preview, wide, a headline laid over the left side',
-  item: 'item pictures in the battle reels, drop tiles and odds tables, about 40 to 100 px; the site draws the rarity colour around them',
   backdrop: 'page background behind everything, dimmed further by the site',
   avatar: 'player pictures in chat, battles and the leaderboard, 30 to 64 px, cropped to a circle',
   illustration: 'empty states and reward cards, about 120 to 200 px',
@@ -95,6 +94,7 @@ ${m.style}
 - **No writing anywhere:** no text, letters, numbers or signs that look like writing, no watermarks, no signatures.
 - **No logos, brands or trademarks:** nothing from Rust, Facepunch, Steam, Valve, any casino or skin-trading site, any weapon maker.
 - **Nothing copied:** no icons or item designs from existing games, no Steam workshop skins, no art from other gambling sites. Our own designs only.
+- **No item pictures:** the items in the crates (weapons, armour, skins, resources) show their real pictures from Steam. Draw only what is listed below.
 - **No Red Cross emblem** (a red cross, especially on white). Medical things are mint green with a white plus.
 - **No real people and no visible faces.** Nobody who looks under 25. Nothing cute, childish or cartoonish: gambling images must not appeal to minors.
 - **No real money:** no banknotes, coins of real currencies, casino chips, slot machines or piles of cash. The site's currency is Scrap: pieces of scrap metal and brass nuts.

@@ -20,8 +20,10 @@ Es gibt zwei Wege mit denselben Briefings:
 ## ChatGPT-Weg
 
 1. ChatGPT die Datei `ART-BRIEFS-CHATGPT.md` geben: über die GitHub-Verbindung (Branch `claude/busy-fermi-84hacd`) oder als hochgeladene Datei.
-2. ChatGPT zeichnet zuerst den Stil-Test (5 Bilder). Du gibst ihn frei oder sagst, was anders werden soll.
-3. Danach die Batches in dieser Reihenfolge: Kisten (20), Spielkacheln (14), Banner und Hintergründe (7), Items (51), Avatare (11), Illustrationen (9).
+2. ChatGPT zeichnet zuerst den Stil-Test (4 Bilder). Du gibst ihn frei oder sagst, was anders werden soll.
+3. Danach die Batches in dieser Reihenfolge: Kisten (20), Spielkacheln (14), Banner und Hintergründe (7), Avatare (11), Illustrationen (9).
+
+   Item-Bilder zeichnet ChatGPT nicht: Die Items zeigen ihr echtes Bild von Steam ([13-itembilder.md](13-itembilder.md)).
 4. Die Dateien heißen genau wie die ID, z. B. `crate-barrel.png`. Sie kommen nach `platform/web/art/incoming/` oder direkt zu Claude.
 5. Claude prüft jedes Bild, schneidet und komprimiert es nach `art/picked/<id>.webp` und baut es ein. Danach `npm run art:brief`, damit die Liste abgehakt ist.
 
@@ -42,19 +44,17 @@ Die Datei wird aus `platform/web/art/manifest.json` erzeugt; Änderungen an den 
 
 ## Ablauf
 
-1. **Stil-Test:** Zuerst entstehen 5 Motive mit je 2 Varianten:
+1. **Stil-Test:** Zuerst entstehen 4 Motive mit je 2 Varianten:
    - eine Kiste (Military Crate, freigestellt);
    - eine Spielkachel (Scrap Press, Hochformat);
    - das Lobby-Banner;
-   - ein Item (Assault Rifle, freigestellt);
    - ein Avatar.
 
    Ich prüfe sie und zeige sie dir. Du gibst den Stil frei oder sagst, was anders werden soll.
-2. **Batches `crates`, `tiles`, `banners`, `items`, `avatars`, `illustrations`:** die restlichen 112 Motive:
+2. **Batches `crates`, `tiles`, `banners`, `avatars`, `illustrations`:** die restlichen 61 Motive:
    - 20 weitere Kisten (mit der täglichen Scrap Crate);
    - 14 weitere Spielkacheln;
    - 4 Slider-Banner, Vorschaubild für Links, Seitenhintergrund für Desktop und Handy;
-   - 51 Items (Grundgegenstände, Ersatzbilder je Item-Art, Sets);
    - 11 weitere Avatare (Demo-Bots und Spieler ohne Bild);
    - 9 Illustrationen (leere Listen, 404, keine Verbindung, Spiel pausiert, Pause/Limits, Belohnungen).
 
@@ -69,7 +69,7 @@ Die Datei wird aus `platform/web/art/manifest.json` erzeugt; Änderungen an den 
 | Was | Wo |
 |---|---|
 | Generator | `platform/web/tools/imagegen.mjs`, ohne Zusatzpakete |
-| Briefings | `platform/web/art/manifest.json`: ein gemeinsamer Stil, ein Stil je Art (Kiste, Kachel, Banner, Item, Hintergrund, Avatar, Illustration), dazu das Motiv. 117 Motive. |
+| Briefings | `platform/web/art/manifest.json`: ein gemeinsamer Stil, ein Stil je Art (Kiste, Kachel, Banner, Hintergrund, Avatar, Illustration), dazu das Motiv. 65 Motive; Items kommen von Steam. |
 | ChatGPT-Datei | `ART-BRIEFS-CHATGPT.md` im Hauptordner, erzeugt mit `npm run art:brief`; hakt ab, was in `art/picked/` liegt, und zeigt, was in `art/incoming/` wartet |
 | Varianten | `art/out/<id>/vN.webp` mit Protokoll (Prompt, Modell, Einstellungen); nicht im Repository |
 | Gewählte Bilder | `art/picked/<id>.webp`; `art/picked.json` hält fest, aus welchem Briefing jedes Bild stammt |
@@ -89,11 +89,11 @@ npm run art -- --pick crate-military-crate=2
 - **Keine Kopien:** keine Kopie von Rust-, Facepunch- oder Konkurrenz-Grafiken, kein Spieltitel im Prompt, keine Logos, keine Schrift im Bild.
 - **Kein Rotes-Kreuz-Zeichen:** Das Zeichen ist rechtlich geschützt; die Medical Crate ist mint-grün mit Plus-Verschluss.
 - **Kisten:** freigestellt (transparenter Hintergrund), damit sie in Walzen, Battles und Listen funktionieren. Je teurer die Kiste, desto mehr Leuchten.
-- **Items:** nur Grundgegenstände und Ersatzbilder je Item-Art. Skins (Alien Red, Tempered AK47 …) zeigen ihr echtes Steam-Bild ([13-itembilder.md](13-itembilder.md)) und werden nicht nachgezeichnet.
+- **Items:** werden nicht gezeichnet. Sie zeigen ihr echtes Bild von Steam ([13-itembilder.md](13-itembilder.md)).
 - **Keine Gesichter, nichts Kindliches, kein echtes Geld:** Avatare tragen Masken oder Helme; Glücksspiel-Bilder dürfen Minderjährige nicht ansprechen; die Währung ist Schrott, keine Scheine, Münzen oder Chips.
 
 ## Kosten
 
 Grob einige Cent bis etwa 0,20 $ pro Bild, je nach Größe und Qualität. Aktuelle Preise stehen auf platform.openai.com/pricing.
 
-Bei 117 Motiven × 2 Varianten plus Nachbesserungen: grob 25–60 $. Über das ChatGPT-Abo fallen keine Extrakosten an, nur dessen Nutzungsgrenzen.
+Bei 65 Motiven × 2 Varianten plus Nachbesserungen: grob 15–35 $. Über das ChatGPT-Abo fallen keine Extrakosten an, nur dessen Nutzungsgrenzen.
