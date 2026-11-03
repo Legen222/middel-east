@@ -5,9 +5,9 @@
  *   npm run item-icons             look up the names the seed lacks
  *   npm run item-icons -- --all    look every name up again
  *
- * Takes the pictures from data/rust-market.json when `npm run steam-catalog` has written it; otherwise it searches
- * the market once per name, one search every 3 s (the market search is rate-limited and answers 429 when asked
- * too often; the tool then waits a minute and goes on). Needs access to steamcommunity.com. Names without an exact
+ * Takes the pictures from data/rust-market.json when `npm run steam-catalog` has written it. Otherwise it opens each
+ * item's market page, and searches the market for names not found that way; one request every 3 s (Steam answers
+ * 429 when asked too often; the tool then waits a minute, five times in a row at most). Needs access to steamcommunity.com. Names without an exact
  * listing (base items such as Rope or Assault Rifle, which Steam does not sell) are reported and keep their drawing.
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { SAMPLE_CASES } from '../../engine/src/index';
 import { DEFAULT_CONFIG } from '../src/config';
 import { ITEM_ICON_SEED } from '../src/item-icon-seed';
-import { ALIASES, MarketBusy, type MarketRow, iconFromCatalog, lookupMarketIcon } from '../src/item-icons';
+import { ALIASES, MarketBusy, type MarketRow, iconFromCatalog, lookupListingIcon, lookupMarketIcon } from '../src/item-icons';
 import { DAILY_CASE } from '../src/rewards';
 
 const OUT = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'item-icon-seed.ts');
@@ -42,17 +42,24 @@ if (catalog) {
   console.log(`from data/rust-market.json (${catalog.length} listings)`);
 }
 
-for (let k = 0; k < todo.length; k++) {
-  const name = todo[k];
-  if (k) await sleep(3000);
-  try {
-    const icon = await lookupMarketIcon(name, DEFAULT_CONFIG.itemIcons.searchUrl, fetchFn);
-    if (icon) seed[name] = icon; else misses.push(name);
-    console.log(`${icon ? '✓' : '·'} ${name}`);
-  } catch (e) {
-    if (e instanceof MarketBusy) { console.log('rate limited, waiting a minute'); await sleep(60_000); k--; continue; }
-    console.error(`${name}: ${(e as Error).message}`);
-    break;
+// first the item's own market page, then the search for names spelled differently there (AK-47 / AK47)
+const unknown: string[] = [];
+for (const [round, list] of [['page', todo], ['search', unknown]] as const) {
+  let busy = 0;
+  for (let k = 0; k < list.length; k++) {
+    const name = list[k];
+    if (k) await sleep(3000);
+    try {
+      const icon = round === 'page' ? await lookupListingIcon(name, fetchFn) : await lookupMarketIcon(name, DEFAULT_CONFIG.itemIcons.searchUrl, fetchFn);
+      busy = 0;
+      if (icon) seed[name] = icon; else if (round === 'page') unknown.push(name); else misses.push(name);
+      console.log(`${icon ? '✓' : '·'} ${name} (${round})`);
+    } catch (e) {
+      if (e instanceof MarketBusy && ++busy <= 5) { console.log('rate limited, waiting a minute'); await sleep(60_000); k--; continue; }
+      console.error(`${name}: ${(e as Error).message}; ${list.length - k} names left for the next run`);
+      if (round === 'page') unknown.length = 0;
+      break;
+    }
   }
 }
 

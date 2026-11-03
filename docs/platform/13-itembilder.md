@@ -24,7 +24,7 @@ Jedes Item mit dem gleichen Namen auf dem **Steam Community Market** (Rust, App 
 
 **So kommt das Bild auf die Seite:**
 - Gespeichert wird nur der Bild-Schlüssel (`icon_url` des Markts).
-- Der Browser lädt das Bild direkt vom Steam-CDN (`community.cloudflare.steamstatic.com`).
+- Der Browser lädt das Bild direkt vom Steam-CDN (`community.steamstatic.com`).
 - Kein Bild wird gebündelt oder auf unserem Server abgelegt.
 - Die Content-Security-Policy erlaubt den Steam-CDN schon (`nginx.conf`).
 
@@ -67,7 +67,7 @@ cd platform/server && npm run item-icons -- --all   # dasselbe, alle neu
 - Am Ende schreibt es `item-icon-seed.ts` neu und listet die Items ohne Treffer.
 - Danach `npm run build:demo` in `platform/web`, damit die Demo die Bilder zeigt.
 
-**Voraussetzung:** Zugang zu `steamcommunity.com`, und für die Anzeige zu `community.cloudflare.steamstatic.com`.
+**Voraussetzung:** Zugang zu `steamcommunity.com`, und für die Anzeige zu `community.steamstatic.com`.
 
 ## 4 · Einstellungen
 

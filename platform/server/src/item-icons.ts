@@ -51,7 +51,7 @@ export function pickMarketIcon(json: unknown, name: string): string | null {
 export interface MarketRow { name: string; icon: string; price: number | null; listings: number }
 
 /** One page of the market search (norender=1) → its listings: name, icon, lowest price (US cents), listings. */
-export function parseMarketPage(json: unknown): { total: number; rows: MarketRow[] } {
+export function parseMarketPage(json: unknown): { total: number; size: number; rows: MarketRow[] } {
   const j = json as { success?: unknown; total_count?: unknown; results?: unknown } | null;
   if (!j || j.success === false || !Array.isArray(j.results)) throw new Error('market search: unexpected answer');
   const rows: MarketRow[] = [];
@@ -62,7 +62,7 @@ export function parseMarketPage(json: unknown): { total: number; rows: MarketRow
     const price = Number(r.sell_price);
     rows.push({ name, icon, price: Number.isFinite(price) && price > 0 ? Math.round(price) : null, listings: Math.max(0, Math.floor(Number(r.sell_listings) || 0)) });
   }
-  return { total: Math.max(0, Math.floor(Number(j.total_count) || 0)), rows };
+  return { total: Math.max(0, Math.floor(Number(j.total_count) || 0)), size: j.results.length, rows };
 }
 
 /** The icon of the catalogue entry with the item's name (case, spaces and dashes aside). */
@@ -71,7 +71,26 @@ export function iconFromCatalog(rows: MarketRow[], name: string): string | null 
   return rows.find((r) => norm(r.name) === want)?.icon ?? null;
 }
 
+/**
+ * An item's market page (steamcommunity.com/market/listings/252490/<name>) → the icon in its og:image tag, when the
+ * page is about that item. Pages for names the market does not know have neither the title nor the picture.
+ */
+export function pickListingIcon(html: string, name: string): string | null {
+  const title = /<title>([^<]*?) - Steam Community Market<\/title>/.exec(html)?.[1] ?? '';
+  const icon = /<meta property="og:image" content="https:\/\/[\w.-]*steamstatic\.com\/economy\/image\/([\w-]+)/.exec(html)?.[1] ?? null;
+  return norm(title.replace(/&amp;/g, '&').replace(/&#39;/g, "'")) === norm(name) && icon && ICON_HASH.test(icon) ? icon : null;
+}
+
+export const LISTING_URL = 'https://steamcommunity.com/market/listings/252490/{name}';
+
 export class MarketBusy extends Error {}
+
+export async function lookupListingIcon(name: string, fetchFn: Fetch): Promise<string | null> {
+  const res = await fetchFn(LISTING_URL.replace('{name}', encodeURIComponent(name)), { method: 'GET', headers: { accept: 'text/html' } });
+  if (res.status === 429) throw new MarketBusy('market page: rate limited');
+  if (!res.ok) throw new Error(`market page: HTTP ${res.status ?? '?'}`);
+  return pickListingIcon(await res.text(), name);
+}
 
 export async function lookupMarketIcon(name: string, searchUrl: string, fetchFn: Fetch): Promise<string | null> {
   const res = await fetchFn(searchUrl.replace('{query}', encodeURIComponent(name)), { method: 'GET', headers: { accept: 'application/json' } });

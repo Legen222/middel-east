@@ -2012,7 +2012,7 @@ describe('chat rules and reports', () => {
 });
 
 /* ---------- item pictures (Steam market icons) ---------- */
-import { ALIASES, MISS_RETRY_MS, MarketBusy, iconFromCatalog, itemIcons, parseMarketPage, pickMarketIcon, resolveItemIcons } from '../src/item-icons';
+import { ALIASES, MISS_RETRY_MS, MarketBusy, iconFromCatalog, itemIcons, parseMarketPage, pickListingIcon, pickMarketIcon, resolveItemIcons } from '../src/item-icons';
 
 const HASH = (n: number) => `6TMcQ7eX6E0EZl2byXi7vaVKyDk_zQLX05x6eLCFM9neAckxGDf7qU2e2gu64OnAeQ7835ld${n}`;
 const market = (...rows: [string, string | null][]) => JSON.stringify({
@@ -2037,6 +2037,14 @@ describe('item pictures from the Steam market', () => {
     assert.equal(iconFromCatalog(rows, 'AK-47 From Hell'), HASH(1));
     assert.equal(iconFromCatalog(rows, 'Rope'), null);
     assert.throws(() => parseMarketPage(null), /unexpected/);
+  });
+
+  it('reads the icon from an item\'s market page, only when the page is about that item', () => {
+    const page = (title: string, icon: string | null) => `<html><head><title>${title} - Steam Community Market</title>${icon ? `<meta property="og:image" content="https://community.steamstatic.com/economy/image/${icon}"/>` : ''}</head></html>`;
+    assert.equal(pickListingIcon(page('Big Grin', HASH(7)), 'Big Grin'), HASH(7));
+    assert.equal(pickListingIcon(page('Market Item', null), 'Rope'), null, 'unknown names get a generic page');
+    assert.equal(pickListingIcon(page('Tempered AK47', HASH(8)), 'Assault Rifle'), null);
+    assert.equal(pickListingIcon(page('Big Grin', 'x"><b>'), 'Big Grin'), null);
   });
 
   it('looks up crate items the seed lacks, stores misses, asks them again after a week and serves the map with /config', async () => {

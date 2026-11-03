@@ -4,6 +4,7 @@
  */
 import { api } from '../api';
 import { $, $$, esc, frags, guard, modal, pct, readNum, toast } from '../ui';
+import { steamImg } from '../loot-art';
 import { kpi, signed, when } from './admin-shared';
 
 const num = (v: string) => (v.trim() === '' ? null : readNum(v));
@@ -359,7 +360,7 @@ export async function reportsTab(panel: HTMLElement) {
 /* ---------- skins: bot, stock, the withdrawal queue (beta: sent by hand) ---------- */
 
 const D_CHIP: Record<string, string> = { accepted: 'win', sent: '', requested: '', declined: 'lose', canceled: 'lose', expired: 'lose', failed: 'lose' };
-const img = (hash: string | null) => (hash ? `<img class="skin-mini" src="https://community.cloudflare.steamstatic.com/economy/image/${encodeURIComponent(hash)}/64fx64f" alt="" loading="lazy" referrerpolicy="no-referrer">` : '');
+const img = (hash: string | null) => (hash ? `<img class="skin-mini" src="${steamImg(hash, 64)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '');
 
 export async function skinsTab(panel: HTMLElement) {
   const s = await api<any>('GET', '/admin/skins');
