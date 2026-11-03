@@ -101,7 +101,7 @@ export const crashView: View = {
       const mMax = Math.max(2, m * 1.15);
       const X = (t: number) => 40 * dpr + (t / tMax) * (W - 60 * dpr);
       const Y = (v: number) => H - 26 * dpr - ((v - 1) / (mMax - 1)) * (H - 50 * dpr);
-      ctx.strokeStyle = css.getPropertyValue('--line').trim(); ctx.lineWidth = dpr; ctx.font = `${11 * dpr}px IBM Plex Mono, monospace`; ctx.fillStyle = css.getPropertyValue('--muted').trim();
+      ctx.strokeStyle = css.getPropertyValue('--line').trim(); ctx.lineWidth = dpr; ctx.font = `${11 * dpr}px Inter, sans-serif`; ctx.fillStyle = css.getPropertyValue('--muted').trim();
       for (const g of [1, 1.5, 2, 5, 10, 50, 100, 500, 1000]) if (g <= mMax) { ctx.beginPath(); ctx.moveTo(X(0), Y(g)); ctx.lineTo(W, Y(g)); ctx.stroke(); ctx.fillText(`${g}×`, 4 * dpr, Y(g) + 4 * dpr); }
       const tEnd = crashed ? Math.log(r.crash!) / st.rate : elapsed;
       const col = css.getPropertyValue(crashed ? '--lose' : '--bp').trim();

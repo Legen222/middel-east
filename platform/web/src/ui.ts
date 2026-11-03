@@ -30,6 +30,35 @@ export function animateNumber(el: Element, from: number, to: number, fmt: (n: nu
 }
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, reducedMotion() ? 0 : ms));
 
+/**
+ * A short confetti burst from the middle of `el` (wins). Plain DOM pieces animated with the Web Animations API,
+ * removed when they land; nothing at all with reduced motion.
+ */
+export function confetti(el: Element, n = 46, colors = ['#3DDCFF', '#3EE89A', '#D9B467', '#9B7BFF', '#ECEFF3']): void {
+  if (reducedMotion()) return;
+  const r = el.getBoundingClientRect();
+  const layer = document.createElement('div');
+  layer.className = 'confetti';
+  layer.style.cssText = `left:${r.left + r.width / 2}px;top:${r.top + Math.min(r.height / 2, 160)}px`;
+  document.body.append(layer);
+  let left = n;
+  for (let i = 0; i < n; i++) {
+    const p = document.createElement('i');
+    p.style.background = colors[i % colors.length];
+    if (i % 3 === 0) p.style.borderRadius = '50%';
+    layer.append(p);
+    const a = (Math.random() * 1.2 + 0.9) * Math.PI; // mostly upwards, fanned out
+    const v = 140 + Math.random() * 220;
+    const dx = Math.cos(a) * v * (Math.random() < 0.5 ? -1 : 1);
+    const dy = Math.sin(a) * v;
+    p.animate([
+      { transform: 'translate(0,0) rotate(0)', opacity: 1 },
+      { transform: `translate(${dx}px,${dy}px) rotate(${Math.random() * 540}deg)`, opacity: 1, offset: 0.55 },
+      { transform: `translate(${dx * 1.25}px,${dy + 260}px) rotate(${Math.random() * 900}deg)`, opacity: 0 },
+    ], { duration: 1300 + Math.random() * 700, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'forwards' }).finished.then(() => { if (--left === 0) layer.remove(); }, () => layer.remove());
+  }
+}
+
 let toastTimer = 0;
 export function toast(message: string, kind: 'info' | 'err' = 'info') {
   let el = $('.toast');
@@ -65,7 +94,7 @@ export function modal(html: string): { root: HTMLElement; close: () => void } {
 }
 
 /** An amount input with the Scrap symbol inside it. */
-export const scrapInput = (id: string, value: number) => `<span class="money-in">${SCRAP_SYM}<input id="${id}" inputmode="decimal" autocomplete="off" value="${value}"></span>`;
+export const scrapInput = (id: string, value: number) => `<span class="money-in">${SCRAP_SYM}<input id="${id}" inputmode="decimal" autocomplete="off" value="${value.toFixed(2)}"></span>`;
 
 /** Stake input with ½ and 2× buttons. Reads Scrap. */
 export function stakeField(id: string, value: number, label = 'Stake') {
@@ -76,7 +105,7 @@ export function bindStake(root: ParentNode) {
   $$<HTMLButtonElement>('[data-stake]', root).forEach((b) => b.addEventListener('click', () => {
     const inp = $<HTMLInputElement>(`#${b.dataset.stake}`, root);
     const v = readNum(inp.value) * Number(b.dataset.f);
-    inp.value = String(Math.max(0.01, Math.round(v * 100) / 100));
+    inp.value = Math.max(0.01, Math.round(v * 100) / 100).toFixed(2);
     inp.dispatchEvent(new Event('input'));
   }));
 }

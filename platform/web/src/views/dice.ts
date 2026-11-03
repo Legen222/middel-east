@@ -9,15 +9,14 @@ export const diceView: View = {
     <div class="game-stage">
       <div class="game-head">
         <div><p class="eyebrow">Original</p><h1 class="h-display">Dice</h1></div>
-        <div class="big-mult num" id="roll">––.––</div>
       </div>
-      <div class="card" style="gap:10px">
-        <svg viewBox="0 0 1000 60" style="width:100%;height:auto" aria-hidden="true">
-          <rect x="0" y="24" width="1000" height="12" fill="var(--surface-2)"/>
-          <rect id="winzone" x="0" y="24" width="495" height="12" fill="var(--patina)"/>
-          <line id="marker" x1="-10" x2="-10" y1="8" y2="52" stroke="var(--hazard)" stroke-width="4"/>
-          ${[0, 25, 50, 75, 100].map((v) => `<text x="${v * 10}" y="58" font-size="12" fill="var(--muted)" text-anchor="${v === 0 ? 'start' : v === 100 ? 'end' : 'middle'}" font-family="IBM Plex Mono, monospace">${v}</text>`).join('')}
-        </svg>
+      <div class="dice-stage">
+        <div class="dice-result"><span class="dice-num num" id="roll">50.00</span><small class="muted" id="dice-goal"></small></div>
+        <div class="dice-track" aria-hidden="true">
+          <div class="dt-bar"><i class="dt-win" id="winzone"></i></div>
+          <span class="dt-marker" id="marker" style="left:50%"><b class="num" id="marker-v">50.00</b></span>
+          <div class="dt-ticks">${[0, 25, 50, 75, 100].map((v) => `<span>${v}</span>`).join('')}</div>
+        </div>
       </div>
       <p class="status" id="status" role="status">&nbsp;</p>
       <div class="chips" id="hist" aria-label="Recent rolls"></div>
@@ -42,8 +41,10 @@ export const diceView: View = {
       $('#c-val', root).textContent = `${ch.toLocaleString('en-US', { minimumFractionDigits: 2 })} %`;
       $('#c-mult', root).textContent = mult((0.98 * 100) / ch);
       const z = $('#winzone', root);
-      z.setAttribute('x', String(dir === 'under' ? 0 : 1000 - ch * 10));
-      z.setAttribute('width', String(ch * 10));
+      z.style.left = `${dir === 'under' ? 0 : 100 - ch}%`;
+      z.style.width = `${ch}%`;
+      const edge = (dir === 'under' ? ch : 100 - ch).toFixed(2);
+      $('#dice-goal', root).textContent = `Roll ${dir} ${edge} to win ${mult((0.98 * 100) / ch)}`;
     };
     chanceIn.addEventListener('input', paint);
     $$<HTMLButtonElement>('[data-dir]', root).forEach((b) => b.addEventListener('click', () => {
@@ -58,19 +59,25 @@ export const diceView: View = {
       const bet = await api<Bet<{ roll: number; win: boolean }>>('POST', '/bets/dice', { stake: readNum($<HTMLInputElement>('#stake', root).value), params: { chance: chance(), direction: dir } });
       const { roll, win } = bet.result!;
       const marker = $('#marker', root);
+      const markerV = $('#marker-v', root);
       const out = $('#roll', root);
-      // count-up animation, 450 ms ease-out
-      const t0 = performance.now(); const dur = reducedMotion() ? 0 : 450;
+      out.className = 'dice-num num rolling';
+      marker.className = 'dt-marker';
+      // the marker slides from where it stood to the roll, the number counts along (550 ms ease-out)
+      const from = Number.parseFloat(marker.style.left) || 50;
+      const t0 = performance.now(); const dur = reducedMotion() ? 0 : 550;
       await new Promise<void>((done) => {
         const step = (t: number) => {
-          const k = dur ? Math.min(1, (t - t0) / dur) : 1; const v = roll * (1 - Math.pow(1 - k, 3));
-          out.textContent = v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-          marker.setAttribute('x1', String(v * 10)); marker.setAttribute('x2', String(v * 10));
+          const k = dur ? Math.min(1, (t - t0) / dur) : 1; const v = from + (roll - from) * (1 - Math.pow(1 - k, 3));
+          const txt = v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          out.textContent = txt; markerV.textContent = txt;
+          marker.style.left = `${v}%`;
           k < 1 ? requestAnimationFrame(step) : done();
         };
         requestAnimationFrame(step);
       });
-      out.className = `big-mult num ${win ? 'win' : 'lose'}`;
+      out.className = `dice-num num ${win ? 'win' : 'lose'}`;
+      marker.className = `dt-marker ${win ? 'win' : 'lose'}`;
       const s = $('#status', root);
       s.textContent = win ? `Won: +${frags(bet.payout - bet.stake)} Scrap (${mult(bet.multiplier)})` : `Lost: −${frags(bet.stake)} Scrap`;
       s.className = `status ${win ? 'win' : 'lose'}`;
