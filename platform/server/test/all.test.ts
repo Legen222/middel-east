@@ -2012,7 +2012,8 @@ describe('chat rules and reports', () => {
 });
 
 /* ---------- item pictures (Steam market icons) ---------- */
-import { ALIASES, MISS_RETRY_MS, MarketBusy, iconFromCatalog, itemIcons, parseMarketPage, pickListingIcon, pickMarketIcon, resolveItemIcons } from '../src/item-icons';
+import { ALIASES, FP_ICON, MISS_RETRY_MS, MarketBusy, fetchItemDefs, iconFromCatalog, iconFromItemDefs, isItemIcon, itemIcons, parseMarketPage, pickListingIcon, pickMarketIcon, resolveItemIcons } from '../src/item-icons';
+import { ITEM_ICON_SEED } from '../src/item-icon-seed';
 
 const HASH = (n: number) => `6TMcQ7eX6E0EZl2byXi7vaVKyDk_zQLX05x6eLCFM9neAckxGDf7qU2e2gu64OnAeQ7835ld${n}`;
 const market = (...rows: [string, string | null][]) => JSON.stringify({
@@ -2039,6 +2040,37 @@ describe('item pictures from the Steam market', () => {
     assert.throws(() => parseMarketPage(null), /unexpected/);
   });
 
+  it('finds skins in Steam\'s item list for Rust and keeps only Facepunch pictures', () => {
+    const fp = (id: number, size = 'large') => `https://files.facepunch.com/rust/icons/inventory/rust/${id}_${size}.png?123`;
+    const defs = [
+      { itemdefid: '900', name: 'Big Grin', marketable: 'False', icon_url_large: fp(900) },
+      { itemdefid: '20001', name: 'Big Grin', marketable: 'True', icon_url_large: fp(20001) },
+      { itemdefid: '26011', name: 'AK47 From Hell', marketable: 'True', icon_url: fp(26011, 'small') },
+      { itemdefid: '5', name: 'Rope', marketable: 'True', icon_url_large: 'https://evil.example/5_large.png' },
+      { itemdefid: '6', name: 'Press Vest', marketable: 'True', icon_url_large: fp(7) },
+    ];
+    assert.equal(iconFromItemDefs(defs, 'Big Grin'), 'fp:20001', 'marketable wins over an old duplicate');
+    assert.equal(iconFromItemDefs(defs, 'AK-47 From Hell'), 'fp:26011', 'case, spaces and dashes aside; small picture as fallback');
+    assert.equal(iconFromItemDefs(defs, 'Rope'), null, 'other hosts are refused');
+    assert.equal(iconFromItemDefs(defs, 'Press Vest'), null, 'the picture must be the definition\'s own');
+    assert.ok(isItemIcon('fp:20001') && isItemIcon(HASH(1)) && !isItemIcon('fp:x') && !isItemIcon('https://x/y.png'));
+    for (const [name, icon] of Object.entries(ITEM_ICON_SEED)) assert.ok(isItemIcon(icon), `seed ${name}: ${icon}`);
+    assert.ok(Object.values(ITEM_ICON_SEED).some((v) => FP_ICON.test(v)));
+  });
+
+  it('reads Steam\'s item list in two requests with the API key', async () => {
+    const urls: string[] = [];
+    const ok = (body: string) => ({ ok: true, status: 200, text: async () => body });
+    const fetchFn: Fetch = async (url) => {
+      urls.push(url);
+      return url.includes('GetItemDefMeta') ? ok(JSON.stringify({ response: { modified: 1, digest: 'ABCDEF0123456789' } })) : ok(`${JSON.stringify([{ itemdefid: '1', name: 'X' }])}\0`);
+    };
+    assert.deepEqual(await fetchItemDefs('k3y', fetchFn), [{ itemdefid: '1', name: 'X' }], 'the trailing NUL byte is dropped');
+    assert.equal(urls.length, 2);
+    assert.ok(urls[0].includes('key=k3y') && urls[1].includes('digest=ABCDEF0123456789') && !urls[1].includes('k3y'), 'the key goes only to the digest request');
+    await assert.rejects(fetchItemDefs('bad', async () => ({ ok: false, status: 403, text: async () => '' })), /STEAM_API_KEY/);
+  });
+
   it('reads the icon from an item\'s market page, only when the page is about that item', () => {
     const page = (title: string, icon: string | null) => `<html><head><title>${title} - Steam Community Market</title>${icon ? `<meta property="og:image" content="https://community.steamstatic.com/economy/image/${icon}"/>` : ''}</head></html>`;
     assert.equal(pickListingIcon(page('Big Grin', HASH(7)), 'Big Grin'), HASH(7));
@@ -2055,18 +2087,20 @@ describe('item pictures from the Steam market', () => {
       const q = decodeURIComponent(new URL(url).searchParams.get('query') ?? '');
       asked.push(q);
       if (busy) return { ok: false, status: 429, text: async () => '' };
-      const hits: Record<string, string> = { 'Glory AK47': HASH(3), 'Alien Red': HASH(4), 'Tempered AK47': HASH(5) };
+      const hits: Record<string, string> = { 'Tape Hoodie': HASH(3), 'Rusty Hatchet': HASH(4), 'Gold Collection': HASH(5) };
       return { ok: true, status: 200, text: async () => market(...(hits[q] ? [[q, hits[q]] as [string, string]] : [])) };
     };
     const cfg: Config = { ...DEFAULT_CONFIG };
     const first = await resolveItemIcons(db, cfg, fetchFn, T0, 500, 0);
-    assert.ok(first.asked > 60 && first.found === 3, JSON.stringify(first));
-    assert.ok(!asked.includes('Glory Set') && asked.includes('Glory AK47'), 'sets are looked up through their lead item');
+    assert.ok(first.asked > 40 && first.found === 3, JSON.stringify(first));
+    assert.ok(!asked.includes('Glory Set') && !asked.includes('Glory AK47'), 'sets go through their lead item, seeded names are not asked');
+    assert.ok(asked.every((n) => !ITEM_ICON_SEED[n]));
 
     const icons = await itemIcons(db);
-    assert.equal(icons['Glory AK47'], HASH(3));
-    assert.equal(icons['Glory Set'], HASH(3), ALIASES['Glory Set']);
-    assert.equal(icons['Glory AK'], HASH(3), 'the Scrap Crate counts too');
+    assert.equal(icons['Tape Hoodie'], HASH(3));
+    assert.equal(icons['Glory AK47'], ITEM_ICON_SEED['Glory AK47'], 'from the seed');
+    assert.equal(icons['Glory Set'], icons['Glory AK47'], ALIASES['Glory Set']);
+    assert.equal(icons['Glory AK'], icons['Glory AK47'], 'the Scrap Crate counts too');
     assert.equal(icons['Assault Rifle'], undefined, 'no listing, no picture');
 
     asked.length = 0;
@@ -2081,6 +2115,6 @@ describe('item pictures from the Steam market', () => {
     const beacon = new LocalBeacon(T0 - 60_000);
     const router = createRouter({ db, cfg, clock: () => T0, fetch: fetchFn, publicUrl: 'http://x', beacon, crash: new CrashService(db, cfg, beacon, 20) });
     const res = await router.dispatch({ method: 'GET', url: '/config', headers: {}, body: null, ip: '1.1.1.1' });
-    assert.equal((res.payload as { itemIcons: Record<string, string> }).itemIcons['Alien Red'], HASH(4));
+    assert.equal((res.payload as { itemIcons: Record<string, string> }).itemIcons['Rusty Hatchet'], HASH(4));
   });
 });

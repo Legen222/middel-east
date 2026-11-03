@@ -144,10 +144,17 @@ const drawn = (kind: ItemKind) =>
 let icons: Record<string, string> = {};
 /* the private demo preview carries the pictures in the page (the artifact viewer refuses outside images, demo/build.mjs --preview) */
 const INLINE = (globalThis as { __ITEM_IMG__?: Record<string, string> }).__ITEM_IMG__ ?? {};
+/* `fp:<itemdefid>`: the item's picture on Facepunch's file host, from Steam's item list (server item-icons.ts, FP_ICON) */
+const FP = /^fp:(\d{1,10})$/;
 /* community.cloudflare.steamstatic.com now answers with a redirect to this host */
-export const steamImg = (hash: string, size = 256) => INLINE[hash] ?? `https://community.steamstatic.com/economy/image/${encodeURIComponent(hash)}/${size}fx${size}f`;
+export const steamImg = (hash: string, size = 256) => {
+  if (INLINE[hash]) return INLINE[hash];
+  const fp = FP.exec(hash);
+  if (fp) return `https://files.facepunch.com/rust/icons/inventory/rust/${fp[1]}_${size > 128 ? 'large' : 'small'}.png`;
+  return `https://community.steamstatic.com/economy/image/${encodeURIComponent(hash)}/${size}fx${size}f`;
+};
 export function setItemIcons(map: Record<string, string> | undefined): void {
-  icons = Object.fromEntries(Object.entries(map ?? {}).filter(([, h]) => /^[\w-]+$/.test(h)));
+  icons = Object.fromEntries(Object.entries(map ?? {}).filter(([, h]) => /^[\w-]+$/.test(h) || FP.test(h)));
 }
 /* a picture Steam does not deliver turns back into the drawing */
 document.addEventListener('error', (e) => {

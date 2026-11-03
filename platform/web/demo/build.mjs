@@ -31,18 +31,19 @@ console.log(`demo/scrapline-demo.html written (${(html.length / 1024).toFixed(0)
 
 if (process.argv.includes('--preview')) {
   const seed = readFileSync(here('../../server/src/item-icon-seed.ts'), 'utf8');
-  const hashes = [...new Set([...seed.matchAll(/: "([\w-]{16,1000})",/g)].map((m) => m[1]))];
+  const hashes = [...new Set([...seed.matchAll(/: "([\w-]{16,1000}|fp:\d{1,10})",/g)].map((m) => m[1]))];
   const cache = here('./.steam-cache/');
   mkdirSync(cache, { recursive: true });
   const pics = {};
   for (const h of hashes) {
-    const webp = `${cache}${h.slice(0, 40)}-${h.length}.webp`;
+    const fp = /^fp:(\d+)$/.exec(h);
+    const webp = fp ? `${cache}fp-${fp[1]}.webp` : `${cache}${h.slice(0, 40)}-${h.length}.webp`;
     if (!existsSync(webp)) {
-      const res = await fetch(`https://community.steamstatic.com/economy/image/${h}/128fx128f`);
+      const res = await fetch(fp ? `https://files.facepunch.com/rust/icons/inventory/rust/${fp[1]}_small.png` : `https://community.steamstatic.com/economy/image/${h}/128fx128f`);
       if (!res.ok) { console.warn(`picture ${h.slice(0, 12)}…: HTTP ${res.status}`); continue; }
       const png = `${cache}tmp.png`;
       writeFileSync(png, Buffer.from(await res.arrayBuffer()));
-      execFileSync('convert', [png, '-quality', '82', webp]);
+      execFileSync('convert', [png, '-resize', '128x128>', '-quality', '82', webp]);
       rmSync(png);
     }
     pics[h] = `data:image/webp;base64,${readFileSync(webp).toString('base64')}`;

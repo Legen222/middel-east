@@ -1,14 +1,18 @@
 /**
- * Writes src/item-icon-seed.ts: the Steam market icon hash of every item in the built-in crates and the daily
- * Scrap Crate, so the site shows pictures from the first start without asking Steam.
+ * Writes src/item-icon-seed.ts: the picture of every item in the built-in crates and the daily Scrap Crate, so the
+ * site shows pictures from the first start without asking Steam.
  *
  *   npm run item-icons             look up the names the seed lacks
  *   npm run item-icons -- --all    look every name up again
  *
- * Takes the pictures from data/rust-market.json when `npm run steam-catalog` has written it. Otherwise it opens each
+ * With STEAM_API_KEY set it first reads Steam's official item list for Rust (IGameInventory/GetItemDefArchive, two
+ * requests, not rate-limited like the market) and stores `fp:<itemdefid>` for every skin found there. Names still
+ * missing go on as before:
+ * takes the pictures from data/rust-market.json when `npm run steam-catalog` has written it. Otherwise it opens each
  * item's market page, and searches the market for names not found that way; one request every 10 s (Steam answers
  * 429 when asked too often; the tool then waits three minutes, ten times in a row at most). Every icon found is
- * written at once, so a stopped run keeps what it has. Needs access to steamcommunity.com. Names without an exact
+ * written at once, so a stopped run keeps what it has. Needs access to steamcommunity.com; `-- --no-market` skips
+ * the market and leaves the rest to the server. Names without an exact
  * listing (base items such as Rope or Assault Rifle, which Steam does not sell) are reported and keep their drawing.
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -18,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 import { SAMPLE_CASES } from '../../engine/src/index';
 import { DEFAULT_CONFIG } from '../src/config';
 import { ITEM_ICON_SEED } from '../src/item-icon-seed';
-import { ALIASES, MarketBusy, type MarketRow, iconFromCatalog, lookupListingIcon, lookupMarketIcon } from '../src/item-icons';
+import { ALIASES, MarketBusy, type MarketRow, fetchItemDefs, iconFromCatalog, iconFromItemDefs, lookupListingIcon, lookupMarketIcon } from '../src/item-icons';
 import { DAILY_CASE } from '../src/rewards';
 
 const OUT = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'item-icon-seed.ts');
@@ -27,6 +31,8 @@ const all = process.argv.includes('--all');
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const PACE_MS = 10_000; // Steam's market answers 429 well before 3 s a request
 const fetchFn = (url: string, init: { method: string; headers: Record<string, string> }) => fetch(url, init);
+const apiKey = process.env.STEAM_API_KEY?.trim() || null;
+const marketToo = !process.argv.includes('--no-market');
 
 const names = [...new Set([...SAMPLE_CASES, DAILY_CASE].flatMap((c) => c.items.map((i) => ALIASES[i.name] ?? i.name)))].sort();
 const seed: Record<string, string> = all ? {} : { ...ITEM_ICON_SEED };
@@ -37,13 +43,30 @@ console.log(`${names.length} items, ${todo.length} to look up`);
 const write = () => {
   const body = Object.keys(seed).filter((n) => names.includes(n)).sort().map((n) => `  ${JSON.stringify(n)}: ${JSON.stringify(seed[n])},`).join('\n');
   writeFileSync(OUT, `/**
- * Steam market icon hashes of the built-in crate items, written by \`npm run item-icons\` (tools/item-icons.ts).
+ * Pictures of the built-in crate items, written by \`npm run item-icons\` (tools/item-icons.ts): Steam market icon
+ * hashes, or \`fp:<itemdefid>\` for the same picture on Facepunch's file host (item-icons.ts, FP_ICON).
  * Items missing here have no market listing (base items) or were not looked up yet; the server fills gaps at run time.
  */
 export const ITEM_ICON_SEED: Record<string, string> = {
 ${body}${body ? '\n' : ''}};
 `);
 };
+
+// Steam's official item list: every skin in two requests, no market pages
+if (apiKey && todo.length) {
+  try {
+    const defs = await fetchItemDefs(apiKey, fetchFn);
+    for (const name of todo.splice(0)) {
+      const icon = iconFromItemDefs(defs, name);
+      if (icon) seed[name] = icon; else todo.push(name);
+    }
+    write();
+    console.log(`from Steam's item list (${defs.length} definitions): ${names.length - todo.length} of ${names.length} have a picture`);
+  } catch (e) {
+    console.error(`Steam's item list: ${(e as Error).message}; going on with the market`);
+  }
+} else if (!apiKey) console.log('no STEAM_API_KEY: skipping Steam\'s item list');
+if (!marketToo) { misses.push(...todo.splice(0)); }
 
 // the full market list (npm run steam-catalog) answers without asking Steam once per name
 const catalog = existsSync(CATALOG) ? (JSON.parse(readFileSync(CATALOG, 'utf8')) as { items: MarketRow[] }).items : null;

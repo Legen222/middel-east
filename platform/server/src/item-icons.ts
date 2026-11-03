@@ -1,12 +1,14 @@
 /**
  * Item pictures: the Steam Community Market icon of the item with the same name, shown straight from Steam's
- * image CDN (only the icon hash is kept, no image is stored or bundled). Base items that are not sold on the
- * market (Rope, Bandage, Assault Rifle, …) have none and keep their drawing in the web client.
+ * image CDN, or the same picture from Facepunch's file host (`fp:<itemdefid>`, see FP_ICON). Only the hash or
+ * id is kept, no image is stored or bundled. Base items that are not sold on the market (Rope, Bandage,
+ * Assault Rifle, …) have none and keep their drawing in the web client.
  *
  * Where a hash comes from, first match wins:
  *   item_icons rows    looked up at run time by the leader, for names the seed lacks (crates an operator adds,
  *                      skins listed later). A miss is stored as NULL and asked again after a week.
- *   ITEM_ICON_SEED     the built-in crates, written by `npm run item-icons` (tools/item-icons.ts).
+ *   ITEM_ICON_SEED     the built-in crates, written by `npm run item-icons` (tools/item-icons.ts) from Steam's
+ *                      item list (needs STEAM_API_KEY) or the market.
  * Sets and collections show their lead item (ALIASES).
  */
 
@@ -19,6 +21,13 @@ import type { Fetch } from './steam';
 
 /** Steam economy icon hashes are long URL-safe strings. */
 export const ICON_HASH = /^[\w-]{16,1000}$/;
+/**
+ * The other kind of icon: `fp:<itemdefid>`, the item's picture on Facepunch's file host
+ * (files.facepunch.com/rust/icons/inventory/rust/<id>_large.png), taken from Steam's official item list for Rust
+ * (IGameInventory/GetItemDefArchive). Those are the same pictures the market shows.
+ */
+export const FP_ICON = /^fp:\d{1,10}$/;
+export const isItemIcon = (v: unknown): v is string => typeof v === 'string' && (ICON_HASH.test(v) || FP_ICON.test(v));
 export const MISS_RETRY_MS = 7 * 86_400_000;
 
 /** Bundles shown with the picture of their lead item. */
@@ -30,6 +39,7 @@ export const ALIASES: Record<string, string> = {
   'Whiteout Set': 'Whiteout Facemask',
   'Desert Raiders Set': 'Desert Raiders Chest Plate',
   'Forest Raiders Set': 'Forest Raiders Roadsign Vest',
+  'Frostbite Facemask': 'Frostbite', // the Metal Facemask skin is called just "Frostbite"
 };
 
 /** "AK-47 From Hell" and "AK47 from Hell" are the same listing. */
@@ -69,6 +79,46 @@ export function parseMarketPage(json: unknown): { total: number; size: number; r
 export function iconFromCatalog(rows: MarketRow[], name: string): string | null {
   const want = norm(name);
   return rows.find((r) => norm(r.name) === want)?.icon ?? null;
+}
+
+/** One item definition of Steam's item list for Rust (GetItemDefArchive); only the fields read here. */
+export interface ItemDef { itemdefid?: unknown; name?: unknown; market_hash_name?: unknown; market_name?: unknown; marketable?: unknown; icon_url?: unknown; icon_url_large?: unknown }
+
+const FP_PICTURE = /^https:\/\/files\.facepunch\.com\/rust\/icons\/inventory\/rust\/(\d{1,10})_(?:small|large)\.png(?:\?\d*)?$/;
+
+/**
+ * Steam's item list → `fp:<itemdefid>` of the definition with the item's name (case, spaces and dashes aside), when
+ * its picture lies on Facepunch's file host. Marketable definitions win over others of the same name (old
+ * duplicates), then the lowest id.
+ */
+export function iconFromItemDefs(defs: ItemDef[], name: string): string | null {
+  const want = norm(name);
+  let best: { id: number; market: boolean } | null = null;
+  for (const d of defs) {
+    if (![d?.name, d?.market_hash_name, d?.market_name].some((n) => typeof n === 'string' && norm(n) === want)) continue;
+    const pic = typeof d.icon_url_large === 'string' ? d.icon_url_large : d.icon_url;
+    const m = typeof pic === 'string' ? FP_PICTURE.exec(pic) : null;
+    if (!m || String(d.itemdefid) !== m[1]) continue;
+    const cand = { id: Number(m[1]), market: String(d.marketable).toLowerCase() === 'true' };
+    if (!best || (cand.market && !best.market) || (cand.market === best.market && cand.id < best.id)) best = cand;
+  }
+  return best ? `fp:${best.id}` : null;
+}
+
+export const ITEM_DEF_META_URL = 'https://api.steampowered.com/IInventoryService/GetItemDefMeta/v1/?key={key}&appid=252490';
+export const ITEM_DEF_ARCHIVE_URL = 'https://api.steampowered.com/IGameInventory/GetItemDefArchive/v1/?appid=252490&digest={digest}';
+
+/** Steam's official item list for Rust: two requests with a Steam Web API key, no market pages. */
+export async function fetchItemDefs(apiKey: string, fetchFn: Fetch): Promise<ItemDef[]> {
+  const meta = await fetchFn(ITEM_DEF_META_URL.replace('{key}', encodeURIComponent(apiKey)), { method: 'GET', headers: { accept: 'application/json' } });
+  if (!meta.ok) throw new Error(`item list digest: HTTP ${meta.status ?? '?'}${meta.status === 403 ? ' (check STEAM_API_KEY)' : ''}`);
+  const digest = (JSON.parse(await meta.text()) as { response?: { digest?: unknown } })?.response?.digest;
+  if (typeof digest !== 'string' || !/^[0-9A-Fa-f]{16,128}$/.test(digest)) throw new Error('item list digest: unexpected answer');
+  const res = await fetchFn(ITEM_DEF_ARCHIVE_URL.replace('{digest}', digest), { method: 'GET', headers: { accept: 'application/json' } });
+  if (!res.ok) throw new Error(`item list: HTTP ${res.status ?? '?'}`);
+  const defs = JSON.parse((await res.text()).replace(/\0+$/, '')) as unknown; // the archive ends in a NUL byte
+  if (!Array.isArray(defs)) throw new Error('item list: unexpected answer');
+  return defs as ItemDef[];
 }
 
 /**

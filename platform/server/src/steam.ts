@@ -67,7 +67,7 @@ export function steamName(raw: unknown, steamId: string): string {
   const n = [...String(raw ?? '').replace(/[\p{Cc}\p{Cf}<>]/gu, '').replace(/\s+/g, ' ').trim()].slice(0, 24).join('').trim();
   return n.length >= 2 && !nameProblem(n) ? n : `Steam ${steamId.slice(-4)}`;
 }
-/** Steam's image hosts; the web CSP (nginx.conf img-src) allows the same ones. */
+/** Steam's image hosts; the web CSP (nginx.conf img-src) allows these, plus files.facepunch.com for item pictures. */
 const STEAM_CDN = /^https:\/\/(?:(?:[a-z0-9-]+\.)*steamstatic\.com|steamcdn-a\.akamaihd\.net)\/[\w./-]+$/i;
 const PROFILE = /^https:\/\/steamcommunity\.com\/(?:id|profiles)\/[\w-]+\/?$/;
 
