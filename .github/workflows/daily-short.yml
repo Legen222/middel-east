@@ -1,0 +1,74 @@
+name: Daily AI Short
+
+on:
+  schedule:
+    - cron: "17 15 * * *"   # every day 15:17 UTC (~16:17 / 17:17 German time)
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "full | no-upload | concept-only"
+        default: "full"
+
+permissions:
+  contents: write   # to commit state/history.json
+
+concurrency: daily-short
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: shorts-bot
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          pip install -r requirements.txt
+
+      - name: Run pipeline
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          FAL_KEY: ${{ secrets.FAL_KEY }}
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+          TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
+          # Optional tuning via repository variables
+          CHANNEL_NICHE: ${{ vars.CHANNEL_NICHE }}
+          CONTENT_LANGUAGE: ${{ vars.CONTENT_LANGUAGE }}
+          FAL_MODEL: ${{ vars.FAL_MODEL }}
+          SCENES: ${{ vars.SCENES }}
+          YT_PRIVACY: ${{ vars.YT_PRIVACY }}
+          TIKTOK_PRIVACY: ${{ vars.TIKTOK_PRIVACY }}
+        run: |
+          case "${{ github.event.inputs.mode || 'full' }}" in
+            no-upload)    python -m bot.main --no-upload ;;
+            concept-only) python -m bot.main --concept-only ;;
+            *)            python -m bot.main ;;
+          esac
+
+      - name: Keep the video as a downloadable artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: short-${{ github.run_id }}
+          path: shorts-bot/out/
+          retention-days: 14
+
+      - name: Save history (avoids repeating ideas)
+        if: always()
+        run: |
+          git config user.name "shorts-bot"
+          git config user.email "shorts-bot@users.noreply.github.com"
+          git add state/history.json
+          git diff --cached --quiet || (git commit -m "shorts-bot: history $(date -u +%F)" && git push)
