@@ -16,7 +16,7 @@
  * promo messaging. Rakeback and affiliate earnings (the player's own money) stay claimable.
  */
 
-import { EDGE, FairStream, openCase, optimalRtp, type CaseDef } from '../../engine/src/index';
+import { DAILY_LINEUP, EDGE, FairStream, openCase, optimalRtp, type CaseDef } from '../../engine/src/index';
 import { systemMessage } from './chat';
 import { type Config, MF_PER_FRAG, fmtFrags, frags } from './config';
 import { type DB, audit, tx } from './db';
@@ -84,17 +84,7 @@ export function claimRakeback(db: DB, userId: string, now: number): Promise<{ am
 
 /* ---------- Scrap Crate (daily case) ---------- */
 
-export const DAILY_CASE: CaseDef = {
-  id: 'scrap-crate', name: 'Scrap Crate',
-  items: [
-    { name: 'Rusty Screw', value: 1, weight: 50_000 },
-    { name: 'Copper Wire', value: 3, weight: 30_000 },
-    { name: 'Tape Hoodie', value: 40, weight: 15_000 },
-    { name: 'Rusty Hatchet', value: 90, weight: 4_500 },
-    { name: 'Big Grin Door', value: 1240, weight: 450 },
-    { name: 'Glory AK', value: 21000, weight: 50 },
-  ],
-};
+export const DAILY_CASE: CaseDef = { id: 'scrap-crate', name: 'Scrap Crate', items: DAILY_LINEUP };
 export const DAILY_MIN_LEVEL = 2;
 
 export function openDaily(db: DB, userId: string, now: number) {

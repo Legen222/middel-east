@@ -7,7 +7,7 @@ import { writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { SAMPLE_CASES, caseEv, caseRtp, caseWeight, priceCase } from '../src/index';
+import { ITEM_VALUE_BOOST, SAMPLE_CASES, caseEv, caseRtp, caseWeight, priceCase } from '../src/index';
 
 const de = (n: number, d = 0) => n.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d });
 const pct = (p: number) => `${de(p * 100, p < 0.01 ? 3 : 2)} %`;
@@ -16,12 +16,13 @@ const tier = (value: number, price: number) => (value >= price * 20 ? 'Legendär
 const crates = [...SAMPLE_CASES].sort((a, b) => priceCase(a) - priceCase(b));
 let md = `# 12 · Kisten, Items und Chancen
 
-Erzeugt aus den Spieldaten (\`platform/engine/src/games/cases.ts\`) mit \`npm run crate-table\` im Ordner \`platform/engine\`. Die Seite **Crate odds** (\`#/crates\`) zeigt dieselben Zahlen in der App.
+Erzeugt aus den Spieldaten (\`platform/engine/src/games/case-lineup.ts\`) mit \`npm run crate-table\` im Ordner \`platform/engine\`. Die Seite **Crate odds** (\`#/crates\`) zeigt dieselben Zahlen in der App.
 
 **So entstehen die Zahlen:**
 - **Chance:** Gewicht des Items ÷ Summe aller Gewichte der Kiste. Sie ist exakt und bei jeder Öffnung gleich.
 - **Preis:** Erwartungswert ÷ 0,93, auf ganze Scrap aufgerundet. Damit zahlt jede Kiste höchstens 93 % zurück; der Hausvorteil ist mindestens 7 %.
 - **Umrechnung:** 100 Scrap = 1 $.
+- **Item-Werte:** Jedes Item ist ein echter Rust-Skin mit Bild. Sein Wert ist der Marktpreis (Skinport) × ${ITEM_VALUE_BOOST} in Scrap; die Kisten erzeugt \`npm run build-crates\` in \`platform/server\`. Auszahlungen aus dem Bestand kosten denselben Faktor (\`WITHDRAW_RATE\`).
 
 **Seltenheit (relativ zum Kistenpreis):**
 

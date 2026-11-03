@@ -2,6 +2,8 @@
  * Money: all amounts are integer milli-Scrap (mF). 1 Scrap = 1 000 mF = 0.01 $.
  * Payouts are floored to whole mF, so rounding never favours the player and costs at most 0.001 Scrap per bet.
  */
+import { ITEM_VALUE_BOOST } from '../../engine/src/config';
+
 export const MF_PER_FRAG = 1000;
 export const frags = (n: number): number => Math.round(n * MF_PER_FRAG);
 /** mF → "1,234.50" for server-written text (chat, audit). */
@@ -53,7 +55,7 @@ export interface SkinConfig {
   enabled: boolean;
   /** Share of the market price credited on a deposit (1 = full price). */
   depositRate: number;
-  /** Price factor for items taken out of the site's stock (1 = market price). */
+  /** Price factor for items taken out of the site's stock (1 = market price); defaults to ITEM_VALUE_BOOST, the crate value factor. */
   withdrawRate: number;
   /** Items below this price (Scrap) are not accepted. */
   minItemFrags: number;
@@ -93,7 +95,7 @@ export const DEFAULT_CONFIG: Config = {
   steamLogin: false,
   steamApiKey: null,
   skins: {
-    enabled: false, depositRate: 1, withdrawRate: 1, minItemFrags: 10, minVolume: 3, maxItems: 20, offerTtlMs: 10 * 60_000, kycBeforeDeposit: true,
+    enabled: false, depositRate: 1, withdrawRate: ITEM_VALUE_BOOST, minItemFrags: 10, minVolume: 3, maxItems: 20, offerTtlMs: 10 * 60_000, kycBeforeDeposit: true,
     inventoryUrl: 'https://steamcommunity.com/inventory/{steamid}/252490/2?l=english&count=2000',
     priceUrl: 'https://api.skinport.com/v1/items?app_id=252490&currency=USD&tradable=0',
   },

@@ -10,6 +10,7 @@ export * from './games/raid';
 export * from './games/upgrader';
 export * from './games/coinflip';
 export * from './games/cases';
+export * from './games/case-lineup';
 export * from './games/wheel';
 export * from './games/jackpot';
 export * from './games/airdrop';

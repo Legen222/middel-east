@@ -1853,7 +1853,7 @@ describe('skin rail: Steam deposits through the bot, withdrawals for operators',
     assert.equal(await bal(db, userId), frags(1334), 'credited exactly once');
     assert.equal((await skins.deposits(userId))[0].status, 'accepted');
     assert.equal(Number(((await db.prepare('SELECT deposited FROM player_stats WHERE user_id = ?').get(userId)) as { deposited: number }).deposited), frags(1334));
-    assert.deepEqual((await skins.shop('', now)).map((i) => [i.assetId, i.price]), [['n1001', 1234], ['n1006', 100]]);
+    assert.deepEqual((await skins.shop('', now)).map((i) => [i.assetId, i.price]), [['n1001', 1851], ['n1006', 150]], 'stock is sold at market price × ITEM_VALUE_BOOST, the crate value factor');
 
     // declined, trade hold, timeout, and a bot that crashed after sending
     const next = async () => (await skins.createDeposit(await user(), ['1006'], now)).id;
@@ -1890,7 +1890,7 @@ describe('skin rail: Steam deposits through the bot, withdrawals for operators',
     const easy = new SkinService(db, { ...cfg, amlWagerMultiple: 0 }, fetchFn);
     const w1 = await easy.createWithdrawal(await user(), ['n1006'], now += 1000);
     assert.equal(w1.status, 'pending');
-    assert.equal(await bal(db, userId), frags(1234));
+    assert.equal(await bal(db, userId), frags(1334 - 150));
     assert.deepEqual((await skins.shop('', now)).map((i) => i.assetId), ['n1001']);
     assert.equal(await code(async () => easy.createWithdrawal(await user(), ['n1006'], now)), 'invalid_items');
     await easy.cancelWithdrawal(userId, w1.id, now += 1000);
@@ -1903,8 +1903,8 @@ describe('skin rail: Steam deposits through the bot, withdrawals for operators',
     assert.equal(done.status, 'sent');
     assert.equal(await code(() => operatorWithdrawal(db, 'op', w2.id, 'cancel', null, 'too late', now)), 'not_pending');
     assert.equal(await code(() => easy.cancelWithdrawal(userId, w2.id, now)), 'not_pending');
-    assert.equal(Number(((await db.prepare('SELECT withdrawn FROM player_stats WHERE user_id = ?').get(userId)) as { withdrawn: number }).withdrawn), frags(100));
-    assert.equal(await balanceOf(db, SKINS), -frags(1234), 'house:skins holds the counterpart of the stock still at the site');
+    assert.equal(Number(((await db.prepare('SELECT withdrawn FROM player_stats WHERE user_id = ?').get(userId)) as { withdrawn: number }).withdrawn), frags(150));
+    assert.equal(await balanceOf(db, SKINS), -frags(1334 - 150), 'house:skins holds the counterpart of the stock still at the site');
 
     // stock sync: new items come in, items gone without a withdrawal leave the shop
     bot.inv = [{ assetId: 'n1001', name: 'Tempered AK47', icon: 'ic', tradable: true }, { assetId: 'x2000', name: 'Glory AK47', icon: 'g', tradable: true }];
@@ -2091,8 +2091,13 @@ describe('item pictures from the Steam market', () => {
       return { ok: true, status: 200, text: async () => market(...(hits[q] ? [[q, hits[q]] as [string, string]] : [])) };
     };
     const cfg: Config = { ...DEFAULT_CONFIG };
+    // the built-in crates are all seeded; an operator's crate brings names the seed lacks
+    const own = ['Tape Hoodie', 'Rusty Hatchet', 'Gold Collection', 'Assault Rifle', 'Rope', 'Bandage', 'Metal Pipe', 'Glory Set'];
+    await db.prepare('INSERT INTO cases (id, name, enabled, sort, current_version, created_at, updated_at) VALUES (?, ?, 1, 99, 1, 0, 0)').run('own', 'Own');
+    await db.prepare('INSERT INTO case_versions (case_id, version, name, items, price, rtp, created_by, created_at) VALUES (?, 1, ?, ?, 100, 0.93, ?, 0)')
+      .run('own', 'Own', JSON.stringify(own.map((name, i) => ({ name, value: 10 + i, weight: 1 }))), 'op');
     const first = await resolveItemIcons(db, cfg, fetchFn, T0, 500, 0);
-    assert.ok(first.asked > 40 && first.found === 3, JSON.stringify(first));
+    assert.deepEqual(first, { asked: 7, found: 3 });
     assert.ok(!asked.includes('Glory Set') && !asked.includes('Glory AK47'), 'sets go through their lead item, seeded names are not asked');
     assert.ok(asked.every((n) => !ITEM_ICON_SEED[n]));
 
@@ -2100,7 +2105,8 @@ describe('item pictures from the Steam market', () => {
     assert.equal(icons['Tape Hoodie'], HASH(3));
     assert.equal(icons['Glory AK47'], ITEM_ICON_SEED['Glory AK47'], 'from the seed');
     assert.equal(icons['Glory Set'], icons['Glory AK47'], ALIASES['Glory Set']);
-    assert.equal(icons['Glory AK'], icons['Glory AK47'], 'the Scrap Crate counts too');
+    assert.equal(icons[DAILY_CASE.items[0].name], ITEM_ICON_SEED[DAILY_CASE.items[0].name], 'the Scrap Crate counts too');
+    assert.ok(SAMPLE_CASES.every((c) => c.items.every((i) => icons[i.name])), 'every built-in crate item has a picture');
     assert.equal(icons['Assault Rifle'], undefined, 'no listing, no picture');
 
     asked.length = 0;

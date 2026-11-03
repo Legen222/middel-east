@@ -1,3 +1,10 @@
+/**
+ * Crate item values are the item's market price × this factor, in Scrap (100 Scrap = 1 $): a skin selling for
+ * 2 $ is worth 300 Scrap in the crates. The skin rail takes items out of stock at the same factor
+ * (server SkinConfig.withdrawRate), so a crate win buys exactly the skin it shows.
+ */
+export const ITEM_VALUE_BOOST = 1.5;
+
 /** House edge per game (fraction of stake). The single source of truth for RTP = 1 − edge. */
 export const EDGE = {
   dice: 0.02,
