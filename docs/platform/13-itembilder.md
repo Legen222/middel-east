@@ -49,12 +49,20 @@ Die Seite bekommt die Liste Name → Schlüssel mit `/config` (`itemIcons`).
 ## 3 · Liste füllen
 
 ```bash
-cd platform/server && npm run item-icons            # sucht alle Items, die in der Liste fehlen
-cd platform/server && npm run item-icons -- --all   # sucht alle neu
+cd platform/server && npm run steam-catalog         # holt alle Rust-Items vom Steam-Markt nach data/rust-market.json
+cd platform/server && npm run item-icons            # trägt die Bilder aller Kisten-Items in die feste Liste ein
+cd platform/server && npm run item-icons -- --all   # dasselbe, alle neu
 ```
 
-**Was das Werkzeug macht:**
-- Es fragt die Marktsuche alle 3 Sekunden ab.
+**Gesamtliste aller Rust-Items (`steam-catalog`):**
+- Holt jeden Rust-Eintrag des Steam-Markts mit Bild, niedrigstem Preis (US-Cent) und Zahl der Angebote.
+- 100 Einträge pro Anfrage, eine Anfrage alle 4 Sekunden. Bei Drosselung (HTTP 429) wartet es eine Minute, höchstens fünfmal hintereinander.
+- Ergebnis: `platform/server/data/rust-market.json`.
+- `item-icons` nimmt die Bilder dann aus dieser Liste, ohne Steam für jeden Namen einzeln zu fragen.
+- Die Liste ist auch die Grundlage, um Kisten aus echten, handelbaren Skins zusammenzustellen.
+
+**Was `item-icons` macht:**
+- Ohne Gesamtliste fragt es die Marktsuche für jeden Namen einzeln ab, alle 3 Sekunden.
 - Bei einer Drosselung durch Steam (HTTP 429) wartet es eine Minute.
 - Am Ende schreibt es `item-icon-seed.ts` neu und listet die Items ohne Treffer.
 - Danach `npm run build:demo` in `platform/web`, damit die Demo die Bilder zeigt.

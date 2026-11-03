@@ -2012,7 +2012,7 @@ describe('chat rules and reports', () => {
 });
 
 /* ---------- item pictures (Steam market icons) ---------- */
-import { ALIASES, MISS_RETRY_MS, MarketBusy, itemIcons, pickMarketIcon, resolveItemIcons } from '../src/item-icons';
+import { ALIASES, MISS_RETRY_MS, MarketBusy, iconFromCatalog, itemIcons, parseMarketPage, pickMarketIcon, resolveItemIcons } from '../src/item-icons';
 
 const HASH = (n: number) => `6TMcQ7eX6E0EZl2byXi7vaVKyDk_zQLX05x6eLCFM9neAckxGDf7qU2e2gu64OnAeQ7835ld${n}`;
 const market = (...rows: [string, string | null][]) => JSON.stringify({
@@ -2026,6 +2026,17 @@ describe('item pictures from the Steam market', () => {
     assert.equal(pickMarketIcon(JSON.parse(market(['Tempered AK47', HASH(2)])), 'Assault Rifle'), null, 'a skin is not the base item');
     assert.equal(pickMarketIcon(JSON.parse(market(['Big Grin', 'x"><script>'])), 'Big Grin'), null, 'only well-formed hashes');
     assert.throws(() => pickMarketIcon({ success: false }, 'Big Grin'), /unexpected/);
+  });
+
+  it('reads a page of the full market list and finds items in it by name', () => {
+    const page = JSON.parse(market(['AK47 From Hell', HASH(1)], ['Big Grin', HASH(2)], ['Broken', 'x"><img>']));
+    page.results[0].sell_price = 1234; page.results[0].sell_listings = 87;
+    const { total, rows } = parseMarketPage(page);
+    assert.equal(total, 3);
+    assert.deepEqual(rows.map((r) => [r.name, r.price, r.listings]), [['AK47 From Hell', 1234, 87], ['Big Grin', null, 3]], 'malformed icons are dropped');
+    assert.equal(iconFromCatalog(rows, 'AK-47 From Hell'), HASH(1));
+    assert.equal(iconFromCatalog(rows, 'Rope'), null);
+    assert.throws(() => parseMarketPage(null), /unexpected/);
   });
 
   it('looks up crate items the seed lacks, stores misses, asks them again after a week and serves the map with /config', async () => {

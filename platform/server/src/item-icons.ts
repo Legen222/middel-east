@@ -48,6 +48,29 @@ export function pickMarketIcon(json: unknown, name: string): string | null {
   return null;
 }
 
+export interface MarketRow { name: string; icon: string; price: number | null; listings: number }
+
+/** One page of the market search (norender=1) → its listings: name, icon, lowest price (US cents), listings. */
+export function parseMarketPage(json: unknown): { total: number; rows: MarketRow[] } {
+  const j = json as { success?: unknown; total_count?: unknown; results?: unknown } | null;
+  if (!j || j.success === false || !Array.isArray(j.results)) throw new Error('market search: unexpected answer');
+  const rows: MarketRow[] = [];
+  for (const r of j.results as { name?: unknown; hash_name?: unknown; sell_price?: unknown; sell_listings?: unknown; asset_description?: { icon_url?: unknown } }[]) {
+    const name = typeof r?.hash_name === 'string' ? r.hash_name : typeof r?.name === 'string' ? r.name : '';
+    const icon = r?.asset_description?.icon_url;
+    if (!name || name.length > 200 || typeof icon !== 'string' || !ICON_HASH.test(icon)) continue;
+    const price = Number(r.sell_price);
+    rows.push({ name, icon, price: Number.isFinite(price) && price > 0 ? Math.round(price) : null, listings: Math.max(0, Math.floor(Number(r.sell_listings) || 0)) });
+  }
+  return { total: Math.max(0, Math.floor(Number(j.total_count) || 0)), rows };
+}
+
+/** The icon of the catalogue entry with the item's name (case, spaces and dashes aside). */
+export function iconFromCatalog(rows: MarketRow[], name: string): string | null {
+  const want = norm(name);
+  return rows.find((r) => norm(r.name) === want)?.icon ?? null;
+}
+
 export class MarketBusy extends Error {}
 
 export async function lookupMarketIcon(name: string, searchUrl: string, fetchFn: Fetch): Promise<string | null> {

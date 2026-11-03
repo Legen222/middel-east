@@ -5,21 +5,23 @@
  *   npm run item-icons             look up the names the seed lacks
  *   npm run item-icons -- --all    look every name up again
  *
- * Needs access to steamcommunity.com. One search every 3 s; the market search is rate-limited and answers
- * 429 when asked too often (the tool then waits a minute and goes on). Names without an exact listing (base
- * items such as Rope or Assault Rifle, which Steam does not sell) are reported and keep their drawing.
+ * Takes the pictures from data/rust-market.json when `npm run steam-catalog` has written it; otherwise it searches
+ * the market once per name, one search every 3 s (the market search is rate-limited and answers 429 when asked
+ * too often; the tool then waits a minute and goes on). Needs access to steamcommunity.com. Names without an exact
+ * listing (base items such as Rope or Assault Rifle, which Steam does not sell) are reported and keep their drawing.
  */
-import { writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { SAMPLE_CASES } from '../../engine/src/index';
 import { DEFAULT_CONFIG } from '../src/config';
 import { ITEM_ICON_SEED } from '../src/item-icon-seed';
-import { ALIASES, MarketBusy, lookupMarketIcon } from '../src/item-icons';
+import { ALIASES, MarketBusy, type MarketRow, iconFromCatalog, lookupMarketIcon } from '../src/item-icons';
 import { DAILY_CASE } from '../src/rewards';
 
 const OUT = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'item-icon-seed.ts');
+const CATALOG = join(dirname(fileURLToPath(import.meta.url)), '..', 'data', 'rust-market.json');
 const all = process.argv.includes('--all');
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const fetchFn = (url: string, init: { method: string; headers: Record<string, string> }) => fetch(url, init);
@@ -29,6 +31,16 @@ const seed: Record<string, string> = all ? {} : { ...ITEM_ICON_SEED };
 const todo = names.filter((n) => !seed[n]);
 const misses: string[] = [];
 console.log(`${names.length} items, ${todo.length} to look up`);
+
+// the full market list (npm run steam-catalog) answers without asking Steam once per name
+const catalog = existsSync(CATALOG) ? (JSON.parse(readFileSync(CATALOG, 'utf8')) as { items: MarketRow[] }).items : null;
+if (catalog) {
+  for (const name of todo.splice(0)) {
+    const icon = iconFromCatalog(catalog, name);
+    if (icon) seed[name] = icon; else misses.push(name);
+  }
+  console.log(`from data/rust-market.json (${catalog.length} listings)`);
+}
 
 for (let k = 0; k < todo.length; k++) {
   const name = todo[k];
